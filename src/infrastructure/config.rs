@@ -3,8 +3,8 @@ use std::time::Duration;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
-pub async fn connect_database() -> PgPool {
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+pub async fn try_connect_database() -> Result<PgPool, String> {
+    let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?;
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -13,14 +13,12 @@ pub async fn connect_database() -> PgPool {
         .acquire_timeout(Duration::from_secs(10))
         .connect(&database_url)
         .await
-        .expect("Failed to connect to Neon database");
+        .map_err(|e| e.to_string())?;
 
     sqlx::migrate!()
         .run(&pool)
         .await
-        .expect("Failed to run database migrations");
+        .map_err(|e| e.to_string())?;
 
-    tracing::info!("Database connected and migrations applied");
-
-    pool
+    Ok(pool)
 }
