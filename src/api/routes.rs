@@ -12,6 +12,10 @@ pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/dossiers", get(dossier_handlers::get_recent_dossiers))
+        .route(
+            "/api/dossiers/{uid}",
+            get(dossier_handlers::get_dossier_detail),
+        )
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
