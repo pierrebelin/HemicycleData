@@ -15,7 +15,7 @@ pub struct Score {
     pub total: u8,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LegislativeDossier {
     pub uid: String,
     pub title: String,
