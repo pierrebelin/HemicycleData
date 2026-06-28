@@ -11,8 +11,9 @@
     {
       "name": "Frontend React (Vite)",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd frontend && npx vite --port 5173"],
-      "port": 5173
+      "runtimeArgs": ["-c", "cd frontend && npx vite --port $PORT"],
+      "port": 5173,
+      "autoPort": true
     }
   ]
 }

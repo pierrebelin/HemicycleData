@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 interface ActeDto {
   date: string
@@ -21,6 +21,7 @@ interface DossierDetailDto {
   last_activity_label: string
   acts: ActeDto[]
   score: ScoreDto
+  persisted: boolean
 }
 
 function ScoreBar({
@@ -62,6 +63,7 @@ function scoreTotalColor(score: number) {
 
 export default function DossierDetailPage() {
   const { uid } = useParams<{ uid: string }>()
+  const queryClient = useQueryClient()
 
   const { data, isLoading, isError, error } = useQuery<DossierDetailDto>({
     queryKey: ['dossier', uid],
@@ -71,6 +73,16 @@ export default function DossierDetailPage() {
         return res.json()
       }),
     enabled: !!uid,
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      fetch(`/api/dossiers/${uid}/save`, { method: 'POST' }).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dossier', uid] })
+    },
   })
 
   if (isLoading) {
@@ -111,23 +123,53 @@ export default function DossierDetailPage() {
       </Link>
 
       <div className="mb-8">
-        <h2 className="text-2xl font-bold leading-snug mb-2">{data.title}</h2>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-gray-400">{data.procedure}</span>
-          <span className="text-gray-600">·</span>
-          <span className="text-blue-400">
-            {data.last_activity_label}
-          </span>
-          <span className="text-gray-600">·</span>
-          <span className="text-gray-400">
-            {new Date(
-              data.last_activity_date + 'T00:00:00',
-            ).toLocaleDateString('fr-FR', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
-          </span>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold leading-snug mb-2">{data.title}</h2>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-gray-400">{data.procedure}</span>
+              <span className="text-gray-600">·</span>
+              <span className="text-blue-400">
+                {data.last_activity_label}
+              </span>
+              <span className="text-gray-600">·</span>
+              <span className="text-gray-400">
+                {new Date(
+                  data.last_activity_date + 'T00:00:00',
+                ).toLocaleDateString('fr-FR', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </span>
+            </div>
+          </div>
+          {data.persisted ? (
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-900/30 border border-emerald-800 text-emerald-400 text-xs font-medium">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Sauvegardé
+            </span>
+          ) : (
+            <button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium transition-colors"
+            >
+              {saveMutation.isPending ? (
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
+                </svg>
+              )}
+              Sauvegarder
+            </button>
+          )}
         </div>
       </div>
 

@@ -70,10 +70,14 @@ pub struct DossierDetailDto {
     pub last_activity_label: String,
     pub acts: Vec<ActDto>,
     pub score: ScoreDto,
+    pub persisted: bool,
 }
 
-impl From<LegislativeDossier> for DossierDetailDto {
-    fn from(d: LegislativeDossier) -> Self {
+impl DossierDetailDto {
+    pub fn from_result(
+        result: crate::application::use_cases::get_dossier_detail::DossierDetailResult,
+    ) -> Self {
+        let d = result.dossier;
         Self {
             uid: d.uid,
             title: d.title,
@@ -94,6 +98,7 @@ impl From<LegislativeDossier> for DossierDetailDto {
                 momentum: d.score.momentum,
                 total: d.score.total,
             },
+            persisted: result.persisted,
         }
     }
 }

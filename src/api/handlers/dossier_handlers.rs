@@ -8,6 +8,7 @@ use crate::api::dto::{
 use crate::application::use_cases::fetch_recent_dossiers::FetchRecentDossiers;
 use crate::application::use_cases::get_dossier_detail::GetDossierDetail;
 use crate::application::use_cases::refresh_dossiers::RefreshDossiers;
+use crate::application::use_cases::save_dossier::SaveDossier;
 use crate::AppState;
 
 pub async fn get_recent_dossiers(
@@ -33,15 +34,34 @@ pub async fn get_dossier_detail(
     State(state): State<AppState>,
     Path(uid): Path<String>,
 ) -> Result<Json<DossierDetailDto>, (StatusCode, String)> {
-    let uc = GetDossierDetail::new(state.dossier_repository.as_ref());
+    let uc = GetDossierDetail::new(
+        state.dossier_repository.as_ref(),
+        state.assembly_source.as_ref(),
+    );
 
-    let dossier = uc
+    let result = uc
         .execute(&uid)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((StatusCode::NOT_FOUND, "Dossier not found".to_string()))?;
 
-    Ok(Json(DossierDetailDto::from(dossier)))
+    Ok(Json(DossierDetailDto::from_result(result)))
+}
+
+pub async fn save_dossier(
+    State(state): State<AppState>,
+    Path(uid): Path<String>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let uc = SaveDossier::new(
+        state.assembly_source.as_ref(),
+        state.dossier_repository.as_ref(),
+    );
+
+    uc.execute(&uid)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn refresh_dossiers(
