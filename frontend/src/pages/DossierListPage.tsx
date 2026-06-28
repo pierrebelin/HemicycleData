@@ -4,10 +4,10 @@ import { Link } from 'react-router'
 
 interface DossierDto {
   uid: string
-  titre: string
+  title: string
   procedure: string
-  derniere_activite_date: string
-  derniere_activite_libelle: string
+  last_activity_date: string
+  last_activity_label: string
   score_total: number
 }
 
@@ -93,7 +93,7 @@ export default function DossierListPage() {
                     {d.score_total}
                   </span>
                   <p className="text-white font-medium leading-snug truncate">
-                    {d.titre}
+                    {d.title}
                   </p>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">{d.procedure}</p>
@@ -101,14 +101,14 @@ export default function DossierListPage() {
               <div className="flex flex-col items-end shrink-0 text-right">
                 <span className="text-xs text-gray-400">
                   {new Date(
-                    d.derniere_activite_date + 'T00:00:00',
+                    d.last_activity_date + 'T00:00:00',
                   ).toLocaleDateString('fr-FR', {
                     day: 'numeric',
                     month: 'short',
                   })}
                 </span>
                 <span className="text-xs text-blue-400 mt-0.5">
-                  {d.derniere_activite_libelle}
+                  {d.last_activity_label}
                 </span>
               </div>
             </div>

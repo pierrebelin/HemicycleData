@@ -63,7 +63,7 @@ mod tests {
     }
 
     fn make_dossier(uid: &str, title: &str, procedure: &str, date: NaiveDate, label: &str) -> LegislativeDossier {
-        let score = compute_score(title, label);
+        let score = compute_score(title, label, 0);
         LegislativeDossier {
             uid: uid.into(),
             title: title.into(),
