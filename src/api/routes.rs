@@ -1,5 +1,5 @@
 use axum::extract::State;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{json, Value};
 use tower_http::cors::CorsLayer;
@@ -16,15 +16,16 @@ pub fn create_router(state: AppState) -> Router {
             "/api/dossiers/{uid}",
             get(dossier_handlers::get_dossier_detail),
         )
+        .route("/api/refresh", post(dossier_handlers::refresh_dossiers))
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
 
 async fn health(State(state): State<AppState>) -> Json<Value> {
-    let db_ok = match &state.db {
-        Some(pool) => sqlx::query("SELECT 1").execute(pool).await.is_ok(),
-        None => false,
-    };
+    let db_ok = sqlx::query("SELECT 1")
+        .execute(&state.db)
+        .await
+        .is_ok();
 
     Json(json!({
         "status": "ok",

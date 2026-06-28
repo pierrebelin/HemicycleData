@@ -1,17 +1,17 @@
-use crate::application::ports::assembly_source::{AssemblySource, SourceError};
+use crate::application::ports::dossier_repository::{DossierRepository, RepositoryError};
 use crate::domain::dossier::LegislativeDossier;
 
 pub struct GetDossierDetail<'a> {
-    source: &'a dyn AssemblySource,
+    repository: &'a dyn DossierRepository,
 }
 
 impl<'a> GetDossierDetail<'a> {
-    pub fn new(source: &'a dyn AssemblySource) -> Self {
-        Self { source }
+    pub fn new(repository: &'a dyn DossierRepository) -> Self {
+        Self { repository }
     }
 
-    pub async fn execute(&self, uid: &str) -> Result<Option<LegislativeDossier>, SourceError> {
-        self.source.fetch_dossier_by_uid(uid).await
+    pub async fn execute(&self, uid: &str) -> Result<Option<LegislativeDossier>, RepositoryError> {
+        self.repository.find_by_uid(uid).await
     }
 }
 
@@ -20,44 +20,55 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use chrono::NaiveDate;
+    use std::collections::HashMap;
+    use std::sync::Mutex;
 
-    use crate::domain::dossier::{LegislativeAct, Score};
+    use crate::application::ports::dossier_repository::RepositoryError;
+    use crate::domain::dossier::{LegislativeAct, LegislativeDossier, Score};
 
-    struct FakeSource {
-        dossiers: Vec<LegislativeDossier>,
+    struct InMemoryDossierRepository {
+        dossiers: Mutex<HashMap<String, LegislativeDossier>>,
     }
 
     #[async_trait]
-    impl AssemblySource for FakeSource {
-        async fn fetch_dossiers_since(
+    impl DossierRepository for InMemoryDossierRepository {
+        async fn save_all(
             &self,
-            _since: NaiveDate,
-        ) -> Result<Vec<LegislativeDossier>, SourceError> {
+            _dossiers: &[LegislativeDossier],
+        ) -> Result<usize, RepositoryError> {
             unreachable!()
         }
 
-        async fn fetch_dossier_by_uid(
+        async fn find_recent(
+            &self,
+            _since: NaiveDate,
+        ) -> Result<Vec<LegislativeDossier>, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn find_by_uid(
             &self,
             uid: &str,
-        ) -> Result<Option<LegislativeDossier>, SourceError> {
-            Ok(self.dossiers.iter().find(|d| d.uid == uid).map(|d| {
-                LegislativeDossier {
-                    uid: d.uid.clone(),
-                    title: d.title.clone(),
-                    procedure: d.procedure.clone(),
-                    last_activity_date: d.last_activity_date,
-                    last_activity_label: d.last_activity_label.clone(),
-                    acts: d.acts.clone(),
-                    score: d.score.clone(),
-                }
+        ) -> Result<Option<LegislativeDossier>, RepositoryError> {
+            let store = self.dossiers.lock().unwrap();
+            Ok(store.get(uid).map(|d| LegislativeDossier {
+                uid: d.uid.clone(),
+                title: d.title.clone(),
+                procedure: d.procedure.clone(),
+                last_activity_date: d.last_activity_date,
+                last_activity_label: d.last_activity_label.clone(),
+                acts: d.acts.clone(),
+                score: d.score.clone(),
             }))
         }
     }
 
     #[tokio::test]
     async fn returns_dossier_when_found() {
-        let source = FakeSource {
-            dossiers: vec![LegislativeDossier {
+        let mut map = HashMap::new();
+        map.insert(
+            "DLR5L17N12345".into(),
+            LegislativeDossier {
                 uid: "DLR5L17N12345".into(),
                 title: "Projet de loi de finances".into(),
                 procedure: "PL".into(),
@@ -79,9 +90,13 @@ mod tests {
                     momentum: 4,
                     total: 85,
                 },
-            }],
+            },
+        );
+
+        let repo = InMemoryDossierRepository {
+            dossiers: Mutex::new(map),
         };
-        let uc = GetDossierDetail::new(&source);
+        let uc = GetDossierDetail::new(&repo);
         let result = uc.execute("DLR5L17N12345").await.unwrap();
 
         assert!(result.is_some());
@@ -92,10 +107,10 @@ mod tests {
 
     #[tokio::test]
     async fn returns_none_when_not_found() {
-        let source = FakeSource {
-            dossiers: vec![],
+        let repo = InMemoryDossierRepository {
+            dossiers: Mutex::new(HashMap::new()),
         };
-        let uc = GetDossierDetail::new(&source);
+        let uc = GetDossierDetail::new(&repo);
         let result = uc.execute("UNKNOWN").await.unwrap();
         assert!(result.is_none());
     }
