@@ -3,17 +3,18 @@ use axum::http::StatusCode;
 use axum::Json;
 
 use crate::api::dto::{
-    DossierDetailDto, DossierDto, RecentActivityQuery, RecentDossiersResponse,
+    DossierDetailDto, DossierDto, RecentActivityQuery, RecentDossiersResponse, RefreshResponse,
 };
 use crate::application::use_cases::fetch_recent_dossiers::FetchRecentDossiers;
 use crate::application::use_cases::get_dossier_detail::GetDossierDetail;
+use crate::application::use_cases::refresh_dossiers::RefreshDossiers;
 use crate::AppState;
 
 pub async fn get_recent_dossiers(
     State(state): State<AppState>,
     Query(params): Query<RecentActivityQuery>,
 ) -> Result<Json<RecentDossiersResponse>, (StatusCode, String)> {
-    let uc = FetchRecentDossiers::new(state.assembly_source.as_ref());
+    let uc = FetchRecentDossiers::new(state.dossier_repository.as_ref());
 
     let dossiers = uc
         .execute(params.days)
@@ -32,7 +33,7 @@ pub async fn get_dossier_detail(
     State(state): State<AppState>,
     Path(uid): Path<String>,
 ) -> Result<Json<DossierDetailDto>, (StatusCode, String)> {
-    let uc = GetDossierDetail::new(state.assembly_source.as_ref());
+    let uc = GetDossierDetail::new(state.dossier_repository.as_ref());
 
     let dossier = uc
         .execute(&uid)
@@ -41,4 +42,20 @@ pub async fn get_dossier_detail(
         .ok_or((StatusCode::NOT_FOUND, "Dossier not found".to_string()))?;
 
     Ok(Json(DossierDetailDto::from(dossier)))
+}
+
+pub async fn refresh_dossiers(
+    State(state): State<AppState>,
+) -> Result<Json<RefreshResponse>, (StatusCode, String)> {
+    let uc = RefreshDossiers::new(
+        state.assembly_source.as_ref(),
+        state.dossier_repository.as_ref(),
+    );
+
+    let count = uc
+        .execute()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(RefreshResponse { count }))
 }

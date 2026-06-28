@@ -1,22 +1,20 @@
 use chrono::Utc;
 
-use crate::application::ports::assembly_source::{AssemblySource, SourceError};
+use crate::application::ports::dossier_repository::{DossierRepository, RepositoryError};
 use crate::domain::dossier::LegislativeDossier;
 
 pub struct FetchRecentDossiers<'a> {
-    source: &'a dyn AssemblySource,
+    repository: &'a dyn DossierRepository,
 }
 
 impl<'a> FetchRecentDossiers<'a> {
-    pub fn new(source: &'a dyn AssemblySource) -> Self {
-        Self { source }
+    pub fn new(repository: &'a dyn DossierRepository) -> Self {
+        Self { repository }
     }
 
-    pub async fn execute(&self, days: u32) -> Result<Vec<LegislativeDossier>, SourceError> {
+    pub async fn execute(&self, days: u32) -> Result<Vec<LegislativeDossier>, RepositoryError> {
         let since = Utc::now().date_naive() - chrono::Duration::days(days as i64);
-        let mut dossiers = self.source.fetch_dossiers_since(since).await?;
-        dossiers.sort_by(|a, b| b.last_activity_date.cmp(&a.last_activity_date));
-        Ok(dossiers)
+        self.repository.find_recent(since).await
     }
 }
 
@@ -25,22 +23,33 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use chrono::NaiveDate;
+    use std::collections::HashMap;
+    use std::sync::Mutex;
 
+    use crate::application::ports::dossier_repository::RepositoryError;
+    use crate::domain::dossier::LegislativeDossier;
     use crate::domain::scoring::compute_score;
 
-    struct FakeSource {
-        dossiers: Vec<LegislativeDossier>,
+    struct InMemoryDossierRepository {
+        dossiers: Mutex<HashMap<String, LegislativeDossier>>,
     }
 
     #[async_trait]
-    impl AssemblySource for FakeSource {
-        async fn fetch_dossiers_since(
+    impl DossierRepository for InMemoryDossierRepository {
+        async fn save_all(
+            &self,
+            _dossiers: &[LegislativeDossier],
+        ) -> Result<usize, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn find_recent(
             &self,
             since: NaiveDate,
-        ) -> Result<Vec<LegislativeDossier>, SourceError> {
-            Ok(self
-                .dossiers
-                .iter()
+        ) -> Result<Vec<LegislativeDossier>, RepositoryError> {
+            let store = self.dossiers.lock().unwrap();
+            let mut result: Vec<_> = store
+                .values()
                 .filter(|d| d.last_activity_date >= since)
                 .map(|d| LegislativeDossier {
                     uid: d.uid.clone(),
@@ -48,16 +57,18 @@ mod tests {
                     procedure: d.procedure.clone(),
                     last_activity_date: d.last_activity_date,
                     last_activity_label: d.last_activity_label.clone(),
-                    acts: d.acts.clone(),
+                    acts: vec![],
                     score: d.score.clone(),
                 })
-                .collect())
+                .collect();
+            result.sort_by(|a, b| b.last_activity_date.cmp(&a.last_activity_date));
+            Ok(result)
         }
 
-        async fn fetch_dossier_by_uid(
+        async fn find_by_uid(
             &self,
             _uid: &str,
-        ) -> Result<Option<LegislativeDossier>, SourceError> {
+        ) -> Result<Option<LegislativeDossier>, RepositoryError> {
             unreachable!()
         }
     }
@@ -77,13 +88,16 @@ mod tests {
 
     #[tokio::test]
     async fn returns_dossiers_sorted_by_date_desc() {
-        let source = FakeSource {
-            dossiers: vec![
-                make_dossier("D1", "Ancien", "PL", NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(), "Dépôt"),
-                make_dossier("D2", "Récent", "PPL", NaiveDate::from_ymd_opt(2026, 6, 27).unwrap(), "Vote"),
-            ],
+        let mut map = HashMap::new();
+        let d1 = make_dossier("D1", "Ancien", "PL", NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(), "Dépôt");
+        let d2 = make_dossier("D2", "Récent", "PPL", NaiveDate::from_ymd_opt(2026, 6, 27).unwrap(), "Vote");
+        map.insert("D1".into(), d1);
+        map.insert("D2".into(), d2);
+
+        let repo = InMemoryDossierRepository {
+            dossiers: Mutex::new(map),
         };
-        let uc = FetchRecentDossiers::new(&source);
+        let uc = FetchRecentDossiers::new(&repo);
         let result = uc.execute(365).await.unwrap();
 
         assert_eq!(result[0].uid, "D2");

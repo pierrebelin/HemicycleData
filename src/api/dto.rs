@@ -57,6 +57,11 @@ pub struct ScoreDto {
 }
 
 #[derive(Serialize)]
+pub struct RefreshResponse {
+    pub count: usize,
+}
+
+#[derive(Serialize)]
 pub struct DossierDetailDto {
     pub uid: String,
     pub title: String,
