@@ -2,25 +2,25 @@ use chrono::NaiveDate;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ActeLegislatif {
+pub struct LegislativeAct {
     pub date: NaiveDate,
-    pub libelle: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Score {
-    pub avancement: u8,
-    pub ampleur: u8,
+    pub progress: u8,
+    pub magnitude: u8,
     pub total: u8,
 }
 
 #[derive(Debug, Serialize)]
-pub struct DossierLegislatif {
+pub struct LegislativeDossier {
     pub uid: String,
-    pub titre: String,
+    pub title: String,
     pub procedure: String,
-    pub derniere_activite_date: NaiveDate,
-    pub derniere_activite_libelle: String,
-    pub actes: Vec<ActeLegislatif>,
+    pub last_activity_date: NaiveDate,
+    pub last_activity_label: String,
+    pub acts: Vec<LegislativeAct>,
     pub score: Score,
 }

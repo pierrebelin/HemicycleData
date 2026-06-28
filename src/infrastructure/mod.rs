@@ -1,3 +1,3 @@
-pub mod assemblee_nationale;
+pub mod national_assembly;
 pub mod config;
 pub mod persistence;

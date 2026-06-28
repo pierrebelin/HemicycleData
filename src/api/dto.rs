@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::dossier::DossierLegislatif;
+use crate::domain::dossier::LegislativeDossier;
 
 #[derive(Deserialize)]
 pub struct RecentActivityQuery {
@@ -16,21 +16,21 @@ fn default_days() -> u32 {
 #[derive(Serialize)]
 pub struct DossierDto {
     pub uid: String,
-    pub titre: String,
+    pub title: String,
     pub procedure: String,
-    pub derniere_activite_date: NaiveDate,
-    pub derniere_activite_libelle: String,
+    pub last_activity_date: NaiveDate,
+    pub last_activity_label: String,
     pub score_total: u8,
 }
 
-impl From<DossierLegislatif> for DossierDto {
-    fn from(d: DossierLegislatif) -> Self {
+impl From<LegislativeDossier> for DossierDto {
+    fn from(d: LegislativeDossier) -> Self {
         Self {
             uid: d.uid,
-            titre: d.titre,
+            title: d.title,
             procedure: d.procedure,
-            derniere_activite_date: d.derniere_activite_date,
-            derniere_activite_libelle: d.derniere_activite_libelle,
+            last_activity_date: d.last_activity_date,
+            last_activity_label: d.last_activity_label,
             score_total: d.score.total,
         }
     }
@@ -43,48 +43,48 @@ pub struct RecentDossiersResponse {
 }
 
 #[derive(Serialize)]
-pub struct ActeDto {
+pub struct ActDto {
     pub date: NaiveDate,
-    pub libelle: String,
+    pub label: String,
 }
 
 #[derive(Serialize)]
 pub struct ScoreDto {
-    pub avancement: u8,
-    pub ampleur: u8,
+    pub progress: u8,
+    pub magnitude: u8,
     pub total: u8,
 }
 
 #[derive(Serialize)]
 pub struct DossierDetailDto {
     pub uid: String,
-    pub titre: String,
+    pub title: String,
     pub procedure: String,
-    pub derniere_activite_date: NaiveDate,
-    pub derniere_activite_libelle: String,
-    pub actes: Vec<ActeDto>,
+    pub last_activity_date: NaiveDate,
+    pub last_activity_label: String,
+    pub acts: Vec<ActDto>,
     pub score: ScoreDto,
 }
 
-impl From<DossierLegislatif> for DossierDetailDto {
-    fn from(d: DossierLegislatif) -> Self {
+impl From<LegislativeDossier> for DossierDetailDto {
+    fn from(d: LegislativeDossier) -> Self {
         Self {
             uid: d.uid,
-            titre: d.titre,
+            title: d.title,
             procedure: d.procedure,
-            derniere_activite_date: d.derniere_activite_date,
-            derniere_activite_libelle: d.derniere_activite_libelle,
-            actes: d
-                .actes
+            last_activity_date: d.last_activity_date,
+            last_activity_label: d.last_activity_label,
+            acts: d
+                .acts
                 .into_iter()
-                .map(|a| ActeDto {
+                .map(|a| ActDto {
                     date: a.date,
-                    libelle: a.libelle,
+                    label: a.label,
                 })
                 .collect(),
             score: ScoreDto {
-                avancement: d.score.avancement,
-                ampleur: d.score.ampleur,
+                progress: d.score.progress,
+                magnitude: d.score.magnitude,
                 total: d.score.total,
             },
         }

@@ -1,16 +1,16 @@
-use crate::application::ports::assemblee_source::{AssembleeSource, SourceError};
-use crate::domain::dossier::DossierLegislatif;
+use crate::application::ports::assembly_source::{AssemblySource, SourceError};
+use crate::domain::dossier::LegislativeDossier;
 
 pub struct GetDossierDetail<'a> {
-    source: &'a dyn AssembleeSource,
+    source: &'a dyn AssemblySource,
 }
 
 impl<'a> GetDossierDetail<'a> {
-    pub fn new(source: &'a dyn AssembleeSource) -> Self {
+    pub fn new(source: &'a dyn AssemblySource) -> Self {
         Self { source }
     }
 
-    pub async fn execute(&self, uid: &str) -> Result<Option<DossierLegislatif>, SourceError> {
+    pub async fn execute(&self, uid: &str) -> Result<Option<LegislativeDossier>, SourceError> {
         self.source.fetch_dossier_by_uid(uid).await
     }
 }
@@ -21,33 +21,33 @@ mod tests {
     use async_trait::async_trait;
     use chrono::NaiveDate;
 
-    use crate::domain::dossier::{ActeLegislatif, Score};
+    use crate::domain::dossier::{LegislativeAct, Score};
 
     struct FakeSource {
-        dossiers: Vec<DossierLegislatif>,
+        dossiers: Vec<LegislativeDossier>,
     }
 
     #[async_trait]
-    impl AssembleeSource for FakeSource {
+    impl AssemblySource for FakeSource {
         async fn fetch_dossiers_since(
             &self,
             _since: NaiveDate,
-        ) -> Result<Vec<DossierLegislatif>, SourceError> {
+        ) -> Result<Vec<LegislativeDossier>, SourceError> {
             unreachable!()
         }
 
         async fn fetch_dossier_by_uid(
             &self,
             uid: &str,
-        ) -> Result<Option<DossierLegislatif>, SourceError> {
+        ) -> Result<Option<LegislativeDossier>, SourceError> {
             Ok(self.dossiers.iter().find(|d| d.uid == uid).map(|d| {
-                DossierLegislatif {
+                LegislativeDossier {
                     uid: d.uid.clone(),
-                    titre: d.titre.clone(),
+                    title: d.title.clone(),
                     procedure: d.procedure.clone(),
-                    derniere_activite_date: d.derniere_activite_date,
-                    derniere_activite_libelle: d.derniere_activite_libelle.clone(),
-                    actes: d.actes.clone(),
+                    last_activity_date: d.last_activity_date,
+                    last_activity_label: d.last_activity_label.clone(),
+                    acts: d.acts.clone(),
                     score: d.score.clone(),
                 }
             }))
@@ -57,25 +57,25 @@ mod tests {
     #[tokio::test]
     async fn returns_dossier_when_found() {
         let source = FakeSource {
-            dossiers: vec![DossierLegislatif {
+            dossiers: vec![LegislativeDossier {
                 uid: "DLR5L17N12345".into(),
-                titre: "Projet de loi de finances".into(),
+                title: "Projet de loi de finances".into(),
                 procedure: "PL".into(),
-                derniere_activite_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
-                derniere_activite_libelle: "Vote solennel".into(),
-                actes: vec![
-                    ActeLegislatif {
+                last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
+                last_activity_label: "Vote solennel".into(),
+                acts: vec![
+                    LegislativeAct {
                         date: NaiveDate::from_ymd_opt(2026, 6, 1).unwrap(),
-                        libelle: "Dépôt".into(),
+                        label: "Dépôt".into(),
                     },
-                    ActeLegislatif {
+                    LegislativeAct {
                         date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
-                        libelle: "Vote solennel".into(),
+                        label: "Vote solennel".into(),
                     },
                 ],
                 score: Score {
-                    avancement: 9,
-                    ampleur: 10,
+                    progress: 9,
+                    magnitude: 10,
                     total: 95,
                 },
             }],
@@ -86,7 +86,7 @@ mod tests {
         assert!(result.is_some());
         let dossier = result.unwrap();
         assert_eq!(dossier.uid, "DLR5L17N12345");
-        assert_eq!(dossier.actes.len(), 2);
+        assert_eq!(dossier.acts.len(), 2);
     }
 
     #[tokio::test]

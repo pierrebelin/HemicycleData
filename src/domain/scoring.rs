@@ -1,18 +1,18 @@
 use super::dossier::Score;
 
-pub fn compute_score(titre: &str, derniere_activite_libelle: &str) -> Score {
-    let avancement = score_avancement(derniere_activite_libelle);
-    let ampleur = score_ampleur(titre);
-    let total = ((avancement as u16 * 2 + ampleur as u16 * 2) * 100 / 40) as u8;
+pub fn compute_score(title: &str, last_activity_label: &str) -> Score {
+    let progress = score_progress(last_activity_label);
+    let magnitude = score_magnitude(title);
+    let total = ((progress as u16 * 2 + magnitude as u16 * 2) * 100 / 40) as u8;
     Score {
-        avancement,
-        ampleur,
+        progress,
+        magnitude,
         total,
     }
 }
 
-fn score_avancement(libelle: &str) -> u8 {
-    let lower = libelle.to_lowercase();
+fn score_progress(label: &str) -> u8 {
+    let lower = label.to_lowercase();
     if lower.contains("promulgation") {
         10
     } else if lower.contains("vote solennel") || lower.contains("scrutin public") {
@@ -32,8 +32,8 @@ fn score_avancement(libelle: &str) -> u8 {
     }
 }
 
-fn score_ampleur(titre: &str) -> u8 {
-    let lower = titre.to_lowercase();
+fn score_magnitude(title: &str) -> u8 {
+    let lower = title.to_lowercase();
     if lower.contains("finances")
         || lower.contains("financement")
         || lower.contains("budget")
@@ -51,39 +51,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn promulgation_scores_highest_avancement() {
+    fn promulgation_scores_highest_progress() {
         let score = compute_score("Texte lambda", "Promulgation de la loi");
-        assert_eq!(score.avancement, 10);
+        assert_eq!(score.progress, 10);
     }
 
     #[test]
     fn vote_solennel_scores_9() {
         let score = compute_score("Texte", "Vote solennel");
-        assert_eq!(score.avancement, 9);
+        assert_eq!(score.progress, 9);
     }
 
     #[test]
     fn depot_scores_low() {
         let score = compute_score("Texte", "Dépôt");
-        assert_eq!(score.avancement, 2);
+        assert_eq!(score.progress, 2);
     }
 
     #[test]
-    fn plf_scores_max_ampleur() {
+    fn plf_scores_max_magnitude() {
         let score = compute_score("Projet de loi de finances pour 2026", "Dépôt");
-        assert_eq!(score.ampleur, 10);
+        assert_eq!(score.magnitude, 10);
     }
 
     #[test]
-    fn reforme_scores_medium_ampleur() {
+    fn reforme_scores_medium_magnitude() {
         let score = compute_score("Réforme des retraites", "Dépôt");
-        assert_eq!(score.ampleur, 7);
+        assert_eq!(score.magnitude, 7);
     }
 
     #[test]
-    fn ordinary_text_scores_low_ampleur() {
+    fn ordinary_text_scores_low_magnitude() {
         let score = compute_score("Ratification d'un accord", "Dépôt");
-        assert_eq!(score.ampleur, 3);
+        assert_eq!(score.magnitude, 3);
     }
 
     #[test]
