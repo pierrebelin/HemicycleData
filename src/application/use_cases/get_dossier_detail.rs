@@ -1,17 +1,46 @@
-use crate::application::ports::dossier_repository::{DossierRepository, RepositoryError};
+use crate::application::ports::assembly_source::AssemblySource;
+use crate::application::ports::dossier_repository::DossierRepository;
 use crate::domain::dossier::LegislativeDossier;
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetDossierError {
+    #[error("{0}")]
+    Repository(#[from] crate::application::ports::dossier_repository::RepositoryError),
+    #[error("{0}")]
+    Source(#[from] crate::application::ports::assembly_source::SourceError),
+}
+
+pub struct DossierDetailResult {
+    pub dossier: LegislativeDossier,
+    pub persisted: bool,
+}
 
 pub struct GetDossierDetail<'a> {
     repository: &'a dyn DossierRepository,
+    source: &'a dyn AssemblySource,
 }
 
 impl<'a> GetDossierDetail<'a> {
-    pub fn new(repository: &'a dyn DossierRepository) -> Self {
-        Self { repository }
+    pub fn new(repository: &'a dyn DossierRepository, source: &'a dyn AssemblySource) -> Self {
+        Self { repository, source }
     }
 
-    pub async fn execute(&self, uid: &str) -> Result<Option<LegislativeDossier>, RepositoryError> {
-        self.repository.find_by_uid(uid).await
+    pub async fn execute(&self, uid: &str) -> Result<Option<DossierDetailResult>, GetDossierError> {
+        if let Some(dossier) = self.repository.find_by_uid(uid).await? {
+            return Ok(Some(DossierDetailResult {
+                dossier,
+                persisted: true,
+            }));
+        }
+
+        if let Some(dossier) = self.source.fetch_dossier_by_uid(uid).await? {
+            return Ok(Some(DossierDetailResult {
+                dossier,
+                persisted: false,
+            }));
+        }
+
+        Ok(None)
     }
 }
 
@@ -23,6 +52,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Mutex;
 
+    use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
     use crate::domain::dossier::{LegislativeAct, LegislativeDossier, Score};
 
@@ -51,66 +81,103 @@ mod tests {
             uid: &str,
         ) -> Result<Option<LegislativeDossier>, RepositoryError> {
             let store = self.dossiers.lock().unwrap();
-            Ok(store.get(uid).map(|d| LegislativeDossier {
-                uid: d.uid.clone(),
-                title: d.title.clone(),
-                procedure: d.procedure.clone(),
-                last_activity_date: d.last_activity_date,
-                last_activity_label: d.last_activity_label.clone(),
-                acts: d.acts.clone(),
-                score: d.score.clone(),
-            }))
+            Ok(store.get(uid).cloned())
+        }
+    }
+
+    struct FakeSource {
+        dossiers: Mutex<HashMap<String, LegislativeDossier>>,
+    }
+
+    #[async_trait]
+    impl AssemblySource for FakeSource {
+        async fn fetch_dossiers_since(
+            &self,
+            _since: NaiveDate,
+        ) -> Result<Vec<LegislativeDossier>, SourceError> {
+            unreachable!()
+        }
+
+        async fn fetch_dossier_by_uid(
+            &self,
+            uid: &str,
+        ) -> Result<Option<LegislativeDossier>, SourceError> {
+            let store = self.dossiers.lock().unwrap();
+            Ok(store.get(uid).cloned())
+        }
+    }
+
+    fn sample_dossier() -> LegislativeDossier {
+        LegislativeDossier {
+            uid: "DLR5L17N12345".into(),
+            title: "Projet de loi de finances".into(),
+            procedure: "PL".into(),
+            last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
+            last_activity_label: "Vote solennel".into(),
+            acts: vec![
+                LegislativeAct {
+                    date: NaiveDate::from_ymd_opt(2026, 6, 1).unwrap(),
+                    label: "Dépôt".into(),
+                },
+                LegislativeAct {
+                    date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
+                    label: "Vote solennel".into(),
+                },
+            ],
+            score: Score {
+                progress: 9,
+                magnitude: 10,
+                momentum: 4,
+                total: 85,
+            },
         }
     }
 
     #[tokio::test]
-    async fn returns_dossier_when_found() {
+    async fn returns_persisted_dossier_from_repository() {
         let mut map = HashMap::new();
-        map.insert(
-            "DLR5L17N12345".into(),
-            LegislativeDossier {
-                uid: "DLR5L17N12345".into(),
-                title: "Projet de loi de finances".into(),
-                procedure: "PL".into(),
-                last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
-                last_activity_label: "Vote solennel".into(),
-                acts: vec![
-                    LegislativeAct {
-                        date: NaiveDate::from_ymd_opt(2026, 6, 1).unwrap(),
-                        label: "Dépôt".into(),
-                    },
-                    LegislativeAct {
-                        date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
-                        label: "Vote solennel".into(),
-                    },
-                ],
-                score: Score {
-                    progress: 9,
-                    magnitude: 10,
-                    momentum: 4,
-                    total: 85,
-                },
-            },
-        );
+        map.insert("DLR5L17N12345".into(), sample_dossier());
 
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(map),
         };
-        let uc = GetDossierDetail::new(&repo);
-        let result = uc.execute("DLR5L17N12345").await.unwrap();
+        let source = FakeSource {
+            dossiers: Mutex::new(HashMap::new()),
+        };
+        let uc = GetDossierDetail::new(&repo, &source);
+        let result = uc.execute("DLR5L17N12345").await.unwrap().unwrap();
 
-        assert!(result.is_some());
-        let dossier = result.unwrap();
-        assert_eq!(dossier.uid, "DLR5L17N12345");
-        assert_eq!(dossier.acts.len(), 2);
+        assert!(result.persisted);
+        assert_eq!(result.dossier.uid, "DLR5L17N12345");
+        assert_eq!(result.dossier.acts.len(), 2);
     }
 
     #[tokio::test]
-    async fn returns_none_when_not_found() {
+    async fn falls_back_to_source_when_not_in_repository() {
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(HashMap::new()),
         };
-        let uc = GetDossierDetail::new(&repo);
+        let mut source_map = HashMap::new();
+        source_map.insert("DLR5L17N12345".into(), sample_dossier());
+        let source = FakeSource {
+            dossiers: Mutex::new(source_map),
+        };
+        let uc = GetDossierDetail::new(&repo, &source);
+        let result = uc.execute("DLR5L17N12345").await.unwrap().unwrap();
+
+        assert!(!result.persisted);
+        assert_eq!(result.dossier.uid, "DLR5L17N12345");
+    }
+
+    #[tokio::test]
+    async fn returns_none_when_not_found_anywhere() {
+        let repo = InMemoryDossierRepository {
+            dossiers: Mutex::new(HashMap::new()),
+        };
+        let source = FakeSource {
+            dossiers: Mutex::new(HashMap::new()),
+        };
+        let uc = GetDossierDetail::new(&repo, &source);
         let result = uc.execute("UNKNOWN").await.unwrap();
         assert!(result.is_none());
     }
