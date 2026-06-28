@@ -26,6 +26,8 @@ mod tests {
     use async_trait::async_trait;
     use chrono::NaiveDate;
 
+    use crate::domain::scoring::compute_score;
+
     struct FakeSource {
         dossiers: Vec<DossierLegislatif>,
     }
@@ -46,8 +48,30 @@ mod tests {
                     procedure: d.procedure.clone(),
                     derniere_activite_date: d.derniere_activite_date,
                     derniere_activite_libelle: d.derniere_activite_libelle.clone(),
+                    actes: d.actes.clone(),
+                    score: d.score.clone(),
                 })
                 .collect())
+        }
+
+        async fn fetch_dossier_by_uid(
+            &self,
+            _uid: &str,
+        ) -> Result<Option<DossierLegislatif>, SourceError> {
+            unreachable!()
+        }
+    }
+
+    fn make_dossier(uid: &str, titre: &str, procedure: &str, date: NaiveDate, libelle: &str) -> DossierLegislatif {
+        let score = compute_score(titre, libelle);
+        DossierLegislatif {
+            uid: uid.into(),
+            titre: titre.into(),
+            procedure: procedure.into(),
+            derniere_activite_date: date,
+            derniere_activite_libelle: libelle.into(),
+            actes: vec![],
+            score,
         }
     }
 
@@ -55,20 +79,8 @@ mod tests {
     async fn returns_dossiers_sorted_by_date_desc() {
         let source = FakeSource {
             dossiers: vec![
-                DossierLegislatif {
-                    uid: "D1".into(),
-                    titre: "Ancien".into(),
-                    procedure: "PL".into(),
-                    derniere_activite_date: NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
-                    derniere_activite_libelle: "Dépôt".into(),
-                },
-                DossierLegislatif {
-                    uid: "D2".into(),
-                    titre: "Récent".into(),
-                    procedure: "PPL".into(),
-                    derniere_activite_date: NaiveDate::from_ymd_opt(2026, 6, 27).unwrap(),
-                    derniere_activite_libelle: "Vote".into(),
-                },
+                make_dossier("D1", "Ancien", "PL", NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(), "Dépôt"),
+                make_dossier("D2", "Récent", "PPL", NaiveDate::from_ymd_opt(2026, 6, 27).unwrap(), "Vote"),
             ],
         };
         let uc = FetchRecentDossiers::new(&source);
