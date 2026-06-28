@@ -11,6 +11,7 @@ pub struct LegislativeAct {
 pub struct Score {
     pub progress: u8,
     pub magnitude: u8,
+    pub momentum: u8,
     pub total: u8,
 }
 

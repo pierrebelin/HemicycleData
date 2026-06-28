@@ -52,6 +52,7 @@ pub struct ActDto {
 pub struct ScoreDto {
     pub progress: u8,
     pub magnitude: u8,
+    pub momentum: u8,
     pub total: u8,
 }
 
@@ -85,6 +86,7 @@ impl From<LegislativeDossier> for DossierDetailDto {
             score: ScoreDto {
                 progress: d.score.progress,
                 magnitude: d.score.magnitude,
+                momentum: d.score.momentum,
                 total: d.score.total,
             },
         }

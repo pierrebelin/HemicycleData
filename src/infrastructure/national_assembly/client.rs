@@ -93,7 +93,7 @@ impl NationalAssemblyClient {
             })
             .collect();
 
-        let score = compute_score(&raw.dossier_title.titre, &act_info.label);
+        let score = compute_score(&raw.dossier_title.titre, &act_info.label, all_acts.len());
 
         Some(LegislativeDossier {
             uid: raw.uid.clone(),
