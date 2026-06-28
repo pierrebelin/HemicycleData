@@ -10,8 +10,8 @@
     },
     {
       "name": "Frontend React (Vite)",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd frontend && npx vite --port 5173"],
       "port": 5173
     }
   ]
