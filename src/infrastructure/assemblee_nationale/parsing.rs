@@ -106,3 +106,44 @@ pub fn find_latest_acte(actes: &Option<RawActesContainer>) -> Option<ActeInfo> {
     walk_container(container, &mut latest);
     latest
 }
+
+pub fn collect_all_actes(actes: &Option<RawActesContainer>) -> Vec<ActeInfo> {
+    let mut result = Vec::new();
+
+    fn walk(acte: &RawActe, result: &mut Vec<ActeInfo>) {
+        if let Some(ref date_str) = acte.date_acte {
+            let date_short = &date_str[..10.min(date_str.len())];
+            let libelle = acte
+                .libelle_acte
+                .as_ref()
+                .and_then(|l| l.libelle_court.as_deref())
+                .unwrap_or("?")
+                .to_string();
+            result.push(ActeInfo {
+                date: date_short.to_string(),
+                libelle,
+            });
+        }
+        if let Some(ref children) = acte.actes_legislatifs {
+            walk_container(children, result);
+        }
+    }
+
+    fn walk_container(container: &RawActesContainer, result: &mut Vec<ActeInfo>) {
+        match &container.acte_legislatif {
+            SingleOrVec::Vec(v) => {
+                for a in v {
+                    walk(a, result);
+                }
+            }
+            SingleOrVec::Single(a) => walk(a, result),
+        }
+    }
+
+    if let Some(container) = actes.as_ref() {
+        walk_container(container, &mut result);
+    }
+
+    result.sort_by(|a, b| a.date.cmp(&b.date));
+    result
+}

@@ -6,9 +6,10 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::assemblee_source::{AssembleeSource, SourceError};
-use crate::domain::dossier::DossierLegislatif;
+use crate::domain::dossier::{ActeLegislatif, DossierLegislatif};
+use crate::domain::scoring::compute_score;
 
-use super::parsing::{find_latest_acte, RawDossierWrapper};
+use super::parsing::{collect_all_actes, find_latest_acte, RawDossierWrapper};
 
 const DOSSIERS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/dossiers_legislatifs/Dossiers_Legislatifs.json.zip";
 const CACHE_TTL_SECS: u64 = 3600;
@@ -76,7 +77,39 @@ impl AssembleeNationaleClient {
         Ok(data)
     }
 
-    fn parse_dossiers(data: &[u8], since: NaiveDate) -> Result<Vec<DossierLegislatif>, SourceError> {
+    fn parse_raw_dossier(raw: &super::parsing::RawDossier) -> Option<DossierLegislatif> {
+        let acte_info = find_latest_acte(&raw.actes_legislatifs)?;
+        let date = NaiveDate::parse_from_str(&acte_info.date, "%Y-%m-%d").ok()?;
+
+        let all_actes: Vec<ActeLegislatif> = collect_all_actes(&raw.actes_legislatifs)
+            .into_iter()
+            .filter_map(|a| {
+                NaiveDate::parse_from_str(&a.date, "%Y-%m-%d")
+                    .ok()
+                    .map(|d| ActeLegislatif {
+                        date: d,
+                        libelle: a.libelle,
+                    })
+            })
+            .collect();
+
+        let score = compute_score(&raw.titre_dossier.titre, &acte_info.libelle);
+
+        Some(DossierLegislatif {
+            uid: raw.uid.clone(),
+            titre: raw.titre_dossier.titre.clone(),
+            procedure: raw.procedure_parlementaire.libelle.clone(),
+            derniere_activite_date: date,
+            derniere_activite_libelle: acte_info.libelle,
+            actes: all_actes,
+            score,
+        })
+    }
+
+    fn parse_dossiers(
+        data: &[u8],
+        since: NaiveDate,
+    ) -> Result<Vec<DossierLegislatif>, SourceError> {
         let cursor = Cursor::new(data);
         let mut archive =
             zip::ZipArchive::new(cursor).map_err(|e| SourceError::Parse(e.to_string()))?;
@@ -102,32 +135,56 @@ impl AssembleeNationaleClient {
                 Err(_) => continue,
             };
 
-            let raw = wrapper.dossier_parlementaire;
-
-            let acte_info = match find_latest_acte(&raw.actes_legislatifs) {
-                Some(info) => info,
+            let dossier = match Self::parse_raw_dossier(&wrapper.dossier_parlementaire) {
+                Some(d) => d,
                 None => continue,
             };
 
-            let date = match NaiveDate::parse_from_str(&acte_info.date, "%Y-%m-%d") {
-                Ok(d) => d,
-                Err(_) => continue,
-            };
-
-            if date < since {
+            if dossier.derniere_activite_date < since {
                 continue;
             }
 
-            dossiers.push(DossierLegislatif {
-                uid: raw.uid,
-                titre: raw.titre_dossier.titre,
-                procedure: raw.procedure_parlementaire.libelle,
-                derniere_activite_date: date,
-                derniere_activite_libelle: acte_info.libelle,
-            });
+            dossiers.push(dossier);
         }
 
         Ok(dossiers)
+    }
+
+    fn find_dossier_by_uid(
+        data: &[u8],
+        uid: &str,
+    ) -> Result<Option<DossierLegislatif>, SourceError> {
+        let cursor = Cursor::new(data);
+        let mut archive =
+            zip::ZipArchive::new(cursor).map_err(|e| SourceError::Parse(e.to_string()))?;
+
+        for i in 0..archive.len() {
+            let mut file = archive
+                .by_index(i)
+                .map_err(|e| SourceError::Parse(e.to_string()))?;
+
+            let name = file.name().to_string();
+            if !name.contains("dossierParlementaire/") || !name.ends_with(".json") {
+                continue;
+            }
+
+            let mut content = String::new();
+            file.read_to_string(&mut content)
+                .map_err(|e| SourceError::Parse(e.to_string()))?;
+
+            let wrapper: RawDossierWrapper = match serde_json::from_str(&content) {
+                Ok(w) => w,
+                Err(_) => continue,
+            };
+
+            if wrapper.dossier_parlementaire.uid != uid {
+                continue;
+            }
+
+            return Ok(Self::parse_raw_dossier(&wrapper.dossier_parlementaire));
+        }
+
+        Ok(None)
     }
 }
 
@@ -146,5 +203,17 @@ impl AssembleeSource for AssembleeNationaleClient {
 
         tracing::info!("Found {} dossiers since {since}", dossiers.len());
         Ok(dossiers)
+    }
+
+    async fn fetch_dossier_by_uid(
+        &self,
+        uid: &str,
+    ) -> Result<Option<DossierLegislatif>, SourceError> {
+        let zip_data = self.get_zip().await?;
+        let uid = uid.to_string();
+
+        tokio::task::spawn_blocking(move || Self::find_dossier_by_uid(&zip_data, &uid))
+            .await
+            .map_err(|e| SourceError::Parse(e.to_string()))?
     }
 }
