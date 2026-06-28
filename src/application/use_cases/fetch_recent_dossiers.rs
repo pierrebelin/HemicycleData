@@ -1,21 +1,21 @@
 use chrono::Utc;
 
-use crate::application::ports::assemblee_source::{AssembleeSource, SourceError};
-use crate::domain::dossier::DossierLegislatif;
+use crate::application::ports::assembly_source::{AssemblySource, SourceError};
+use crate::domain::dossier::LegislativeDossier;
 
 pub struct FetchRecentDossiers<'a> {
-    source: &'a dyn AssembleeSource,
+    source: &'a dyn AssemblySource,
 }
 
 impl<'a> FetchRecentDossiers<'a> {
-    pub fn new(source: &'a dyn AssembleeSource) -> Self {
+    pub fn new(source: &'a dyn AssemblySource) -> Self {
         Self { source }
     }
 
-    pub async fn execute(&self, days: u32) -> Result<Vec<DossierLegislatif>, SourceError> {
+    pub async fn execute(&self, days: u32) -> Result<Vec<LegislativeDossier>, SourceError> {
         let since = Utc::now().date_naive() - chrono::Duration::days(days as i64);
         let mut dossiers = self.source.fetch_dossiers_since(since).await?;
-        dossiers.sort_by(|a, b| b.derniere_activite_date.cmp(&a.derniere_activite_date));
+        dossiers.sort_by(|a, b| b.last_activity_date.cmp(&a.last_activity_date));
         Ok(dossiers)
     }
 }
@@ -29,26 +29,26 @@ mod tests {
     use crate::domain::scoring::compute_score;
 
     struct FakeSource {
-        dossiers: Vec<DossierLegislatif>,
+        dossiers: Vec<LegislativeDossier>,
     }
 
     #[async_trait]
-    impl AssembleeSource for FakeSource {
+    impl AssemblySource for FakeSource {
         async fn fetch_dossiers_since(
             &self,
             since: NaiveDate,
-        ) -> Result<Vec<DossierLegislatif>, SourceError> {
+        ) -> Result<Vec<LegislativeDossier>, SourceError> {
             Ok(self
                 .dossiers
                 .iter()
-                .filter(|d| d.derniere_activite_date >= since)
-                .map(|d| DossierLegislatif {
+                .filter(|d| d.last_activity_date >= since)
+                .map(|d| LegislativeDossier {
                     uid: d.uid.clone(),
-                    titre: d.titre.clone(),
+                    title: d.title.clone(),
                     procedure: d.procedure.clone(),
-                    derniere_activite_date: d.derniere_activite_date,
-                    derniere_activite_libelle: d.derniere_activite_libelle.clone(),
-                    actes: d.actes.clone(),
+                    last_activity_date: d.last_activity_date,
+                    last_activity_label: d.last_activity_label.clone(),
+                    acts: d.acts.clone(),
                     score: d.score.clone(),
                 })
                 .collect())
@@ -57,20 +57,20 @@ mod tests {
         async fn fetch_dossier_by_uid(
             &self,
             _uid: &str,
-        ) -> Result<Option<DossierLegislatif>, SourceError> {
+        ) -> Result<Option<LegislativeDossier>, SourceError> {
             unreachable!()
         }
     }
 
-    fn make_dossier(uid: &str, titre: &str, procedure: &str, date: NaiveDate, libelle: &str) -> DossierLegislatif {
-        let score = compute_score(titre, libelle);
-        DossierLegislatif {
+    fn make_dossier(uid: &str, title: &str, procedure: &str, date: NaiveDate, label: &str) -> LegislativeDossier {
+        let score = compute_score(title, label);
+        LegislativeDossier {
             uid: uid.into(),
-            titre: titre.into(),
+            title: title.into(),
             procedure: procedure.into(),
-            derniere_activite_date: date,
-            derniere_activite_libelle: libelle.into(),
-            actes: vec![],
+            last_activity_date: date,
+            last_activity_label: label.into(),
+            acts: vec![],
             score,
         }
     }

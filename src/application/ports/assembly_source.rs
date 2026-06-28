@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 
-use crate::domain::dossier::DossierLegislatif;
+use crate::domain::dossier::LegislativeDossier;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SourceError {
@@ -12,14 +12,14 @@ pub enum SourceError {
 }
 
 #[async_trait]
-pub trait AssembleeSource: Send + Sync {
+pub trait AssemblySource: Send + Sync {
     async fn fetch_dossiers_since(
         &self,
         since: NaiveDate,
-    ) -> Result<Vec<DossierLegislatif>, SourceError>;
+    ) -> Result<Vec<LegislativeDossier>, SourceError>;
 
     async fn fetch_dossier_by_uid(
         &self,
         uid: &str,
-    ) -> Result<Option<DossierLegislatif>, SourceError>;
+    ) -> Result<Option<LegislativeDossier>, SourceError>;
 }

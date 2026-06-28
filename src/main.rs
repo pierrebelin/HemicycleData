@@ -5,14 +5,14 @@ mod infrastructure;
 
 use std::sync::Arc;
 
-use application::ports::assemblee_source::AssembleeSource;
-use infrastructure::assemblee_nationale::client::AssembleeNationaleClient;
+use application::ports::assembly_source::AssemblySource;
+use infrastructure::national_assembly::client::NationalAssemblyClient;
 use infrastructure::config;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: Option<sqlx::PgPool>,
-    pub assemblee_source: Arc<dyn AssembleeSource>,
+    pub assembly_source: Arc<dyn AssemblySource>,
 }
 
 #[tokio::main]
@@ -31,11 +31,11 @@ async fn main() {
         }
     };
 
-    let assemblee_source = Arc::new(AssembleeNationaleClient::new());
+    let assembly_source = Arc::new(NationalAssemblyClient::new());
 
     let state = AppState {
         db,
-        assemblee_source,
+        assembly_source,
     };
 
     let app = api::routes::create_router(state);

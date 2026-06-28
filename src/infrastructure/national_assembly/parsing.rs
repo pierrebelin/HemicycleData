@@ -3,22 +3,22 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct RawDossierWrapper {
     #[serde(rename = "dossierParlementaire")]
-    pub dossier_parlementaire: RawDossier,
+    pub parliamentary_dossier: RawDossier,
 }
 
 #[derive(Deserialize)]
 pub struct RawDossier {
     pub uid: String,
     #[serde(rename = "titreDossier")]
-    pub titre_dossier: RawTitre,
+    pub dossier_title: RawTitle,
     #[serde(rename = "procedureParlementaire")]
-    pub procedure_parlementaire: RawProcedure,
+    pub parliamentary_procedure: RawProcedure,
     #[serde(rename = "actesLegislatifs")]
-    pub actes_legislatifs: Option<RawActesContainer>,
+    pub legislative_acts: Option<RawActsContainer>,
 }
 
 #[derive(Deserialize)]
-pub struct RawTitre {
+pub struct RawTitle {
     pub titre: String,
 }
 
@@ -28,25 +28,25 @@ pub struct RawProcedure {
 }
 
 #[derive(Deserialize)]
-pub struct RawActesContainer {
+pub struct RawActsContainer {
     #[serde(rename = "acteLegislatif")]
-    pub acte_legislatif: SingleOrVec<RawActe>,
+    pub legislative_act: SingleOrVec<RawAct>,
 }
 
 #[derive(Deserialize)]
-pub struct RawActe {
+pub struct RawAct {
     #[serde(rename = "dateActe")]
-    pub date_acte: Option<String>,
+    pub act_date: Option<String>,
     #[serde(rename = "libelleActe")]
-    pub libelle_acte: Option<RawLibelleActe>,
+    pub act_label: Option<RawActLabel>,
     #[serde(rename = "actesLegislatifs")]
-    pub actes_legislatifs: Option<RawActesContainer>,
+    pub legislative_acts: Option<RawActsContainer>,
 }
 
 #[derive(Deserialize)]
-pub struct RawLibelleActe {
+pub struct RawActLabel {
     #[serde(rename = "libelleCourt")]
-    pub libelle_court: Option<String>,
+    pub short_label: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -56,22 +56,22 @@ pub enum SingleOrVec<T> {
     Single(Box<T>),
 }
 
-pub struct ActeInfo {
+pub struct ActInfo {
     pub date: String,
-    pub libelle: String,
+    pub label: String,
 }
 
-pub fn find_latest_acte(actes: &Option<RawActesContainer>) -> Option<ActeInfo> {
-    let container = actes.as_ref()?;
-    let mut latest: Option<ActeInfo> = None;
+pub fn find_latest_act(acts: &Option<RawActsContainer>) -> Option<ActInfo> {
+    let container = acts.as_ref()?;
+    let mut latest: Option<ActInfo> = None;
 
-    fn walk(acte: &RawActe, latest: &mut Option<ActeInfo>) {
-        if let Some(ref date_str) = acte.date_acte {
+    fn walk(act: &RawAct, latest: &mut Option<ActInfo>) {
+        if let Some(ref date_str) = act.act_date {
             let date_short = &date_str[..10.min(date_str.len())];
-            let libelle = acte
-                .libelle_acte
+            let label = act
+                .act_label
                 .as_ref()
-                .and_then(|l| l.libelle_court.as_deref())
+                .and_then(|l| l.short_label.as_deref())
                 .unwrap_or("?")
                 .to_string();
 
@@ -81,19 +81,19 @@ pub fn find_latest_acte(actes: &Option<RawActesContainer>) -> Option<ActeInfo> {
                 .unwrap_or(true);
 
             if dominated {
-                *latest = Some(ActeInfo {
+                *latest = Some(ActInfo {
                     date: date_short.to_string(),
-                    libelle,
+                    label,
                 });
             }
         }
-        if let Some(ref children) = acte.actes_legislatifs {
+        if let Some(ref children) = act.legislative_acts {
             walk_container(children, latest);
         }
     }
 
-    fn walk_container(container: &RawActesContainer, latest: &mut Option<ActeInfo>) {
-        match &container.acte_legislatif {
+    fn walk_container(container: &RawActsContainer, latest: &mut Option<ActInfo>) {
+        match &container.legislative_act {
             SingleOrVec::Vec(v) => {
                 for a in v {
                     walk(a, latest);
@@ -107,30 +107,30 @@ pub fn find_latest_acte(actes: &Option<RawActesContainer>) -> Option<ActeInfo> {
     latest
 }
 
-pub fn collect_all_actes(actes: &Option<RawActesContainer>) -> Vec<ActeInfo> {
+pub fn collect_all_acts(acts: &Option<RawActsContainer>) -> Vec<ActInfo> {
     let mut result = Vec::new();
 
-    fn walk(acte: &RawActe, result: &mut Vec<ActeInfo>) {
-        if let Some(ref date_str) = acte.date_acte {
+    fn walk(act: &RawAct, result: &mut Vec<ActInfo>) {
+        if let Some(ref date_str) = act.act_date {
             let date_short = &date_str[..10.min(date_str.len())];
-            let libelle = acte
-                .libelle_acte
+            let label = act
+                .act_label
                 .as_ref()
-                .and_then(|l| l.libelle_court.as_deref())
+                .and_then(|l| l.short_label.as_deref())
                 .unwrap_or("?")
                 .to_string();
-            result.push(ActeInfo {
+            result.push(ActInfo {
                 date: date_short.to_string(),
-                libelle,
+                label,
             });
         }
-        if let Some(ref children) = acte.actes_legislatifs {
+        if let Some(ref children) = act.legislative_acts {
             walk_container(children, result);
         }
     }
 
-    fn walk_container(container: &RawActesContainer, result: &mut Vec<ActeInfo>) {
-        match &container.acte_legislatif {
+    fn walk_container(container: &RawActsContainer, result: &mut Vec<ActInfo>) {
+        match &container.legislative_act {
             SingleOrVec::Vec(v) => {
                 for a in v {
                     walk(a, result);
@@ -140,7 +140,7 @@ pub fn collect_all_actes(actes: &Option<RawActesContainer>) -> Vec<ActeInfo> {
         }
     }
 
-    if let Some(container) = actes.as_ref() {
+    if let Some(container) = acts.as_ref() {
         walk_container(container, &mut result);
     }
 
