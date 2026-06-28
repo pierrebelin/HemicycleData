@@ -17,4 +17,9 @@ pub trait AssembleeSource: Send + Sync {
         &self,
         since: NaiveDate,
     ) -> Result<Vec<DossierLegislatif>, SourceError>;
+
+    async fn fetch_dossier_by_uid(
+        &self,
+        uid: &str,
+    ) -> Result<Option<DossierLegislatif>, SourceError>;
 }
