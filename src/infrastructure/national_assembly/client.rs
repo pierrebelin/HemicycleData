@@ -26,8 +26,13 @@ pub struct NationalAssemblyClient {
 
 impl NationalAssemblyClient {
     pub fn new() -> Self {
+        // data.assemblee-nationale.fr sometimes serves a self-signed certificate
+        let http = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .expect("failed to build HTTP client");
         Self {
-            http: reqwest::Client::new(),
+            http,
             cache: Mutex::new(None),
         }
     }
@@ -93,7 +98,7 @@ impl NationalAssemblyClient {
             })
             .collect();
 
-        let score = compute_score(&raw.dossier_title.titre, &act_info.label);
+        let score = compute_score(&raw.dossier_title.titre, &act_info.label, all_acts.len());
 
         Some(LegislativeDossier {
             uid: raw.uid.clone(),

@@ -76,7 +76,8 @@ mod tests {
                 score: Score {
                     progress: 9,
                     magnitude: 10,
-                    total: 95,
+                    momentum: 4,
+                    total: 85,
                 },
             }],
         };
