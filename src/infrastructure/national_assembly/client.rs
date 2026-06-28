@@ -26,8 +26,13 @@ pub struct NationalAssemblyClient {
 
 impl NationalAssemblyClient {
     pub fn new() -> Self {
+        // data.assemblee-nationale.fr sometimes serves a self-signed certificate
+        let http = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .expect("failed to build HTTP client");
         Self {
-            http: reqwest::Client::new(),
+            http,
             cache: Mutex::new(None),
         }
     }
