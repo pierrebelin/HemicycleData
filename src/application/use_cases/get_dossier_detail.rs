@@ -1,7 +1,7 @@
 use crate::application::ports::assembly_source::AssemblySource;
 use crate::application::ports::deputy_source::DeputySource;
 use crate::application::ports::dossier_repository::DossierRepository;
-use crate::domain::dossier::LegislativeDossier;
+use crate::domain::dossier::{DossierUid, LegislativeDossier};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetDossierError {
@@ -37,7 +37,7 @@ impl<'a> GetDossierDetail<'a> {
 
     pub async fn execute(
         &self,
-        uid: &str,
+        uid: &DossierUid,
     ) -> Result<Option<DossierDetailResult>, GetDossierError> {
         if let Some(dossier) = self.repository.find_by_uid(uid).await? {
             return Ok(Some(DossierDetailResult {
@@ -72,7 +72,7 @@ mod tests {
 
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{Initiator, LegislativeAct, LegislativeDossier, Score};
+    use crate::domain::dossier::{CurationStatus, Initiator, LegislativeAct, Score};
 
     struct InMemoryDossierRepository {
         dossiers: Mutex<HashMap<String, LegislativeDossier>>,
@@ -96,10 +96,25 @@ mod tests {
 
         async fn find_by_uid(
             &self,
-            uid: &str,
+            uid: &DossierUid,
         ) -> Result<Option<LegislativeDossier>, RepositoryError> {
             let store = self.dossiers.lock().unwrap();
-            Ok(store.get(uid).cloned())
+            Ok(store.get(uid.as_str()).cloned())
+        }
+
+        async fn find_suggestions(
+            &self,
+            _count: usize,
+        ) -> Result<Vec<LegislativeDossier>, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn update_curation_status(
+            &self,
+            _uid: &DossierUid,
+            _status: CurationStatus,
+        ) -> Result<bool, RepositoryError> {
+            unreachable!()
         }
     }
 
@@ -125,18 +140,18 @@ mod tests {
 
         async fn fetch_dossier_by_uid(
             &self,
-            uid: &str,
+            uid: &DossierUid,
         ) -> Result<Option<LegislativeDossier>, SourceError> {
             let store = self.dossiers.lock().unwrap();
-            Ok(store.get(uid).map(|(d, _)| d.clone()))
+            Ok(store.get(uid.as_str()).map(|(d, _)| d.clone()))
         }
 
         async fn fetch_dossier_by_uid_with_refs(
             &self,
-            uid: &str,
+            uid: &DossierUid,
         ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
             let store = self.dossiers.lock().unwrap();
-            Ok(store.get(uid).cloned())
+            Ok(store.get(uid.as_str()).cloned())
         }
     }
 
@@ -147,17 +162,14 @@ mod tests {
         async fn resolve_initiators(&self, acteur_refs: &[String]) -> Vec<Initiator> {
             acteur_refs
                 .iter()
-                .map(|r| Initiator {
-                    full_name: format!("Deputy {r}"),
-                    group: Some("GRP".into()),
-                })
+                .map(|r| Initiator::new(format!("Deputy {r}"), Some("GRP".into())).unwrap())
                 .collect()
         }
     }
 
     fn sample_dossier() -> LegislativeDossier {
         LegislativeDossier {
-            uid: "DLR5L17N12345".into(),
+            uid: DossierUid::new("DLR5L17N12345".into()).unwrap(),
             title: "Projet de loi de finances".into(),
             procedure: "PL".into(),
             last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
@@ -172,15 +184,11 @@ mod tests {
                     label: "Vote solennel".into(),
                 },
             ],
-            score: Score {
-                progress: 9,
-                magnitude: 10,
-                momentum: 4,
-                total: 85,
-            },
+            score: Score::new(9, 10, 4, 85).unwrap(),
             current_stage: None,
             initiators: vec![],
             committee: None,
+            curation_status: CurationStatus::New,
         }
     }
 
@@ -197,10 +205,11 @@ mod tests {
         };
         let deputies = FakeDeputySource;
         let uc = GetDossierDetail::new(&repo, &source, &deputies);
-        let result = uc.execute("DLR5L17N12345").await.unwrap().unwrap();
+        let uid = DossierUid::new("DLR5L17N12345".into()).unwrap();
+        let result = uc.execute(&uid).await.unwrap().unwrap();
 
         assert!(result.persisted);
-        assert_eq!(result.dossier.uid, "DLR5L17N12345");
+        assert_eq!(result.dossier.uid.as_str(), "DLR5L17N12345");
         assert_eq!(result.dossier.acts.len(), 2);
     }
 
@@ -219,15 +228,13 @@ mod tests {
         };
         let deputies = FakeDeputySource;
         let uc = GetDossierDetail::new(&repo, &source, &deputies);
-        let result = uc.execute("DLR5L17N12345").await.unwrap().unwrap();
+        let uid = DossierUid::new("DLR5L17N12345".into()).unwrap();
+        let result = uc.execute(&uid).await.unwrap().unwrap();
 
         assert!(!result.persisted);
         assert_eq!(result.dossier.initiators.len(), 1);
-        assert_eq!(result.dossier.initiators[0].full_name, "Deputy PA123456");
-        assert_eq!(
-            result.dossier.initiators[0].group,
-            Some("GRP".into())
-        );
+        assert_eq!(result.dossier.initiators[0].full_name(), "Deputy PA123456");
+        assert_eq!(result.dossier.initiators[0].group(), Some("GRP"));
     }
 
     #[tokio::test]
@@ -240,7 +247,8 @@ mod tests {
         };
         let deputies = FakeDeputySource;
         let uc = GetDossierDetail::new(&repo, &source, &deputies);
-        let result = uc.execute("UNKNOWN").await.unwrap();
+        let uid = DossierUid::new("UNKNOWN".into()).unwrap();
+        let result = uc.execute(&uid).await.unwrap();
         assert!(result.is_none());
     }
 }

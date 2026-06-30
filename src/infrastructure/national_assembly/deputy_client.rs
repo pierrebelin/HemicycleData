@@ -102,16 +102,11 @@ impl DeputySource for NosDeputesClient {
             .map(|r| {
                 if let Some(ref c) = *cache {
                     if let Some((name, group)) = c.by_an_id.get(r) {
-                        return Initiator {
-                            full_name: name.clone(),
-                            group: group.clone(),
-                        };
+                        return Initiator::new(name.clone(), group.clone())
+                            .expect("deputy name is non-empty");
                     }
                 }
-                Initiator {
-                    full_name: r.clone(),
-                    group: None,
-                }
+                Initiator::new(r.clone(), None).expect("ref is non-empty")
             })
             .collect()
     }

@@ -20,6 +20,14 @@ pub fn create_router(state: AppState) -> Router {
             "/api/dossiers/{uid}/save",
             post(dossier_handlers::save_dossier),
         )
+        .route(
+            "/api/suggestions",
+            get(dossier_handlers::get_suggestions),
+        )
+        .route(
+            "/api/dossiers/{uid}/curate",
+            post(dossier_handlers::curate_dossier),
+        )
         .route("/api/refresh", post(dossier_handlers::refresh_dossiers))
         .layer(CorsLayer::permissive())
         .with_state(state)
