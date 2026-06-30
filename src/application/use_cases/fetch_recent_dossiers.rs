@@ -59,6 +59,9 @@ mod tests {
                     last_activity_label: d.last_activity_label.clone(),
                     acts: vec![],
                     score: d.score.clone(),
+                    current_stage: d.current_stage,
+                    initiators: d.initiators.clone(),
+                    committee: d.committee.clone(),
                 })
                 .collect();
             result.sort_by(|a, b| b.last_activity_date.cmp(&a.last_activity_date));
@@ -83,6 +86,9 @@ mod tests {
             last_activity_label: label.into(),
             acts: vec![],
             score,
+            current_stage: None,
+            initiators: vec![],
+            committee: None,
         }
     }
 

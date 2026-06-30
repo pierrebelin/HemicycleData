@@ -2,6 +2,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 
+interface StageDto {
+  label: string
+  chamber: string
+}
+
 interface DossierDto {
   uid: string
   title: string
@@ -9,6 +14,8 @@ interface DossierDto {
   last_activity_date: string
   last_activity_label: string
   score_total: number
+  current_stage: StageDto | null
+  committee: string | null
 }
 
 interface RecentDossiersResponse {
@@ -142,7 +149,15 @@ export default function DossierListPage() {
                     {d.title}
                   </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{d.procedure}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-gray-500">{d.procedure}</p>
+                  {d.current_stage && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-900/30 border border-indigo-800/50 text-indigo-300">
+                      {d.current_stage.label}
+                      {d.current_stage.chamber && ` — ${d.current_stage.chamber}`}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col items-end shrink-0 text-right">
                 <span className="text-xs text-gray-400">
