@@ -13,6 +13,16 @@ interface ScoreDto {
   total: number
 }
 
+interface StageDto {
+  label: string
+  chamber: string
+}
+
+interface InitiatorDto {
+  full_name: string
+  group: string | null
+}
+
 interface DossierDetailDto {
   uid: string
   title: string
@@ -22,6 +32,9 @@ interface DossierDetailDto {
   acts: ActeDto[]
   score: ScoreDto
   persisted: boolean
+  current_stage: StageDto | null
+  initiators: InitiatorDto[]
+  committee: string | null
 }
 
 function ScoreBar({
@@ -41,7 +54,7 @@ function ScoreBar({
       <div className="flex justify-between text-sm mb-1">
         <span className="text-gray-300">
           {label}{' '}
-          <span className="text-gray-500 text-xs">×{weight}</span>
+          <span className="text-gray-500 text-xs">&times;{weight}</span>
         </span>
         <span className="text-gray-400">{value}/10</span>
       </div>
@@ -126,8 +139,21 @@ export default function DossierDetailPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold leading-snug mb-2">{data.title}</h2>
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
               <span className="text-gray-400">{data.procedure}</span>
+              {data.current_stage && (
+                <>
+                  <span className="text-gray-600">·</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-900/30 border border-indigo-800 text-indigo-300 text-xs font-medium">
+                    {data.current_stage.label}
+                    {data.current_stage.chamber && (
+                      <span className="text-indigo-500">
+                        — {data.current_stage.chamber}
+                      </span>
+                    )}
+                  </span>
+                </>
+              )}
               <span className="text-gray-600">·</span>
               <span className="text-blue-400">
                 {data.last_activity_label}
@@ -172,6 +198,37 @@ export default function DossierDetailPage() {
           )}
         </div>
       </div>
+
+      {(data.initiators.length > 0 || data.committee) && (
+        <div className="flex flex-wrap gap-3 mb-6">
+          {data.initiators.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Initiateur{data.initiators.length > 1 ? 's' : ''} :</span>
+              <div className="flex flex-wrap gap-1.5">
+                {data.initiators.map((init, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-800 text-gray-200 text-xs"
+                  >
+                    {init.full_name}
+                    {init.group && (
+                      <span className="text-amber-400 font-medium">{init.group}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {data.committee && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Commission :</span>
+              <span className="px-2 py-0.5 rounded-md bg-gray-800 text-gray-200 text-xs">
+                {data.committee}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 mb-8">
         <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">

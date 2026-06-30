@@ -6,10 +6,14 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::assembly_source::{AssemblySource, SourceError};
-use crate::domain::dossier::{LegislativeAct, LegislativeDossier};
+use crate::domain::dossier::{Initiator, LegislativeAct, LegislativeDossier};
 use crate::domain::scoring::compute_score;
 
-use super::parsing::{collect_all_acts, find_latest_act, RawDossierWrapper};
+use super::committees::resolve_committee;
+use super::parsing::{
+    collect_all_acts, extract_initiator_refs, find_committee_organe_ref, find_current_stage,
+    find_latest_act, RawDossierWrapper,
+};
 
 const DOSSIERS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/dossiers_legislatifs/Dossiers_Legislatifs.json.zip";
 const CACHE_TTL_SECS: u64 = 3600;
@@ -82,7 +86,9 @@ impl NationalAssemblyClient {
         Ok(data)
     }
 
-    fn parse_raw_dossier(raw: &super::parsing::RawDossier) -> Option<LegislativeDossier> {
+    fn parse_raw_dossier(
+        raw: &super::parsing::RawDossier,
+    ) -> Option<(LegislativeDossier, Vec<String>)> {
         let act_info = find_latest_act(&raw.legislative_acts)?;
         let date = NaiveDate::parse_from_str(&act_info.date, "%Y-%m-%d").ok()?;
 
@@ -99,22 +105,43 @@ impl NationalAssemblyClient {
             .collect();
 
         let score = compute_score(&raw.dossier_title.titre, &act_info.label, all_acts.len());
+        let current_stage = find_current_stage(&raw.legislative_acts);
+        let committee = find_committee_organe_ref(&raw.legislative_acts)
+            .and_then(|ref_id| resolve_committee(&ref_id).map(String::from));
+        let initiator_refs = extract_initiator_refs(&raw.initiator);
 
-        Some(LegislativeDossier {
-            uid: raw.uid.clone(),
-            title: raw.dossier_title.titre.clone(),
-            procedure: raw.parliamentary_procedure.libelle.clone(),
-            last_activity_date: date,
-            last_activity_label: act_info.label,
-            acts: all_acts,
-            score,
-        })
+        let is_government_bill = raw.parliamentary_procedure.libelle.starts_with("Projet de loi");
+
+        let initiators = if initiator_refs.is_empty() && is_government_bill {
+            vec![Initiator {
+                full_name: "Gouvernement".to_string(),
+                group: None,
+            }]
+        } else {
+            vec![]
+        };
+
+        Some((
+            LegislativeDossier {
+                uid: raw.uid.clone(),
+                title: raw.dossier_title.titre.clone(),
+                procedure: raw.parliamentary_procedure.libelle.clone(),
+                last_activity_date: date,
+                last_activity_label: act_info.label,
+                acts: all_acts,
+                score,
+                current_stage,
+                initiators,
+                committee,
+            },
+            initiator_refs,
+        ))
     }
 
     fn parse_dossiers(
         data: &[u8],
         since: NaiveDate,
-    ) -> Result<Vec<LegislativeDossier>, SourceError> {
+    ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
         let cursor = Cursor::new(data);
         let mut archive =
             zip::ZipArchive::new(cursor).map_err(|e| SourceError::Parse(e.to_string()))?;
@@ -140,16 +167,17 @@ impl NationalAssemblyClient {
                 Err(_) => continue,
             };
 
-            let dossier = match Self::parse_raw_dossier(&wrapper.parliamentary_dossier) {
-                Some(d) => d,
-                None => continue,
-            };
+            let (dossier, refs) =
+                match Self::parse_raw_dossier(&wrapper.parliamentary_dossier) {
+                    Some(d) => d,
+                    None => continue,
+                };
 
             if dossier.last_activity_date < since {
                 continue;
             }
 
-            dossiers.push(dossier);
+            dossiers.push((dossier, refs));
         }
 
         Ok(dossiers)
@@ -158,7 +186,7 @@ impl NationalAssemblyClient {
     fn find_dossier_by_uid(
         data: &[u8],
         uid: &str,
-    ) -> Result<Option<LegislativeDossier>, SourceError> {
+    ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
         let cursor = Cursor::new(data);
         let mut archive =
             zip::ZipArchive::new(cursor).map_err(|e| SourceError::Parse(e.to_string()))?;
@@ -199,21 +227,44 @@ impl AssemblySource for NationalAssemblyClient {
         &self,
         since: NaiveDate,
     ) -> Result<Vec<LegislativeDossier>, SourceError> {
+        let results = self.fetch_dossiers_since_with_refs(since).await?;
+        Ok(results.into_iter().map(|(d, _)| d).collect())
+    }
+
+    async fn fetch_dossiers_since_with_refs(
+        &self,
+        since: NaiveDate,
+    ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
         let zip_data = self.get_zip().await?;
 
-        let dossiers =
+        let parsed =
             tokio::task::spawn_blocking(move || Self::parse_dossiers(&zip_data, since))
                 .await
                 .map_err(|e| SourceError::Parse(e.to_string()))??;
 
-        tracing::info!("Found {} dossiers since {since}", dossiers.len());
-        Ok(dossiers)
+        tracing::info!("Found {} dossiers since {since}", parsed.len());
+        Ok(parsed)
     }
 
     async fn fetch_dossier_by_uid(
         &self,
         uid: &str,
     ) -> Result<Option<LegislativeDossier>, SourceError> {
+        let zip_data = self.get_zip().await?;
+        let uid = uid.to_string();
+
+        let result =
+            tokio::task::spawn_blocking(move || Self::find_dossier_by_uid(&zip_data, &uid))
+                .await
+                .map_err(|e| SourceError::Parse(e.to_string()))??;
+
+        Ok(result.map(|(d, _refs)| d))
+    }
+
+    async fn fetch_dossier_by_uid_with_refs(
+        &self,
+        uid: &str,
+    ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
         let zip_data = self.get_zip().await?;
         let uid = uid.to_string();
 
