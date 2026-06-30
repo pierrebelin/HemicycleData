@@ -77,7 +77,7 @@ mod tests {
 
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{Initiator, LegislativeAct, LegislativeDossier, Score};
+    use crate::domain::dossier::{CurationStatus, DossierUid, Initiator, LegislativeAct, LegislativeDossier, Score};
 
     struct FakeSource {
         dossiers_with_refs: Vec<(LegislativeDossier, Vec<String>)>,
@@ -101,14 +101,14 @@ mod tests {
 
         async fn fetch_dossier_by_uid(
             &self,
-            _uid: &str,
+            _uid: &DossierUid,
         ) -> Result<Option<LegislativeDossier>, SourceError> {
             unreachable!()
         }
 
         async fn fetch_dossier_by_uid_with_refs(
             &self,
-            _uid: &str,
+            _uid: &DossierUid,
         ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
             unreachable!()
         }
@@ -121,10 +121,7 @@ mod tests {
         async fn resolve_initiators(&self, acteur_refs: &[String]) -> Vec<Initiator> {
             acteur_refs
                 .iter()
-                .map(|r| Initiator {
-                    full_name: format!("Deputy {r}"),
-                    group: Some("GRP".into()),
-                })
+                .map(|r| Initiator::new(format!("Deputy {r}"), Some("GRP".into())).unwrap())
                 .collect()
         }
     }
@@ -153,7 +150,7 @@ mod tests {
         ) -> Result<usize, RepositoryError> {
             let mut store = self.dossiers.lock().unwrap();
             for d in dossiers {
-                store.insert(d.uid.clone(), d.clone());
+                store.insert(d.uid.as_str().to_string(), d.clone());
             }
             Ok(dossiers.len())
         }
@@ -167,8 +164,23 @@ mod tests {
 
         async fn find_by_uid(
             &self,
-            _uid: &str,
+            _uid: &DossierUid,
         ) -> Result<Option<LegislativeDossier>, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn find_suggestions(
+            &self,
+            _count: usize,
+        ) -> Result<Vec<LegislativeDossier>, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn update_curation_status(
+            &self,
+            _uid: &DossierUid,
+            _status: CurationStatus,
+        ) -> Result<bool, RepositoryError> {
             unreachable!()
         }
     }
@@ -179,7 +191,7 @@ mod tests {
             dossiers_with_refs: vec![
                 (
                     LegislativeDossier {
-                        uid: "D1".into(),
+                        uid: DossierUid::new("D1".into()).unwrap(),
                         title: "Loi A".into(),
                         procedure: "PL".into(),
                         last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
@@ -188,35 +200,27 @@ mod tests {
                             date: NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
                             label: "Dépôt".into(),
                         }],
-                        score: Score {
-                            progress: 2,
-                            magnitude: 4,
-                            momentum: 2,
-                            total: 23,
-                        },
+                        score: Score::new(2, 4, 2, 23).unwrap(),
                         current_stage: None,
                         initiators: vec![],
                         committee: None,
+                        curation_status: CurationStatus::New,
                     },
                     vec!["PA111111".into()],
                 ),
                 (
                     LegislativeDossier {
-                        uid: "D2".into(),
+                        uid: DossierUid::new("D2".into()).unwrap(),
                         title: "Loi B".into(),
                         procedure: "PPL".into(),
                         last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
                         last_activity_label: "Vote".into(),
                         acts: vec![],
-                        score: Score {
-                            progress: 9,
-                            magnitude: 4,
-                            momentum: 2,
-                            total: 62,
-                        },
+                        score: Score::new(9, 4, 2, 62).unwrap(),
                         current_stage: None,
                         initiators: vec![],
                         committee: None,
+                        curation_status: CurationStatus::New,
                     },
                     vec![],
                 ),
@@ -233,7 +237,7 @@ mod tests {
 
         let store = repo.dossiers.lock().unwrap();
         assert_eq!(store["D1"].initiators.len(), 1);
-        assert_eq!(store["D1"].initiators[0].full_name, "Deputy PA111111");
+        assert_eq!(store["D1"].initiators[0].full_name(), "Deputy PA111111");
         assert!(store["D2"].initiators.is_empty());
     }
 }

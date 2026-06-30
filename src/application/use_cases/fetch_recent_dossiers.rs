@@ -27,7 +27,7 @@ mod tests {
     use std::sync::Mutex;
 
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::LegislativeDossier;
+    use crate::domain::dossier::{CurationStatus, DossierUid, LegislativeDossier};
     use crate::domain::scoring::compute_score;
 
     struct InMemoryDossierRepository {
@@ -51,18 +51,7 @@ mod tests {
             let mut result: Vec<_> = store
                 .values()
                 .filter(|d| d.last_activity_date >= since)
-                .map(|d| LegislativeDossier {
-                    uid: d.uid.clone(),
-                    title: d.title.clone(),
-                    procedure: d.procedure.clone(),
-                    last_activity_date: d.last_activity_date,
-                    last_activity_label: d.last_activity_label.clone(),
-                    acts: vec![],
-                    score: d.score.clone(),
-                    current_stage: d.current_stage,
-                    initiators: d.initiators.clone(),
-                    committee: d.committee.clone(),
-                })
+                .cloned()
                 .collect();
             result.sort_by(|a, b| b.last_activity_date.cmp(&a.last_activity_date));
             Ok(result)
@@ -70,8 +59,23 @@ mod tests {
 
         async fn find_by_uid(
             &self,
-            _uid: &str,
+            _uid: &DossierUid,
         ) -> Result<Option<LegislativeDossier>, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn find_suggestions(
+            &self,
+            _count: usize,
+        ) -> Result<Vec<LegislativeDossier>, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn update_curation_status(
+            &self,
+            _uid: &DossierUid,
+            _status: CurationStatus,
+        ) -> Result<bool, RepositoryError> {
             unreachable!()
         }
     }
@@ -79,7 +83,7 @@ mod tests {
     fn make_dossier(uid: &str, title: &str, procedure: &str, date: NaiveDate, label: &str) -> LegislativeDossier {
         let score = compute_score(title, label, 0);
         LegislativeDossier {
-            uid: uid.into(),
+            uid: DossierUid::new(uid.into()).unwrap(),
             title: title.into(),
             procedure: procedure.into(),
             last_activity_date: date,
@@ -89,6 +93,7 @@ mod tests {
             current_stage: None,
             initiators: vec![],
             committee: None,
+            curation_status: CurationStatus::New,
         }
     }
 
@@ -106,7 +111,7 @@ mod tests {
         let uc = FetchRecentDossiers::new(&repo);
         let result = uc.execute(365).await.unwrap();
 
-        assert_eq!(result[0].uid, "D2");
-        assert_eq!(result[1].uid, "D1");
+        assert_eq!(result[0].uid.as_str(), "D2");
+        assert_eq!(result[1].uid.as_str(), "D1");
     }
 }

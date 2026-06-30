@@ -16,6 +16,12 @@ interface DossierDto {
   score_total: number
   current_stage: StageDto | null
   committee: string | null
+  curation_status: string
+}
+
+interface SuggestionsResponse {
+  count: number
+  suggestions: DossierDto[]
 }
 
 interface RecentDossiersResponse {
@@ -43,6 +49,30 @@ export default function DossierListPage() {
         }),
     })
 
+  const suggestions = useQuery<SuggestionsResponse>({
+    queryKey: ['suggestions'],
+    queryFn: () =>
+      fetch('/api/suggestions?count=3').then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      }),
+  })
+
+  const curate = useMutation({
+    mutationFn: ({ uid, status }: { uid: string; status: string }) =>
+      fetch(`/api/dossiers/${uid}/curate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      }).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+      queryClient.invalidateQueries({ queryKey: ['dossiers'] })
+    },
+  })
+
   const refresh = useMutation({
     mutationFn: () =>
       fetch('/api/refresh', { method: 'POST' }).then((res) => {
@@ -52,6 +82,7 @@ export default function DossierListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dossiers'] })
       queryClient.invalidateQueries({ queryKey: ['dossier'] })
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] })
     },
   })
 
@@ -112,6 +143,60 @@ export default function DossierListPage() {
             Erreur de synchronisation : {refresh.error instanceof Error ? refresh.error.message : 'inconnue'}
           </p>
         </div>
+      )}
+
+      {suggestions.data && suggestions.data.suggestions.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            Suggestions Instagram
+          </h3>
+          <div className="space-y-2">
+            {suggestions.data.suggestions.map((d) => (
+              <div
+                key={d.uid}
+                className="bg-gray-900 border border-amber-900/50 rounded-lg p-4 flex items-center gap-4"
+              >
+                <Link
+                  to={`/dossiers/${d.uid}`}
+                  className="flex-1 min-w-0 hover:opacity-80"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white ${scoreBadgeColor(d.score_total)}`}
+                    >
+                      {d.score_total}
+                    </span>
+                    <p className="text-white font-medium leading-snug truncate">
+                      {d.title}
+                    </p>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{d.procedure}</p>
+                </Link>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() =>
+                      curate.mutate({ uid: d.uid, status: 'selected' })
+                    }
+                    disabled={curate.isPending}
+                    className="px-3 py-1.5 rounded text-xs font-medium bg-emerald-900/30 border border-emerald-800 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-50"
+                  >
+                    Sélectionner
+                  </button>
+                  <button
+                    onClick={() =>
+                      curate.mutate({ uid: d.uid, status: 'dismissed' })
+                    }
+                    disabled={curate.isPending}
+                    className="px-3 py-1.5 rounded text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    Écarter
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {isLoading && (
