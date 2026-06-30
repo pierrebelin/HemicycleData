@@ -1,5 +1,61 @@
 use chrono::NaiveDate;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, thiserror::Error)]
+pub enum DomainError {
+    #[error("dossier uid must not be empty")]
+    EmptyDossierUid,
+    #[error("score progress must be 0-10, got {0}")]
+    InvalidProgress(u8),
+    #[error("score magnitude must be 0-10, got {0}")]
+    InvalidMagnitude(u8),
+    #[error("score momentum must be 0-10, got {0}")]
+    InvalidMomentum(u8),
+    #[error("score total must be 0-100, got {0}")]
+    InvalidTotal(u8),
+    #[error("initiator name must not be empty")]
+    EmptyInitiatorName,
+    #[error("committee name must not be empty")]
+    EmptyCommittee,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct DossierUid(String);
+
+impl DossierUid {
+    pub fn new(raw: String) -> Result<Self, DomainError> {
+        if raw.is_empty() {
+            return Err(DomainError::EmptyDossierUid);
+        }
+        Ok(Self(raw))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for DossierUid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Committee(String);
+
+impl Committee {
+    pub fn new(raw: String) -> Result<Self, DomainError> {
+        if raw.is_empty() {
+            return Err(DomainError::EmptyCommittee);
+        }
+        Ok(Self(raw))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LegislativeAct {
@@ -9,10 +65,49 @@ pub struct LegislativeAct {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Score {
-    pub progress: u8,
-    pub magnitude: u8,
-    pub momentum: u8,
-    pub total: u8,
+    progress: u8,
+    magnitude: u8,
+    momentum: u8,
+    total: u8,
+}
+
+impl Score {
+    pub fn new(progress: u8, magnitude: u8, momentum: u8, total: u8) -> Result<Self, DomainError> {
+        if progress > 10 {
+            return Err(DomainError::InvalidProgress(progress));
+        }
+        if magnitude > 10 {
+            return Err(DomainError::InvalidMagnitude(magnitude));
+        }
+        if momentum > 10 {
+            return Err(DomainError::InvalidMomentum(momentum));
+        }
+        if total > 100 {
+            return Err(DomainError::InvalidTotal(total));
+        }
+        Ok(Self {
+            progress,
+            magnitude,
+            momentum,
+            total,
+        })
+    }
+
+    pub fn progress(&self) -> u8 {
+        self.progress
+    }
+
+    pub fn magnitude(&self) -> u8 {
+        self.magnitude
+    }
+
+    pub fn momentum(&self) -> u8 {
+        self.momentum
+    }
+
+    pub fn total(&self) -> u8 {
+        self.total
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -101,13 +196,60 @@ impl LegislativeStage {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Initiator {
-    pub full_name: String,
-    pub group: Option<String>,
+    full_name: String,
+    group: Option<String>,
+}
+
+impl Initiator {
+    pub fn new(full_name: String, group: Option<String>) -> Result<Self, DomainError> {
+        if full_name.is_empty() {
+            return Err(DomainError::EmptyInitiatorName);
+        }
+        Ok(Self { full_name, group })
+    }
+
+    pub fn full_name(&self) -> &str {
+        &self.full_name
+    }
+
+    pub fn group(&self) -> Option<&str> {
+        self.group.as_deref()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CurationStatus {
+    New,
+    Selected,
+    Dismissed,
+    Published,
+}
+
+impl CurationStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::New => "new",
+            Self::Selected => "selected",
+            Self::Dismissed => "dismissed",
+            Self::Published => "published",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "new" => Some(Self::New),
+            "selected" => Some(Self::Selected),
+            "dismissed" => Some(Self::Dismissed),
+            "published" => Some(Self::Published),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LegislativeDossier {
-    pub uid: String,
+    pub uid: DossierUid,
     pub title: String,
     pub procedure: String,
     pub last_activity_date: NaiveDate,
@@ -116,12 +258,87 @@ pub struct LegislativeDossier {
     pub score: Score,
     pub current_stage: Option<LegislativeStage>,
     pub initiators: Vec<Initiator>,
-    pub committee: Option<String>,
+    pub committee: Option<Committee>,
+    pub curation_status: CurationStatus,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dossier_uid_rejects_empty() {
+        assert!(DossierUid::new("".into()).is_err());
+    }
+
+    #[test]
+    fn dossier_uid_accepts_valid() {
+        let uid = DossierUid::new("DLR5L17N12345".into()).unwrap();
+        assert_eq!(uid.as_str(), "DLR5L17N12345");
+    }
+
+    #[test]
+    fn score_rejects_out_of_range() {
+        assert!(Score::new(11, 5, 5, 50).is_err());
+        assert!(Score::new(5, 11, 5, 50).is_err());
+        assert!(Score::new(5, 5, 11, 50).is_err());
+        assert!(Score::new(5, 5, 5, 101).is_err());
+    }
+
+    #[test]
+    fn score_accepts_valid() {
+        let s = Score::new(10, 10, 10, 100).unwrap();
+        assert_eq!(s.progress(), 10);
+        assert_eq!(s.magnitude(), 10);
+        assert_eq!(s.momentum(), 10);
+        assert_eq!(s.total(), 100);
+    }
+
+    #[test]
+    fn score_accepts_zero() {
+        let s = Score::new(0, 0, 0, 0).unwrap();
+        assert_eq!(s.total(), 0);
+    }
+
+    #[test]
+    fn initiator_rejects_empty_name() {
+        assert!(Initiator::new("".into(), None).is_err());
+    }
+
+    #[test]
+    fn initiator_accepts_valid() {
+        let i = Initiator::new("Jean Dupont".into(), Some("RE".into())).unwrap();
+        assert_eq!(i.full_name(), "Jean Dupont");
+        assert_eq!(i.group(), Some("RE"));
+    }
+
+    #[test]
+    fn committee_rejects_empty() {
+        assert!(Committee::new("".into()).is_err());
+    }
+
+    #[test]
+    fn committee_accepts_valid() {
+        let c = Committee::new("Finances".into()).unwrap();
+        assert_eq!(c.as_str(), "Finances");
+    }
+
+    #[test]
+    fn curation_status_roundtrip() {
+        for status in [
+            CurationStatus::New,
+            CurationStatus::Selected,
+            CurationStatus::Dismissed,
+            CurationStatus::Published,
+        ] {
+            assert_eq!(CurationStatus::parse(status.as_str()), Some(status));
+        }
+    }
+
+    #[test]
+    fn curation_status_parse_invalid() {
+        assert_eq!(CurationStatus::parse("invalid"), None);
+    }
 
     #[test]
     fn stage_from_known_codes() {
