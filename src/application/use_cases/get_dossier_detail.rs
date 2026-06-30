@@ -1,4 +1,5 @@
 use crate::application::ports::assembly_source::AssemblySource;
+use crate::application::ports::deputy_source::DeputySource;
 use crate::application::ports::dossier_repository::DossierRepository;
 use crate::domain::dossier::LegislativeDossier;
 
@@ -18,14 +19,26 @@ pub struct DossierDetailResult {
 pub struct GetDossierDetail<'a> {
     repository: &'a dyn DossierRepository,
     source: &'a dyn AssemblySource,
+    deputy_source: &'a dyn DeputySource,
 }
 
 impl<'a> GetDossierDetail<'a> {
-    pub fn new(repository: &'a dyn DossierRepository, source: &'a dyn AssemblySource) -> Self {
-        Self { repository, source }
+    pub fn new(
+        repository: &'a dyn DossierRepository,
+        source: &'a dyn AssemblySource,
+        deputy_source: &'a dyn DeputySource,
+    ) -> Self {
+        Self {
+            repository,
+            source,
+            deputy_source,
+        }
     }
 
-    pub async fn execute(&self, uid: &str) -> Result<Option<DossierDetailResult>, GetDossierError> {
+    pub async fn execute(
+        &self,
+        uid: &str,
+    ) -> Result<Option<DossierDetailResult>, GetDossierError> {
         if let Some(dossier) = self.repository.find_by_uid(uid).await? {
             return Ok(Some(DossierDetailResult {
                 dossier,
@@ -33,7 +46,12 @@ impl<'a> GetDossierDetail<'a> {
             }));
         }
 
-        if let Some(dossier) = self.source.fetch_dossier_by_uid(uid).await? {
+        if let Some((mut dossier, refs)) =
+            self.source.fetch_dossier_by_uid_with_refs(uid).await?
+        {
+            if !refs.is_empty() {
+                dossier.initiators = self.deputy_source.resolve_initiators(&refs).await;
+            }
             return Ok(Some(DossierDetailResult {
                 dossier,
                 persisted: false,
@@ -54,7 +72,7 @@ mod tests {
 
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{LegislativeAct, LegislativeDossier, Score};
+    use crate::domain::dossier::{Initiator, LegislativeAct, LegislativeDossier, Score};
 
     struct InMemoryDossierRepository {
         dossiers: Mutex<HashMap<String, LegislativeDossier>>,
@@ -86,7 +104,7 @@ mod tests {
     }
 
     struct FakeSource {
-        dossiers: Mutex<HashMap<String, LegislativeDossier>>,
+        dossiers: Mutex<HashMap<String, (LegislativeDossier, Vec<String>)>>,
     }
 
     #[async_trait]
@@ -98,12 +116,42 @@ mod tests {
             unreachable!()
         }
 
+        async fn fetch_dossiers_since_with_refs(
+            &self,
+            _since: NaiveDate,
+        ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
+            unreachable!()
+        }
+
         async fn fetch_dossier_by_uid(
             &self,
             uid: &str,
         ) -> Result<Option<LegislativeDossier>, SourceError> {
             let store = self.dossiers.lock().unwrap();
+            Ok(store.get(uid).map(|(d, _)| d.clone()))
+        }
+
+        async fn fetch_dossier_by_uid_with_refs(
+            &self,
+            uid: &str,
+        ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
+            let store = self.dossiers.lock().unwrap();
             Ok(store.get(uid).cloned())
+        }
+    }
+
+    struct FakeDeputySource;
+
+    #[async_trait]
+    impl DeputySource for FakeDeputySource {
+        async fn resolve_initiators(&self, acteur_refs: &[String]) -> Vec<Initiator> {
+            acteur_refs
+                .iter()
+                .map(|r| Initiator {
+                    full_name: format!("Deputy {r}"),
+                    group: Some("GRP".into()),
+                })
+                .collect()
         }
     }
 
@@ -130,6 +178,9 @@ mod tests {
                 momentum: 4,
                 total: 85,
             },
+            current_stage: None,
+            initiators: vec![],
+            committee: None,
         }
     }
 
@@ -144,7 +195,8 @@ mod tests {
         let source = FakeSource {
             dossiers: Mutex::new(HashMap::new()),
         };
-        let uc = GetDossierDetail::new(&repo, &source);
+        let deputies = FakeDeputySource;
+        let uc = GetDossierDetail::new(&repo, &source, &deputies);
         let result = uc.execute("DLR5L17N12345").await.unwrap().unwrap();
 
         assert!(result.persisted);
@@ -153,20 +205,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn falls_back_to_source_when_not_in_repository() {
+    async fn falls_back_to_source_and_resolves_initiators() {
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(HashMap::new()),
         };
         let mut source_map = HashMap::new();
-        source_map.insert("DLR5L17N12345".into(), sample_dossier());
+        source_map.insert(
+            "DLR5L17N12345".into(),
+            (sample_dossier(), vec!["PA123456".into()]),
+        );
         let source = FakeSource {
             dossiers: Mutex::new(source_map),
         };
-        let uc = GetDossierDetail::new(&repo, &source);
+        let deputies = FakeDeputySource;
+        let uc = GetDossierDetail::new(&repo, &source, &deputies);
         let result = uc.execute("DLR5L17N12345").await.unwrap().unwrap();
 
         assert!(!result.persisted);
-        assert_eq!(result.dossier.uid, "DLR5L17N12345");
+        assert_eq!(result.dossier.initiators.len(), 1);
+        assert_eq!(result.dossier.initiators[0].full_name, "Deputy PA123456");
+        assert_eq!(
+            result.dossier.initiators[0].group,
+            Some("GRP".into())
+        );
     }
 
     #[tokio::test]
@@ -177,7 +238,8 @@ mod tests {
         let source = FakeSource {
             dossiers: Mutex::new(HashMap::new()),
         };
-        let uc = GetDossierDetail::new(&repo, &source);
+        let deputies = FakeDeputySource;
+        let uc = GetDossierDetail::new(&repo, &source, &deputies);
         let result = uc.execute("UNKNOWN").await.unwrap();
         assert!(result.is_none());
     }

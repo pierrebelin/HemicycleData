@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 
 use crate::application::ports::assembly_source::AssemblySource;
+use crate::application::ports::deputy_source::DeputySource;
 use crate::application::ports::dossier_repository::DossierRepository;
 
 #[derive(Debug, thiserror::Error)]
@@ -14,16 +15,53 @@ pub enum RefreshError {
 pub struct RefreshDossiers<'a> {
     source: &'a dyn AssemblySource,
     repository: &'a dyn DossierRepository,
+    deputy_source: &'a dyn DeputySource,
 }
 
 impl<'a> RefreshDossiers<'a> {
-    pub fn new(source: &'a dyn AssemblySource, repository: &'a dyn DossierRepository) -> Self {
-        Self { source, repository }
+    pub fn new(
+        source: &'a dyn AssemblySource,
+        repository: &'a dyn DossierRepository,
+        deputy_source: &'a dyn DeputySource,
+    ) -> Self {
+        Self {
+            source,
+            repository,
+            deputy_source,
+        }
     }
 
     pub async fn execute(&self) -> Result<usize, RefreshError> {
         let since = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap();
-        let dossiers = self.source.fetch_dossiers_since(since).await?;
+        let dossiers_with_refs = self.source.fetch_dossiers_since_with_refs(since).await?;
+
+        let all_refs: Vec<String> = dossiers_with_refs
+            .iter()
+            .flat_map(|(_, refs)| refs.iter().cloned())
+            .collect();
+
+        let resolved = if !all_refs.is_empty() {
+            self.deputy_source.resolve_initiators(&all_refs).await
+        } else {
+            vec![]
+        };
+
+        let ref_to_initiator: std::collections::HashMap<&str, &crate::domain::dossier::Initiator> =
+            all_refs.iter().zip(resolved.iter()).map(|(r, i)| (r.as_str(), i)).collect();
+
+        let dossiers: Vec<_> = dossiers_with_refs
+            .into_iter()
+            .map(|(mut dossier, refs)| {
+                if !refs.is_empty() && dossier.initiators.is_empty() {
+                    dossier.initiators = refs
+                        .iter()
+                        .filter_map(|r| ref_to_initiator.get(r.as_str()).map(|i| (*i).clone()))
+                        .collect();
+                }
+                dossier
+            })
+            .collect();
+
         let count = self.repository.save_all(&dossiers).await?;
         Ok(count)
     }
@@ -39,10 +77,10 @@ mod tests {
 
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{LegislativeAct, LegislativeDossier, Score};
+    use crate::domain::dossier::{Initiator, LegislativeAct, LegislativeDossier, Score};
 
     struct FakeSource {
-        dossiers: Vec<LegislativeDossier>,
+        dossiers_with_refs: Vec<(LegislativeDossier, Vec<String>)>,
     }
 
     #[async_trait]
@@ -51,19 +89,14 @@ mod tests {
             &self,
             _since: NaiveDate,
         ) -> Result<Vec<LegislativeDossier>, SourceError> {
-            Ok(self
-                .dossiers
-                .iter()
-                .map(|d| LegislativeDossier {
-                    uid: d.uid.clone(),
-                    title: d.title.clone(),
-                    procedure: d.procedure.clone(),
-                    last_activity_date: d.last_activity_date,
-                    last_activity_label: d.last_activity_label.clone(),
-                    acts: d.acts.clone(),
-                    score: d.score.clone(),
-                })
-                .collect())
+            unreachable!()
+        }
+
+        async fn fetch_dossiers_since_with_refs(
+            &self,
+            _since: NaiveDate,
+        ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
+            Ok(self.dossiers_with_refs.clone())
         }
 
         async fn fetch_dossier_by_uid(
@@ -71,6 +104,28 @@ mod tests {
             _uid: &str,
         ) -> Result<Option<LegislativeDossier>, SourceError> {
             unreachable!()
+        }
+
+        async fn fetch_dossier_by_uid_with_refs(
+            &self,
+            _uid: &str,
+        ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
+            unreachable!()
+        }
+    }
+
+    struct FakeDeputySource;
+
+    #[async_trait]
+    impl DeputySource for FakeDeputySource {
+        async fn resolve_initiators(&self, acteur_refs: &[String]) -> Vec<Initiator> {
+            acteur_refs
+                .iter()
+                .map(|r| Initiator {
+                    full_name: format!("Deputy {r}"),
+                    group: Some("GRP".into()),
+                })
+                .collect()
         }
     }
 
@@ -98,18 +153,7 @@ mod tests {
         ) -> Result<usize, RepositoryError> {
             let mut store = self.dossiers.lock().unwrap();
             for d in dossiers {
-                store.insert(
-                    d.uid.clone(),
-                    LegislativeDossier {
-                        uid: d.uid.clone(),
-                        title: d.title.clone(),
-                        procedure: d.procedure.clone(),
-                        last_activity_date: d.last_activity_date,
-                        last_activity_label: d.last_activity_label.clone(),
-                        acts: d.acts.clone(),
-                        score: d.score.clone(),
-                    },
-                );
+                store.insert(d.uid.clone(), d.clone());
             }
             Ok(dossiers.len())
         }
@@ -132,46 +176,64 @@ mod tests {
     #[tokio::test]
     async fn saves_all_dossiers_from_source() {
         let source = FakeSource {
-            dossiers: vec![
-                LegislativeDossier {
-                    uid: "D1".into(),
-                    title: "Loi A".into(),
-                    procedure: "PL".into(),
-                    last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
-                    last_activity_label: "Dépôt".into(),
-                    acts: vec![LegislativeAct {
-                        date: NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
-                        label: "Dépôt".into(),
-                    }],
-                    score: Score {
-                        progress: 2,
-                        magnitude: 4,
-                        momentum: 2,
-                        total: 23,
+            dossiers_with_refs: vec![
+                (
+                    LegislativeDossier {
+                        uid: "D1".into(),
+                        title: "Loi A".into(),
+                        procedure: "PL".into(),
+                        last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
+                        last_activity_label: "Dépôt".into(),
+                        acts: vec![LegislativeAct {
+                            date: NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
+                            label: "Dépôt".into(),
+                        }],
+                        score: Score {
+                            progress: 2,
+                            magnitude: 4,
+                            momentum: 2,
+                            total: 23,
+                        },
+                        current_stage: None,
+                        initiators: vec![],
+                        committee: None,
                     },
-                },
-                LegislativeDossier {
-                    uid: "D2".into(),
-                    title: "Loi B".into(),
-                    procedure: "PPL".into(),
-                    last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
-                    last_activity_label: "Vote".into(),
-                    acts: vec![],
-                    score: Score {
-                        progress: 9,
-                        magnitude: 4,
-                        momentum: 2,
-                        total: 62,
+                    vec!["PA111111".into()],
+                ),
+                (
+                    LegislativeDossier {
+                        uid: "D2".into(),
+                        title: "Loi B".into(),
+                        procedure: "PPL".into(),
+                        last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
+                        last_activity_label: "Vote".into(),
+                        acts: vec![],
+                        score: Score {
+                            progress: 9,
+                            magnitude: 4,
+                            momentum: 2,
+                            total: 62,
+                        },
+                        current_stage: None,
+                        initiators: vec![],
+                        committee: None,
                     },
-                },
+                    vec![],
+                ),
             ],
         };
 
         let repo = InMemoryDossierRepository::new();
-        let uc = RefreshDossiers::new(&source, &repo);
+        let deputies = FakeDeputySource;
+        let uc = RefreshDossiers::new(&source, &repo, &deputies);
         let count = uc.execute().await.unwrap();
 
         assert_eq!(count, 2);
         assert_eq!(repo.count(), 2);
+
+        let store = repo.dossiers.lock().unwrap();
+        assert_eq!(store["D1"].initiators.len(), 1);
+        assert_eq!(store["D1"].initiators[0].full_name, "Deputy PA111111");
+        assert!(store["D2"].initiators.is_empty());
     }
 }

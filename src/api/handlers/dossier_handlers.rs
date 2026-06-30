@@ -37,6 +37,7 @@ pub async fn get_dossier_detail(
     let uc = GetDossierDetail::new(
         state.dossier_repository.as_ref(),
         state.assembly_source.as_ref(),
+        state.deputy_source.as_ref(),
     );
 
     let result = uc
@@ -55,6 +56,7 @@ pub async fn save_dossier(
     let uc = SaveDossier::new(
         state.assembly_source.as_ref(),
         state.dossier_repository.as_ref(),
+        state.deputy_source.as_ref(),
     );
 
     uc.execute(&uid)
@@ -70,6 +72,7 @@ pub async fn refresh_dossiers(
     let uc = RefreshDossiers::new(
         state.assembly_source.as_ref(),
         state.dossier_repository.as_ref(),
+        state.deputy_source.as_ref(),
     );
 
     let count = uc
