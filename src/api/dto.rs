@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::dossier::LegislativeDossier;
+use crate::domain::dossier::{CurationStatus, LegislativeDossier};
 
 #[derive(Deserialize)]
 pub struct RecentActivityQuery {
@@ -23,19 +23,21 @@ pub struct DossierDto {
     pub score_total: u8,
     pub current_stage: Option<StageDto>,
     pub committee: Option<String>,
+    pub curation_status: String,
 }
 
 impl From<LegislativeDossier> for DossierDto {
     fn from(d: LegislativeDossier) -> Self {
         Self {
-            uid: d.uid,
+            uid: d.uid.as_str().to_string(),
             title: d.title,
             procedure: d.procedure,
             last_activity_date: d.last_activity_date,
             last_activity_label: d.last_activity_label,
-            score_total: d.score.total,
+            score_total: d.score.total(),
             current_stage: d.current_stage.map(StageDto::from),
-            committee: d.committee,
+            committee: d.committee.map(|c| c.as_str().to_string()),
+            curation_status: d.curation_status.as_str().to_string(),
         }
     }
 }
@@ -107,6 +109,7 @@ pub struct DossierDetailDto {
     pub current_stage: Option<StageDto>,
     pub initiators: Vec<InitiatorDto>,
     pub committee: Option<String>,
+    pub curation_status: String,
 }
 
 impl DossierDetailDto {
@@ -115,7 +118,7 @@ impl DossierDetailDto {
     ) -> Self {
         let d = result.dossier;
         Self {
-            uid: d.uid,
+            uid: d.uid.as_str().to_string(),
             title: d.title,
             procedure: d.procedure,
             last_activity_date: d.last_activity_date,
@@ -129,10 +132,10 @@ impl DossierDetailDto {
                 })
                 .collect(),
             score: ScoreDto {
-                progress: d.score.progress,
-                magnitude: d.score.magnitude,
-                momentum: d.score.momentum,
-                total: d.score.total,
+                progress: d.score.progress(),
+                magnitude: d.score.magnitude(),
+                momentum: d.score.momentum(),
+                total: d.score.total(),
             },
             persisted: result.persisted,
             current_stage: d.current_stage.map(StageDto::from),
@@ -140,11 +143,33 @@ impl DossierDetailDto {
                 .initiators
                 .into_iter()
                 .map(|i| InitiatorDto {
-                    full_name: i.full_name,
-                    group: i.group,
+                    full_name: i.full_name().to_string(),
+                    group: i.group().map(String::from),
                 })
                 .collect(),
-            committee: d.committee,
+            committee: d.committee.map(|c| c.as_str().to_string()),
+            curation_status: d.curation_status.as_str().to_string(),
         }
     }
+}
+
+#[derive(Deserialize)]
+pub struct SuggestionsQuery {
+    #[serde(default = "default_count")]
+    pub count: usize,
+}
+
+fn default_count() -> usize {
+    3
+}
+
+#[derive(Serialize)]
+pub struct SuggestionsResponse {
+    pub count: usize,
+    pub suggestions: Vec<DossierDto>,
+}
+
+#[derive(Deserialize)]
+pub struct CurateBody {
+    pub status: CurationStatus,
 }

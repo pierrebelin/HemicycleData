@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::assembly_source::{AssemblySource, SourceError};
-use crate::domain::dossier::{Initiator, LegislativeAct, LegislativeDossier};
+use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, LegislativeAct, LegislativeDossier};
 use crate::domain::scoring::compute_score;
 
 use super::committees::resolve_committee;
@@ -30,7 +30,6 @@ pub struct NationalAssemblyClient {
 
 impl NationalAssemblyClient {
     pub fn new() -> Self {
-        // data.assemblee-nationale.fr sometimes serves a self-signed certificate
         let http = reqwest::Client::builder()
             .danger_accept_invalid_certs(true)
             .build()
@@ -89,6 +88,7 @@ impl NationalAssemblyClient {
     fn parse_raw_dossier(
         raw: &super::parsing::RawDossier,
     ) -> Option<(LegislativeDossier, Vec<String>)> {
+        let uid = DossierUid::new(raw.uid.clone()).ok()?;
         let act_info = find_latest_act(&raw.legislative_acts)?;
         let date = NaiveDate::parse_from_str(&act_info.date, "%Y-%m-%d").ok()?;
 
@@ -107,23 +107,21 @@ impl NationalAssemblyClient {
         let score = compute_score(&raw.dossier_title.titre, &act_info.label, all_acts.len());
         let current_stage = find_current_stage(&raw.legislative_acts);
         let committee = find_committee_organe_ref(&raw.legislative_acts)
-            .and_then(|ref_id| resolve_committee(&ref_id).map(String::from));
+            .and_then(|ref_id| resolve_committee(&ref_id).map(String::from))
+            .and_then(|c| Committee::new(c).ok());
         let initiator_refs = extract_initiator_refs(&raw.initiator);
 
         let is_government_bill = raw.parliamentary_procedure.libelle.starts_with("Projet de loi");
 
         let initiators = if initiator_refs.is_empty() && is_government_bill {
-            vec![Initiator {
-                full_name: "Gouvernement".to_string(),
-                group: None,
-            }]
+            vec![Initiator::new("Gouvernement".to_string(), None).expect("non-empty")]
         } else {
             vec![]
         };
 
         Some((
             LegislativeDossier {
-                uid: raw.uid.clone(),
+                uid,
                 title: raw.dossier_title.titre.clone(),
                 procedure: raw.parliamentary_procedure.libelle.clone(),
                 last_activity_date: date,
@@ -133,6 +131,7 @@ impl NationalAssemblyClient {
                 current_stage,
                 initiators,
                 committee,
+                curation_status: CurationStatus::New,
             },
             initiator_refs,
         ))
@@ -248,10 +247,10 @@ impl AssemblySource for NationalAssemblyClient {
 
     async fn fetch_dossier_by_uid(
         &self,
-        uid: &str,
+        uid: &DossierUid,
     ) -> Result<Option<LegislativeDossier>, SourceError> {
         let zip_data = self.get_zip().await?;
-        let uid = uid.to_string();
+        let uid = uid.as_str().to_string();
 
         let result =
             tokio::task::spawn_blocking(move || Self::find_dossier_by_uid(&zip_data, &uid))
@@ -263,10 +262,10 @@ impl AssemblySource for NationalAssemblyClient {
 
     async fn fetch_dossier_by_uid_with_refs(
         &self,
-        uid: &str,
+        uid: &DossierUid,
     ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
         let zip_data = self.get_zip().await?;
-        let uid = uid.to_string();
+        let uid = uid.as_str().to_string();
 
         tokio::task::spawn_blocking(move || Self::find_dossier_by_uid(&zip_data, &uid))
             .await

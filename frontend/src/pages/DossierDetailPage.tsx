@@ -35,6 +35,14 @@ interface DossierDetailDto {
   current_stage: StageDto | null
   initiators: InitiatorDto[]
   committee: string | null
+  curation_status?: string
+}
+
+const curationLabels: Record<string, { label: string; classes: string }> = {
+  new: { label: 'Nouveau', classes: 'bg-gray-800 border-gray-700 text-gray-400' },
+  selected: { label: 'Sélectionné', classes: 'bg-emerald-900/30 border-emerald-800 text-emerald-400' },
+  dismissed: { label: 'Écarté', classes: 'bg-gray-800 border-gray-700 text-gray-500' },
+  published: { label: 'Publié', classes: 'bg-blue-900/30 border-blue-800 text-blue-400' },
 }
 
 function ScoreBar({
@@ -86,6 +94,21 @@ export default function DossierDetailPage() {
         return res.json()
       }),
     enabled: !!uid,
+  })
+
+  const curateMutation = useMutation({
+    mutationFn: (status: string) =>
+      fetch(`/api/dossiers/${uid}/curate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      }).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dossier', uid] })
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+    },
   })
 
   const saveMutation = useMutation({
@@ -198,6 +221,48 @@ export default function DossierDetailPage() {
           )}
         </div>
       </div>
+
+      {data.curation_status && (
+        <div className="flex items-center gap-3 mb-6">
+          {(() => {
+            const info = curationLabels[data.curation_status] ?? curationLabels.new
+            return (
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-md border text-xs font-medium ${info.classes}`}>
+                {info.label}
+              </span>
+            )
+          })()}
+          {data.curation_status !== 'published' && (
+            <div className="flex gap-2">
+              {data.curation_status !== 'selected' && (
+                <button
+                  onClick={() => curateMutation.mutate('selected')}
+                  disabled={curateMutation.isPending}
+                  className="px-3 py-1 rounded text-xs font-medium bg-emerald-900/30 border border-emerald-800 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-50"
+                >
+                  Sélectionner
+                </button>
+              )}
+              {data.curation_status !== 'dismissed' && (
+                <button
+                  onClick={() => curateMutation.mutate('dismissed')}
+                  disabled={curateMutation.isPending}
+                  className="px-3 py-1 rounded text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700 disabled:opacity-50"
+                >
+                  Écarter
+                </button>
+              )}
+              <button
+                onClick={() => curateMutation.mutate('published')}
+                disabled={curateMutation.isPending}
+                className="px-3 py-1 rounded text-xs font-medium bg-blue-900/30 border border-blue-800 text-blue-400 hover:bg-blue-900/50 disabled:opacity-50"
+              >
+                Publié
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {(data.initiators.length > 0 || data.committee) && (
         <div className="flex flex-wrap gap-3 mb-6">
