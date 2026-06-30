@@ -22,4 +22,14 @@ pub trait AssemblySource: Send + Sync {
         &self,
         uid: &str,
     ) -> Result<Option<LegislativeDossier>, SourceError>;
+
+    async fn fetch_dossiers_since_with_refs(
+        &self,
+        since: NaiveDate,
+    ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError>;
+
+    async fn fetch_dossier_by_uid_with_refs(
+        &self,
+        uid: &str,
+    ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError>;
 }

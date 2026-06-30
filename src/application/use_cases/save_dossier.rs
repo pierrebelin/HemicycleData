@@ -1,4 +1,5 @@
 use crate::application::ports::assembly_source::AssemblySource;
+use crate::application::ports::deputy_source::DeputySource;
 use crate::application::ports::dossier_repository::DossierRepository;
 
 #[derive(Debug, thiserror::Error)]
@@ -14,19 +15,32 @@ pub enum SaveDossierError {
 pub struct SaveDossier<'a> {
     source: &'a dyn AssemblySource,
     repository: &'a dyn DossierRepository,
+    deputy_source: &'a dyn DeputySource,
 }
 
 impl<'a> SaveDossier<'a> {
-    pub fn new(source: &'a dyn AssemblySource, repository: &'a dyn DossierRepository) -> Self {
-        Self { source, repository }
+    pub fn new(
+        source: &'a dyn AssemblySource,
+        repository: &'a dyn DossierRepository,
+        deputy_source: &'a dyn DeputySource,
+    ) -> Self {
+        Self {
+            source,
+            repository,
+            deputy_source,
+        }
     }
 
     pub async fn execute(&self, uid: &str) -> Result<(), SaveDossierError> {
-        let dossier = self
+        let (mut dossier, refs) = self
             .source
-            .fetch_dossier_by_uid(uid)
+            .fetch_dossier_by_uid_with_refs(uid)
             .await?
             .ok_or_else(|| SaveDossierError::NotFound(uid.to_string()))?;
+
+        if !refs.is_empty() && dossier.initiators.is_empty() {
+            dossier.initiators = self.deputy_source.resolve_initiators(&refs).await;
+        }
 
         self.repository.save_all(&[dossier]).await?;
         Ok(())
@@ -43,10 +57,10 @@ mod tests {
 
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{LegislativeDossier, Score};
+    use crate::domain::dossier::{Initiator, LegislativeDossier, Score};
 
     struct FakeSource {
-        dossiers: Mutex<HashMap<String, LegislativeDossier>>,
+        dossiers: Mutex<HashMap<String, (LegislativeDossier, Vec<String>)>>,
     }
 
     #[async_trait]
@@ -58,12 +72,41 @@ mod tests {
             unreachable!()
         }
 
+        async fn fetch_dossiers_since_with_refs(
+            &self,
+            _since: NaiveDate,
+        ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
+            unreachable!()
+        }
+
         async fn fetch_dossier_by_uid(
             &self,
-            uid: &str,
+            _uid: &str,
         ) -> Result<Option<LegislativeDossier>, SourceError> {
+            unreachable!()
+        }
+
+        async fn fetch_dossier_by_uid_with_refs(
+            &self,
+            uid: &str,
+        ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
             let store = self.dossiers.lock().unwrap();
             Ok(store.get(uid).cloned())
+        }
+    }
+
+    struct FakeDeputySource;
+
+    #[async_trait]
+    impl DeputySource for FakeDeputySource {
+        async fn resolve_initiators(&self, acteur_refs: &[String]) -> Vec<Initiator> {
+            acteur_refs
+                .iter()
+                .map(|r| Initiator {
+                    full_name: format!("Deputy {r}"),
+                    group: Some("GRP".into()),
+                })
+                .collect()
         }
     }
 
@@ -100,24 +143,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn saves_dossier_from_source() {
+    async fn saves_dossier_with_resolved_initiators() {
         let mut source_map = HashMap::new();
         source_map.insert(
             "D1".into(),
-            LegislativeDossier {
-                uid: "D1".into(),
-                title: "Loi test".into(),
-                procedure: "PL".into(),
-                last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
-                last_activity_label: "Dépôt".into(),
-                acts: vec![],
-                score: Score {
-                    progress: 2,
-                    magnitude: 4,
-                    momentum: 2,
-                    total: 23,
+            (
+                LegislativeDossier {
+                    uid: "D1".into(),
+                    title: "Loi test".into(),
+                    procedure: "PL".into(),
+                    last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
+                    last_activity_label: "Dépôt".into(),
+                    acts: vec![],
+                    score: Score {
+                        progress: 2,
+                        magnitude: 4,
+                        momentum: 2,
+                        total: 23,
+                    },
+                    current_stage: None,
+                    initiators: vec![],
+                    committee: None,
                 },
-            },
+                vec!["PA222222".into()],
+            ),
         );
 
         let source = FakeSource {
@@ -126,11 +175,15 @@ mod tests {
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(HashMap::new()),
         };
+        let deputies = FakeDeputySource;
 
-        let uc = SaveDossier::new(&source, &repo);
+        let uc = SaveDossier::new(&source, &repo, &deputies);
         uc.execute("D1").await.unwrap();
 
-        assert_eq!(repo.dossiers.lock().unwrap().len(), 1);
+        let store = repo.dossiers.lock().unwrap();
+        assert_eq!(store.len(), 1);
+        assert_eq!(store["D1"].initiators.len(), 1);
+        assert_eq!(store["D1"].initiators[0].full_name, "Deputy PA222222");
     }
 
     #[tokio::test]
@@ -141,8 +194,9 @@ mod tests {
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(HashMap::new()),
         };
+        let deputies = FakeDeputySource;
 
-        let uc = SaveDossier::new(&source, &repo);
+        let uc = SaveDossier::new(&source, &repo, &deputies);
         let result = uc.execute("UNKNOWN").await;
 
         assert!(matches!(result, Err(SaveDossierError::NotFound(_))));

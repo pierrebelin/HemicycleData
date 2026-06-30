@@ -21,6 +21,8 @@ pub struct DossierDto {
     pub last_activity_date: NaiveDate,
     pub last_activity_label: String,
     pub score_total: u8,
+    pub current_stage: Option<StageDto>,
+    pub committee: Option<String>,
 }
 
 impl From<LegislativeDossier> for DossierDto {
@@ -32,6 +34,8 @@ impl From<LegislativeDossier> for DossierDto {
             last_activity_date: d.last_activity_date,
             last_activity_label: d.last_activity_label,
             score_total: d.score.total,
+            current_stage: d.current_stage.map(StageDto::from),
+            committee: d.committee,
         }
     }
 }
@@ -57,6 +61,35 @@ pub struct ScoreDto {
 }
 
 #[derive(Serialize)]
+pub struct StageDto {
+    pub label: String,
+    pub chamber: String,
+}
+
+impl From<crate::domain::dossier::LegislativeStage> for StageDto {
+    fn from(s: crate::domain::dossier::LegislativeStage) -> Self {
+        let chamber = match s.chamber() {
+            crate::domain::dossier::Chamber::AssembleeNationale => {
+                "Assembl\u{00e9}e nationale".to_string()
+            }
+            crate::domain::dossier::Chamber::Senat => "S\u{00e9}nat".to_string(),
+            crate::domain::dossier::Chamber::Joint => "Conjointe".to_string(),
+            crate::domain::dossier::Chamber::None => String::new(),
+        };
+        Self {
+            label: s.label().to_string(),
+            chamber,
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct InitiatorDto {
+    pub full_name: String,
+    pub group: Option<String>,
+}
+
+#[derive(Serialize)]
 pub struct RefreshResponse {
     pub count: usize,
 }
@@ -71,6 +104,9 @@ pub struct DossierDetailDto {
     pub acts: Vec<ActDto>,
     pub score: ScoreDto,
     pub persisted: bool,
+    pub current_stage: Option<StageDto>,
+    pub initiators: Vec<InitiatorDto>,
+    pub committee: Option<String>,
 }
 
 impl DossierDetailDto {
@@ -99,6 +135,16 @@ impl DossierDetailDto {
                 total: d.score.total,
             },
             persisted: result.persisted,
+            current_stage: d.current_stage.map(StageDto::from),
+            initiators: d
+                .initiators
+                .into_iter()
+                .map(|i| InitiatorDto {
+                    full_name: i.full_name,
+                    group: i.group,
+                })
+                .collect(),
+            committee: d.committee,
         }
     }
 }
