@@ -18,6 +18,8 @@ pub struct DossierDto {
     pub uid: String,
     pub title: String,
     pub procedure: String,
+    pub legislature: u16,
+    pub url: Option<String>,
     pub last_activity_date: NaiveDate,
     pub last_activity_label: String,
     pub score_total: u8,
@@ -32,6 +34,8 @@ impl From<LegislativeDossier> for DossierDto {
             uid: d.uid.as_str().to_string(),
             title: d.title,
             procedure: d.procedure,
+            legislature: d.legislature,
+            url: d.url,
             last_activity_date: d.last_activity_date,
             last_activity_label: d.last_activity_label,
             score_total: d.score.total(),
@@ -52,6 +56,16 @@ pub struct RecentDossiersResponse {
 pub struct ActDto {
     pub date: NaiveDate,
     pub label: String,
+    pub code: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct DocumentDto {
+    pub document_uid: String,
+    pub title: String,
+    pub short_title: Option<String>,
+    pub doc_type: String,
+    pub date: Option<NaiveDate>,
 }
 
 #[derive(Serialize)]
@@ -101,9 +115,13 @@ pub struct DossierDetailDto {
     pub uid: String,
     pub title: String,
     pub procedure: String,
+    pub legislature: u16,
+    pub url: Option<String>,
+    pub summary: Option<String>,
     pub last_activity_date: NaiveDate,
     pub last_activity_label: String,
     pub acts: Vec<ActDto>,
+    pub documents: Vec<DocumentDto>,
     pub score: ScoreDto,
     pub persisted: bool,
     pub current_stage: Option<StageDto>,
@@ -121,6 +139,9 @@ impl DossierDetailDto {
             uid: d.uid.as_str().to_string(),
             title: d.title,
             procedure: d.procedure,
+            legislature: d.legislature,
+            url: d.url,
+            summary: d.summary,
             last_activity_date: d.last_activity_date,
             last_activity_label: d.last_activity_label,
             acts: d
@@ -129,6 +150,18 @@ impl DossierDetailDto {
                 .map(|a| ActDto {
                     date: a.date,
                     label: a.label,
+                    code: a.code,
+                })
+                .collect(),
+            documents: d
+                .documents
+                .into_iter()
+                .map(|doc| DocumentDto {
+                    document_uid: doc.document_uid,
+                    title: doc.title,
+                    short_title: doc.short_title,
+                    doc_type: doc.doc_type,
+                    date: doc.date,
                 })
                 .collect(),
             score: ScoreDto {

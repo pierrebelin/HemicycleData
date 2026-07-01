@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{Cursor, Read};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -6,17 +7,25 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::assembly_source::{AssemblySource, SourceError};
-use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, LegislativeAct, LegislativeDossier};
+use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, LegislativeAct, LegislativeDocument, LegislativeDossier};
 use crate::domain::scoring::compute_score;
 
 use super::committees::resolve_committee;
 use super::parsing::{
-    collect_all_acts, extract_initiator_refs, find_committee_organe_ref, find_current_stage,
-    find_latest_act, RawDossierWrapper,
+    collect_all_acts, extract_document_refs, extract_initiator_refs,
+    find_committee_organe_ref, find_current_stage, find_latest_act,
+    RawDocumentWrapper, RawDossierWrapper,
 };
 
 const DOSSIERS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/dossiers_legislatifs/Dossiers_Legislatifs.json.zip";
 const CACHE_TTL_SECS: u64 = 3600;
+
+struct DocumentMeta {
+    title: String,
+    short_title: Option<String>,
+    doc_type: String,
+    date: Option<NaiveDate>,
+}
 
 struct CachedZip {
     data: Vec<u8>,
@@ -87,10 +96,23 @@ impl NationalAssemblyClient {
 
     fn parse_raw_dossier(
         raw: &super::parsing::RawDossier,
+        doc_index: &HashMap<String, DocumentMeta>,
     ) -> Option<(LegislativeDossier, Vec<String>)> {
         let uid = DossierUid::new(raw.uid.clone()).ok()?;
         let act_info = find_latest_act(&raw.legislative_acts)?;
         let date = NaiveDate::parse_from_str(&act_info.date, "%Y-%m-%d").ok()?;
+
+        let legislature: u16 = raw
+            .legislature
+            .as_deref()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(17);
+
+        let url = raw.dossier_title.titre_chemin.as_ref().map(|chemin| {
+            format!(
+                "https://www.assemblee-nationale.fr/dyn/{legislature}/dossiers/{chemin}"
+            )
+        });
 
         let all_acts: Vec<LegislativeAct> = collect_all_acts(&raw.legislative_acts)
             .into_iter()
@@ -100,7 +122,23 @@ impl NationalAssemblyClient {
                     .map(|d| LegislativeAct {
                         date: d,
                         label: a.label,
+                        code: a.code,
                     })
+            })
+            .collect();
+
+        let doc_refs = extract_document_refs(&raw.legislative_acts);
+        let documents: Vec<LegislativeDocument> = doc_refs
+            .iter()
+            .filter_map(|doc_uid| {
+                let meta = doc_index.get(doc_uid)?;
+                Some(LegislativeDocument {
+                    document_uid: doc_uid.clone(),
+                    title: meta.title.clone(),
+                    short_title: meta.short_title.clone(),
+                    doc_type: meta.doc_type.clone(),
+                    date: meta.date,
+                })
             })
             .collect();
 
@@ -124,9 +162,13 @@ impl NationalAssemblyClient {
                 uid,
                 title: raw.dossier_title.titre.clone(),
                 procedure: raw.parliamentary_procedure.libelle.clone(),
+                legislature,
+                url,
+                summary: None,
                 last_activity_date: date,
                 last_activity_label: act_info.label,
                 acts: all_acts,
+                documents,
                 score,
                 current_stage,
                 initiators,
@@ -137,6 +179,63 @@ impl NationalAssemblyClient {
         ))
     }
 
+    fn build_document_index(archive: &mut zip::ZipArchive<Cursor<&[u8]>>) -> HashMap<String, DocumentMeta> {
+        let mut index = HashMap::new();
+
+        for i in 0..archive.len() {
+            let mut file = match archive.by_index(i) {
+                Ok(f) => f,
+                Err(_) => continue,
+            };
+
+            let name = file.name().to_string();
+            if !name.contains("document/") || !name.ends_with(".json") {
+                continue;
+            }
+
+            let mut content = String::new();
+            if file.read_to_string(&mut content).is_err() {
+                continue;
+            }
+
+            let wrapper: RawDocumentWrapper = match serde_json::from_str(&content) {
+                Ok(w) => w,
+                Err(_) => continue,
+            };
+
+            let doc = &wrapper.document;
+            let title = doc.titres.as_ref()
+                .and_then(|t| t.titre_principal.clone())
+                .unwrap_or_default();
+
+            if title.is_empty() {
+                continue;
+            }
+
+            let short_title = doc.titres.as_ref()
+                .and_then(|t| t.titre_principal_court.clone());
+
+            let doc_type = doc.denomination.clone()
+                .or_else(|| doc.provenance.clone())
+                .unwrap_or_else(|| "Document".to_string());
+
+            let date = doc.cycle_de_vie.as_ref()
+                .and_then(|c| c.chrono.as_ref())
+                .and_then(|c| c.date_depot.as_deref())
+                .and_then(|d| NaiveDate::parse_from_str(&d[..10.min(d.len())], "%Y-%m-%d").ok());
+
+            index.insert(doc.uid.clone(), DocumentMeta {
+                title,
+                short_title,
+                doc_type,
+                date,
+            });
+        }
+
+        tracing::info!("Built document index with {} entries", index.len());
+        index
+    }
+
     fn parse_dossiers(
         data: &[u8],
         since: NaiveDate,
@@ -144,6 +243,8 @@ impl NationalAssemblyClient {
         let cursor = Cursor::new(data);
         let mut archive =
             zip::ZipArchive::new(cursor).map_err(|e| SourceError::Parse(e.to_string()))?;
+
+        let doc_index = Self::build_document_index(&mut archive);
 
         let mut dossiers = Vec::new();
 
@@ -167,7 +268,7 @@ impl NationalAssemblyClient {
             };
 
             let (dossier, refs) =
-                match Self::parse_raw_dossier(&wrapper.parliamentary_dossier) {
+                match Self::parse_raw_dossier(&wrapper.parliamentary_dossier, &doc_index) {
                     Some(d) => d,
                     None => continue,
                 };
@@ -189,6 +290,8 @@ impl NationalAssemblyClient {
         let cursor = Cursor::new(data);
         let mut archive =
             zip::ZipArchive::new(cursor).map_err(|e| SourceError::Parse(e.to_string()))?;
+
+        let doc_index = Self::build_document_index(&mut archive);
 
         for i in 0..archive.len() {
             let mut file = archive
@@ -213,7 +316,7 @@ impl NationalAssemblyClient {
                 continue;
             }
 
-            return Ok(Self::parse_raw_dossier(&wrapper.parliamentary_dossier));
+            return Ok(Self::parse_raw_dossier(&wrapper.parliamentary_dossier, &doc_index));
         }
 
         Ok(None)
