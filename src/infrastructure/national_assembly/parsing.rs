@@ -11,6 +11,7 @@ pub struct RawDossierWrapper {
 #[derive(Deserialize)]
 pub struct RawDossier {
     pub uid: String,
+    pub legislature: Option<String>,
     #[serde(rename = "titreDossier")]
     pub dossier_title: RawTitle,
     #[serde(rename = "procedureParlementaire")]
@@ -24,6 +25,8 @@ pub struct RawDossier {
 #[derive(Deserialize)]
 pub struct RawTitle {
     pub titre: String,
+    #[serde(rename = "titreChemin")]
+    pub titre_chemin: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -47,6 +50,8 @@ pub struct RawAct {
     pub act_date: Option<String>,
     #[serde(rename = "libelleActe")]
     pub act_label: Option<RawActLabel>,
+    #[serde(rename = "texteAssocie")]
+    pub texte_associe: Option<String>,
     #[serde(rename = "actesLegislatifs")]
     pub legislative_acts: Option<RawActsContainer>,
 }
@@ -80,9 +85,45 @@ pub enum SingleOrVec<T> {
     Single(Box<T>),
 }
 
+#[derive(Deserialize)]
+pub struct RawDocumentWrapper {
+    pub document: RawDocument,
+}
+
+#[derive(Deserialize)]
+pub struct RawDocument {
+    pub uid: String,
+    #[serde(rename = "denominationStructurelle")]
+    pub denomination: Option<String>,
+    pub provenance: Option<String>,
+    pub titres: Option<RawDocumentTitles>,
+    #[serde(rename = "cycleDeVie")]
+    pub cycle_de_vie: Option<RawCycleDeVie>,
+}
+
+#[derive(Deserialize)]
+pub struct RawDocumentTitles {
+    #[serde(rename = "titrePrincipal")]
+    pub titre_principal: Option<String>,
+    #[serde(rename = "titrePrincipalCourt")]
+    pub titre_principal_court: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct RawCycleDeVie {
+    pub chrono: Option<RawChrono>,
+}
+
+#[derive(Deserialize)]
+pub struct RawChrono {
+    #[serde(rename = "dateDepot")]
+    pub date_depot: Option<String>,
+}
+
 pub struct ActInfo {
     pub date: String,
     pub label: String,
+    pub code: Option<String>,
 }
 
 pub fn find_latest_act(acts: &Option<RawActsContainer>) -> Option<ActInfo> {
@@ -108,6 +149,7 @@ pub fn find_latest_act(acts: &Option<RawActsContainer>) -> Option<ActInfo> {
                 *latest = Some(ActInfo {
                     date: date_short.to_string(),
                     label,
+                    code: act.code.clone(),
                 });
             }
         }
@@ -146,6 +188,7 @@ pub fn collect_all_acts(acts: &Option<RawActsContainer>) -> Vec<ActInfo> {
             result.push(ActInfo {
                 date: date_short.to_string(),
                 label,
+                code: act.code.clone(),
             });
         }
         if let Some(ref children) = act.legislative_acts {
@@ -170,6 +213,38 @@ pub fn collect_all_acts(acts: &Option<RawActsContainer>) -> Vec<ActInfo> {
 
     result.sort_by(|a, b| a.date.cmp(&b.date));
     result
+}
+
+pub fn extract_document_refs(acts: &Option<RawActsContainer>) -> Vec<String> {
+    let mut refs = Vec::new();
+
+    fn walk(act: &RawAct, refs: &mut Vec<String>) {
+        if let Some(ref doc_ref) = act.texte_associe {
+            if !refs.contains(doc_ref) {
+                refs.push(doc_ref.clone());
+            }
+        }
+        if let Some(ref children) = act.legislative_acts {
+            walk_container(children, refs);
+        }
+    }
+
+    fn walk_container(container: &RawActsContainer, refs: &mut Vec<String>) {
+        match &container.legislative_act {
+            SingleOrVec::Vec(v) => {
+                for a in v {
+                    walk(a, refs);
+                }
+            }
+            SingleOrVec::Single(a) => walk(a, refs),
+        }
+    }
+
+    if let Some(container) = acts.as_ref() {
+        walk_container(container, &mut refs);
+    }
+
+    refs
 }
 
 pub fn find_current_stage(acts: &Option<RawActsContainer>) -> Option<LegislativeStage> {

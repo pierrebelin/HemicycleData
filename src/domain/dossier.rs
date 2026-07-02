@@ -61,6 +61,16 @@ impl Committee {
 pub struct LegislativeAct {
     pub date: NaiveDate,
     pub label: String,
+    pub code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LegislativeDocument {
+    pub document_uid: String,
+    pub title: String,
+    pub short_title: Option<String>,
+    pub doc_type: String,
+    pub date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -252,9 +262,13 @@ pub struct LegislativeDossier {
     pub uid: DossierUid,
     pub title: String,
     pub procedure: String,
+    pub legislature: u16,
+    pub url: Option<String>,
+    pub summary: Option<String>,
     pub last_activity_date: NaiveDate,
     pub last_activity_label: String,
     pub acts: Vec<LegislativeAct>,
+    pub documents: Vec<LegislativeDocument>,
     pub score: Score,
     pub current_stage: Option<LegislativeStage>,
     pub initiators: Vec<Initiator>,
