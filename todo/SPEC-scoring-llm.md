@@ -1,5 +1,7 @@
 # SCORE-LLM — Scoring par grille complète
 
+> ⚠️ **À réviser avant implémentation** — le pivot vers le site de transparence (PROJECT.md, août 2026) change la nature du scoring : il **ordonne** l'affichage, il ne **filtre** plus (PROJECT.md §2, exhaustivité). Tombent donc : la short-list 3-5, le filtre de vulgarisabilité 60-90 s, la distinction « sujet développé / mention courte ». Ce qui survit : la thématisation par familles (devient PROJECT.md §5, seul point de jugement du produit, méthode à publier).
+
 > Remplace le score heuristique 3 dimensions (progress, magnitude, momentum) par la grille cible de PROJECT.md §4 : 6 critères pondérés + 1 filtre. 3 critères notés par jugement automatisé (LLM), 3 lus dans les données structurées. But : short-list crédible, sujets pertinents pour le public 25-40 ans jamais ratés.
 
 ## 1. Contexte
