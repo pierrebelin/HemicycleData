@@ -3,11 +3,7 @@ use chrono::NaiveDate;
 
 use crate::domain::dossier::{CurationStatus, DossierUid, LegislativeDossier};
 
-#[derive(Debug, thiserror::Error)]
-pub enum RepositoryError {
-    #[error("database error: {0}")]
-    Database(String),
-}
+pub use super::RepositoryError;
 
 #[async_trait]
 pub trait DossierRepository: Send + Sync {

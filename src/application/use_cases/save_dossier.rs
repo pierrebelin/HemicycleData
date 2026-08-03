@@ -1,6 +1,7 @@
+use crate::application::ports::actor_repository::ActorRepository;
 use crate::application::ports::assembly_source::AssemblySource;
-use crate::application::ports::deputy_source::DeputySource;
 use crate::application::ports::dossier_repository::DossierRepository;
+use crate::domain::actor::ActorUid;
 use crate::domain::dossier::DossierUid;
 
 #[derive(Debug, thiserror::Error)]
@@ -16,19 +17,19 @@ pub enum SaveDossierError {
 pub struct SaveDossier<'a> {
     source: &'a dyn AssemblySource,
     repository: &'a dyn DossierRepository,
-    deputy_source: &'a dyn DeputySource,
+    actor_repository: &'a dyn ActorRepository,
 }
 
 impl<'a> SaveDossier<'a> {
     pub fn new(
         source: &'a dyn AssemblySource,
         repository: &'a dyn DossierRepository,
-        deputy_source: &'a dyn DeputySource,
+        actor_repository: &'a dyn ActorRepository,
     ) -> Self {
         Self {
             source,
             repository,
-            deputy_source,
+            actor_repository,
         }
     }
 
@@ -40,7 +41,10 @@ impl<'a> SaveDossier<'a> {
             .ok_or_else(|| SaveDossierError::NotFound(uid.as_str().to_string()))?;
 
         if !refs.is_empty() && dossier.initiators.is_empty() {
-            dossier.initiators = self.deputy_source.resolve_initiators(&refs).await;
+            let uids: Vec<ActorUid> =
+                refs.into_iter().filter_map(|r| ActorUid::new(r).ok()).collect();
+            let directory = self.actor_repository.load_directory_for(&uids).await?;
+            dossier.attach_initiators(&uids, &directory);
         }
 
         self.repository.save_all(&[dossier]).await?;
@@ -58,7 +62,8 @@ mod tests {
 
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{CurationStatus, Initiator, LegislativeDossier, Score};
+    use crate::application::use_cases::refresh_dossiers::tests::InMemoryActorRepository;
+    use crate::domain::dossier::{CurationStatus, LegislativeDossier, Score};
 
     struct FakeSource {
         dossiers: Mutex<HashMap<String, (LegislativeDossier, Vec<String>)>>,
@@ -93,18 +98,6 @@ mod tests {
         ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
             let store = self.dossiers.lock().unwrap();
             Ok(store.get(uid.as_str()).cloned())
-        }
-    }
-
-    struct FakeDeputySource;
-
-    #[async_trait]
-    impl DeputySource for FakeDeputySource {
-        async fn resolve_initiators(&self, acteur_refs: &[String]) -> Vec<Initiator> {
-            acteur_refs
-                .iter()
-                .map(|r| Initiator::new(format!("Deputy {r}"), Some("GRP".into())).unwrap())
-                .collect()
         }
     }
 
@@ -156,7 +149,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn saves_dossier_with_resolved_initiators() {
+    async fn saves_dossier_with_initiators_dated_on_the_deposit_date() {
         let mut source_map = HashMap::new();
         source_map.insert(
             "D1".into(),
@@ -168,6 +161,7 @@ mod tests {
                     legislature: 17,
                     url: None,
                     summary: None,
+                    deposit_date: NaiveDate::from_ymd_opt(2025, 5, 13),
                     last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
                     last_activity_label: "Dépôt".into(),
                     acts: vec![],
@@ -178,7 +172,7 @@ mod tests {
                     committee: None,
                     curation_status: CurationStatus::New,
                 },
-                vec!["PA222222".into()],
+                vec!["PA111111".into()],
             ),
         );
 
@@ -188,16 +182,22 @@ mod tests {
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(HashMap::new()),
         };
-        let deputies = FakeDeputySource;
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
 
-        let uc = SaveDossier::new(&source, &repo, &deputies);
+        let uc = SaveDossier::new(&source, &repo, &actors);
         let uid = DossierUid::new("D1".into()).unwrap();
         uc.execute(&uid).await.unwrap();
 
         let store = repo.dossiers.lock().unwrap();
         assert_eq!(store.len(), 1);
         assert_eq!(store["D1"].initiators.len(), 1);
-        assert_eq!(store["D1"].initiators[0].full_name(), "Deputy PA222222");
+        let initiator = &store["D1"].initiators[0];
+        assert_eq!(initiator.full_name(), "Jean Dupont");
+        assert_eq!(initiator.group().unwrap().abbrev, "A");
+        assert_eq!(
+            initiator.reference_date(),
+            NaiveDate::from_ymd_opt(2025, 5, 13)
+        );
     }
 
     #[tokio::test]
@@ -208,9 +208,9 @@ mod tests {
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(HashMap::new()),
         };
-        let deputies = FakeDeputySource;
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
 
-        let uc = SaveDossier::new(&source, &repo, &deputies);
+        let uc = SaveDossier::new(&source, &repo, &actors);
         let uid = DossierUid::new("UNKNOWN".into()).unwrap();
         let result = uc.execute(&uid).await;
 

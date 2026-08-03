@@ -215,6 +215,48 @@ pub fn collect_all_acts(acts: &Option<RawActsContainer>) -> Vec<ActInfo> {
     result
 }
 
+/// Date de depot du texte: le plus ancien acte de depot du dossier.
+///
+/// Les codes varient selon la chambre saisie en premier (`AN1-DEPOT`,
+/// `SN1-DEPOT`, `ANLUNI-DEPOT`...), d'ou le suffixe plutot qu'une liste fermee.
+pub fn find_deposit_date(acts: &Option<RawActsContainer>) -> Option<String> {
+    let mut earliest: Option<String> = None;
+
+    fn walk(act: &RawAct, earliest: &mut Option<String>) {
+        let is_deposit = act
+            .code
+            .as_deref()
+            .map(|c| c.ends_with("-DEPOT"))
+            .unwrap_or(false);
+
+        if is_deposit {
+            if let Some(ref date_str) = act.act_date {
+                let date_short = date_str[..10.min(date_str.len())].to_string();
+                if earliest.as_ref().map_or(true, |e| date_short < *e) {
+                    *earliest = Some(date_short);
+                }
+            }
+        }
+        if let Some(ref children) = act.legislative_acts {
+            walk_container(children, earliest);
+        }
+    }
+
+    fn walk_container(container: &RawActsContainer, earliest: &mut Option<String>) {
+        match &container.legislative_act {
+            SingleOrVec::Vec(v) => {
+                for a in v {
+                    walk(a, earliest);
+                }
+            }
+            SingleOrVec::Single(a) => walk(a, earliest),
+        }
+    }
+
+    walk_container(acts.as_ref()?, &mut earliest);
+    earliest
+}
+
 pub fn extract_document_refs(acts: &Option<RawActsContainer>) -> Vec<String> {
     let mut refs = Vec::new();
 
