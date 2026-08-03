@@ -164,6 +164,10 @@ pub struct RefreshResponse {
     /// Renseigne quand le referentiel n'a pas pu etre rafraichi: les
     /// rattachements reposent alors sur la version precedente.
     pub registry_anomaly: Option<String>,
+    pub scrutins: Option<crate::api::scrutin_dto::ScrutinsRefreshResponse>,
+    /// Renseigne quand la source des scrutins n'a pas repondu: les scrutins
+    /// deja stockes restent en place.
+    pub scrutins_anomaly: Option<String>,
 }
 
 impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for RefreshResponse {
@@ -172,6 +176,10 @@ impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for Refres
             count: o.dossiers,
             registry: o.registry.map(RegistryResponse::from),
             registry_anomaly: o.registry_anomaly,
+            scrutins: o
+                .scrutins
+                .map(crate::api::scrutin_dto::ScrutinsRefreshResponse::from),
+            scrutins_anomaly: o.scrutins_anomaly,
         }
     }
 }
