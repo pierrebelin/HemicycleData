@@ -203,8 +203,8 @@ direct, ses votes sont les plus lisibles pour l'usage visé. À rouvrir si besoi
 - [x] **Phase 0** — Repo, ingestion des dossiers législatifs AN.
 - [x] **Phase 1** — Enrichissement du domaine dossier (étape, initiateurs, commission,
       documents, résumé) + curation.
-- [ ] **Phase 2** — **Acteurs** : référentiel députés et groupes, appartenances datées (§3.2).
-- [ ] **Phase 3** — **Scrutins** : ingestion, positions nominales, répartition par groupe.
+- [x] **Phase 2** — **Acteurs** : référentiel députés et groupes, appartenances datées (§3.2).
+- [x] **Phase 3** — **Scrutins** : ingestion, positions nominales, répartition par groupe.
 - [ ] **Phase 4** — Thématisation des dossiers + méthode publiée (§5).
 - [ ] **Phase 5** — Pages publiques thème × groupe × période.
 - [ ] **Phase 6** — Chat de routage (§8.2).

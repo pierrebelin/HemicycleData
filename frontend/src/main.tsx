@@ -6,6 +6,8 @@ import './index.css'
 import App from './App.tsx'
 import DossierListPage from './pages/DossierListPage.tsx'
 import DossierDetailPage from './pages/DossierDetailPage.tsx'
+import ScrutinListPage from './pages/ScrutinListPage.tsx'
+import ScrutinDetailPage from './pages/ScrutinDetailPage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -17,6 +19,8 @@ createRoot(document.getElementById('root')!).render(
           <Route element={<App />}>
             <Route index element={<DossierListPage />} />
             <Route path="dossiers/:uid" element={<DossierDetailPage />} />
+            <Route path="scrutins" element={<ScrutinListPage />} />
+            <Route path="scrutins/:uid" element={<ScrutinDetailPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

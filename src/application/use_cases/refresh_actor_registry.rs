@@ -1,0 +1,186 @@
+use crate::application::ports::actor_repository::{ActorRepository, RegistrySummary};
+use crate::application::ports::actor_source::ActorSource;
+
+/// Legislature couverte par le site (RM-07).
+pub const CURRENT_LEGISLATURE: u16 = 17;
+
+#[derive(Debug, thiserror::Error)]
+pub enum RefreshRegistryError {
+    #[error("{0}")]
+    Source(#[from] crate::application::ports::SourceError),
+    #[error("{0}")]
+    Repository(#[from] crate::application::ports::RepositoryError),
+}
+
+/// CU-01 — Ingerer le referentiel.
+pub struct RefreshActorRegistry<'a> {
+    source: &'a dyn ActorSource,
+    repository: &'a dyn ActorRepository,
+}
+
+impl<'a> RefreshActorRegistry<'a> {
+    pub fn new(source: &'a dyn ActorSource, repository: &'a dyn ActorRepository) -> Self {
+        Self { source, repository }
+    }
+
+    pub async fn execute(&self) -> Result<RegistrySummary, RefreshRegistryError> {
+        let registry = self.source.fetch_registry(CURRENT_LEGISLATURE).await?;
+        let summary = self.repository.save_registry(&registry).await?;
+
+        tracing::info!(
+            "Actor registry refreshed: {} actors, {} groups, {} memberships",
+            summary.actors,
+            summary.groups,
+            summary.memberships
+        );
+
+        Ok(summary)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use chrono::NaiveDate;
+    use std::sync::Mutex;
+
+    use crate::application::ports::actor_repository::RepositoryError;
+    use crate::application::ports::actor_source::SourceError;
+    use crate::domain::actor::{
+        Actor, ActorDirectory, ActorRegistry, ActorRole, ActorUid, GroupMembership, GroupUid,
+        MembershipPeriod, MembershipQuality, ParliamentaryGroup,
+    };
+
+    fn sample_registry() -> ActorRegistry {
+        let actor = Actor::new(
+            ActorUid::new("PA1".into()).unwrap(),
+            Some("M.".into()),
+            "Jean".into(),
+            "Dupont".into(),
+            ActorRole::Deputy,
+        )
+        .unwrap();
+
+        let group = ParliamentaryGroup::new(
+            GroupUid::new("PO_A".into()).unwrap(),
+            17,
+            "Groupe A".into(),
+            "A".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let membership = GroupMembership::new(
+            "PM1".into(),
+            ActorUid::new("PA1".into()).unwrap(),
+            GroupUid::new("PO_A".into()).unwrap(),
+            17,
+            MembershipPeriod::new(NaiveDate::from_ymd_opt(2024, 7, 19).unwrap(), None).unwrap(),
+            MembershipQuality::new("Membre".into()).unwrap(),
+        );
+
+        ActorRegistry {
+            actors: vec![actor],
+            groups: vec![group],
+            memberships: vec![membership],
+        }
+    }
+
+    struct FakeActorSource {
+        registry: Option<ActorRegistry>,
+        requested_legislature: Mutex<Option<u16>>,
+    }
+
+    #[async_trait]
+    impl ActorSource for FakeActorSource {
+        async fn fetch_registry(&self, legislature: u16) -> Result<ActorRegistry, SourceError> {
+            *self.requested_legislature.lock().unwrap() = Some(legislature);
+            self.registry
+                .clone()
+                .ok_or_else(|| SourceError::Download("source unavailable".into()))
+        }
+    }
+
+    struct InMemoryActorRepository {
+        registry: Mutex<Option<ActorRegistry>>,
+    }
+
+    impl InMemoryActorRepository {
+        fn new() -> Self {
+            Self {
+                registry: Mutex::new(None),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl ActorRepository for InMemoryActorRepository {
+        async fn save_registry(
+            &self,
+            registry: &ActorRegistry,
+        ) -> Result<RegistrySummary, RepositoryError> {
+            *self.registry.lock().unwrap() = Some(registry.clone());
+            Ok(RegistrySummary {
+                actors: registry.actors.len(),
+                groups: registry.groups.len(),
+                memberships: registry.memberships.len(),
+            })
+        }
+
+        async fn load_directory_for(
+            &self,
+            _actor_uids: &[ActorUid],
+        ) -> Result<ActorDirectory, RepositoryError> {
+            unreachable!()
+        }
+    }
+
+    #[tokio::test]
+    async fn stores_the_registry_of_the_current_legislature() {
+        let source = FakeActorSource {
+            registry: Some(sample_registry()),
+            requested_legislature: Mutex::new(None),
+        };
+        let repository = InMemoryActorRepository::new();
+
+        let summary = RefreshActorRegistry::new(&source, &repository)
+            .execute()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            summary,
+            RegistrySummary {
+                actors: 1,
+                groups: 1,
+                memberships: 1
+            }
+        );
+        assert_eq!(
+            *source.requested_legislature.lock().unwrap(),
+            Some(CURRENT_LEGISLATURE)
+        );
+
+        let stored = repository.registry.lock().unwrap();
+        let stored = stored.as_ref().unwrap();
+        assert_eq!(stored.groups[0].abbrev(), "A");
+        assert_eq!(stored.memberships[0].quality().as_str(), "Membre");
+    }
+
+    #[tokio::test]
+    async fn leaves_the_previous_registry_untouched_when_the_source_is_down() {
+        let source = FakeActorSource {
+            registry: None,
+            requested_legislature: Mutex::new(None),
+        };
+        let repository = InMemoryActorRepository::new();
+
+        let result = RefreshActorRegistry::new(&source, &repository).execute().await;
+
+        assert!(matches!(result, Err(RefreshRegistryError::Source(_))));
+        assert!(repository.registry.lock().unwrap().is_none());
+    }
+}
