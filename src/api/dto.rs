@@ -20,6 +20,7 @@ pub struct DossierDto {
     pub procedure: String,
     pub legislature: u16,
     pub url: Option<String>,
+    pub deposit_date: Option<NaiveDate>,
     pub last_activity_date: NaiveDate,
     pub last_activity_label: String,
     pub score_total: u8,
@@ -36,6 +37,7 @@ impl From<LegislativeDossier> for DossierDto {
             procedure: d.procedure,
             legislature: d.legislature,
             url: d.url,
+            deposit_date: d.deposit_date,
             last_activity_date: d.last_activity_date,
             last_activity_label: d.last_activity_label,
             score_total: d.score.total(),
@@ -100,14 +102,78 @@ impl From<crate::domain::dossier::LegislativeStage> for StageDto {
 }
 
 #[derive(Serialize)]
+pub struct InitiatorGroupDto {
+    pub uid: String,
+    pub abbrev: String,
+    /// Libelle officiel du groupe, jamais traduit en parti (RM-06).
+    pub label: String,
+    pub quality: Option<String>,
+}
+
+#[derive(Serialize)]
 pub struct InitiatorDto {
     pub full_name: String,
-    pub group: Option<String>,
+    pub actor_uid: Option<String>,
+    pub role: Option<String>,
+    pub group: Option<InitiatorGroupDto>,
+    /// Date a laquelle le groupe a ete lu. Toujours servie avec le groupe: un
+    /// groupe sans sa date de reference n'est pas affichable (RM-01).
+    pub reference_date: Option<NaiveDate>,
+    pub official_url: Option<String>,
+}
+
+impl From<crate::domain::dossier::Initiator> for InitiatorDto {
+    fn from(i: crate::domain::dossier::Initiator) -> Self {
+        Self {
+            full_name: i.full_name().to_string(),
+            actor_uid: i.actor_uid().map(|u| u.as_str().to_string()),
+            role: i.role().map(|r| r.label().to_string()),
+            group: i.group().map(|g| InitiatorGroupDto {
+                uid: g.uid.as_str().to_string(),
+                abbrev: g.abbrev.clone(),
+                label: g.label.clone(),
+                quality: g.quality.as_ref().map(|q| q.as_str().to_string()),
+            }),
+            reference_date: i.reference_date(),
+            official_url: i.official_url().map(String::from),
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct RegistryResponse {
+    pub actors: usize,
+    pub groups: usize,
+    pub memberships: usize,
+}
+
+impl From<crate::application::ports::actor_repository::RegistrySummary> for RegistryResponse {
+    fn from(s: crate::application::ports::actor_repository::RegistrySummary) -> Self {
+        Self {
+            actors: s.actors,
+            groups: s.groups,
+            memberships: s.memberships,
+        }
+    }
 }
 
 #[derive(Serialize)]
 pub struct RefreshResponse {
     pub count: usize,
+    pub registry: Option<RegistryResponse>,
+    /// Renseigne quand le referentiel n'a pas pu etre rafraichi: les
+    /// rattachements reposent alors sur la version precedente.
+    pub registry_anomaly: Option<String>,
+}
+
+impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for RefreshResponse {
+    fn from(o: crate::application::use_cases::refresh_all::RefreshOutcome) -> Self {
+        Self {
+            count: o.dossiers,
+            registry: o.registry.map(RegistryResponse::from),
+            registry_anomaly: o.registry_anomaly,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -118,6 +184,7 @@ pub struct DossierDetailDto {
     pub legislature: u16,
     pub url: Option<String>,
     pub summary: Option<String>,
+    pub deposit_date: Option<NaiveDate>,
     pub last_activity_date: NaiveDate,
     pub last_activity_label: String,
     pub acts: Vec<ActDto>,
@@ -142,6 +209,7 @@ impl DossierDetailDto {
             legislature: d.legislature,
             url: d.url,
             summary: d.summary,
+            deposit_date: d.deposit_date,
             last_activity_date: d.last_activity_date,
             last_activity_label: d.last_activity_label,
             acts: d
@@ -172,14 +240,7 @@ impl DossierDetailDto {
             },
             persisted: result.persisted,
             current_stage: d.current_stage.map(StageDto::from),
-            initiators: d
-                .initiators
-                .into_iter()
-                .map(|i| InitiatorDto {
-                    full_name: i.full_name().to_string(),
-                    group: i.group().map(String::from),
-                })
-                .collect(),
+            initiators: d.initiators.into_iter().map(InitiatorDto::from).collect(),
             committee: d.committee.map(|c| c.as_str().to_string()),
             curation_status: d.curation_status.as_str().to_string(),
         }

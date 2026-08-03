@@ -29,6 +29,10 @@ pub fn create_router(state: AppState) -> Router {
             post(dossier_handlers::curate_dossier),
         )
         .route("/api/refresh", post(dossier_handlers::refresh_dossiers))
+        .route(
+            "/api/registry/refresh",
+            post(dossier_handlers::refresh_actor_registry),
+        )
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
