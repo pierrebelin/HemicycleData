@@ -6,7 +6,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::AppState;
 
-use super::handlers::{dossier_handlers, scrutin_handlers};
+use super::handlers::{dossier_handlers, scrutin_handlers, theme_handlers};
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
@@ -41,6 +41,18 @@ pub fn create_router(state: AppState) -> Router {
             "/api/scrutins/{uid}",
             get(scrutin_handlers::get_scrutin_detail),
         )
+        // Thematisation (todo/SPEC-thematisation.md).
+        .route("/api/themes", get(theme_handlers::list_families))
+        .route("/api/themes/method", get(theme_handlers::get_method))
+        .route(
+            "/api/themes/unassigned",
+            get(theme_handlers::list_unassigned_texts),
+        )
+        .route("/api/themes/extract", post(theme_handlers::extract_texts))
+        .route("/api/themes/propose", post(theme_handlers::propose_families))
+        .route("/api/themes/arbitrate", post(theme_handlers::arbitrate))
+        .route("/api/themes/{code}", get(theme_handlers::list_family_texts))
+        .route("/api/texts/{key}", get(theme_handlers::get_text_detail))
         .route("/api/refresh", post(dossier_handlers::refresh_dossiers))
         .route(
             "/api/registry/refresh",

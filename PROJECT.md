@@ -72,7 +72,7 @@ groupe Y ». La limite est affichée sur les pages concernées, pas enfouie dans
 ```
 Ingestion continue AN (dossiers + scrutins + députés + appartenances)
   → Base de faits horodatés
-  → Thématisation (rattachement dossier → familles)
+  → Thématisation (rattachement texte débattu → familles, hérité par scrutins et dossiers)
   → Pages structurées : thème × groupe × période
   → Chat (couche de routage, sans production de chiffres)
 ```
@@ -84,9 +84,18 @@ Ingestion continue AN (dossiers + scrutins + députés + appartenances)
 
 ## 5. Thématisation
 
-Rattacher un dossier à un ou plusieurs thèmes est **le seul endroit où un jugement
+Rattacher un texte à un ou plusieurs thèmes est **le seul endroit où un jugement
 entre dans le produit**. Il est donc traité comme tel : critères explicites, résultat
 inspectable, correction possible.
+
+**Le porteur du thème est le texte débattu, pas le dossier** (décidé le 03/08/2026).
+La source publie le lien vers le dossier de façon irrégulière *à l'intérieur d'un même
+texte* : la proposition de loi relative au droit à l'aide à mourir porte 297 scrutins
+avec dossier et 541 sans. Thématiser le dossier laisserait 541 votes du même texte hors
+thème — la sélection éditoriale que §2 interdit. Le texte est extrait de l'objet du
+scrutin par une règle déterministe : 8 428 scrutins sur 8 434 se regroupent en
+322 textes. Un scrutin hérite des familles de son texte ; un dossier hérite du texte que
+ses propres scrutins nomment, et n'est classé directement que s'il n'a aucun scrutin.
 
 Familles cibles :
 
@@ -101,10 +110,12 @@ Familles cibles :
 
 Règles :
 
-- Un dossier peut appartenir à **plusieurs** familles ; on ne force pas l'unicité.
+- Un texte peut appartenir à **plusieurs** familles, trois au plus ; on ne force pas l'unicité.
 - Le rattachement est **révisable** et son historique conservé.
-- Un dossier non rattaché reste **consultable** (liste générale), il n'est pas perdu.
+- Un texte non rattaché reste **consultable** (liste dédiée), il n'est pas perdu.
 - La méthode de rattachement est publiée sur le site.
+- Le modèle **propose** et sa proposition est publiée avec la mention de son origine ;
+  un humain peut arbitrer après coup. Le modèle ne voit que le libellé du texte.
 
 ## 6. Neutralité — règles dures
 
@@ -205,7 +216,7 @@ direct, ses votes sont les plus lisibles pour l'usage visé. À rouvrir si besoi
       documents, résumé) + curation.
 - [x] **Phase 2** — **Acteurs** : référentiel députés et groupes, appartenances datées (§3.2).
 - [x] **Phase 3** — **Scrutins** : ingestion, positions nominales, répartition par groupe.
-- [ ] **Phase 4** — Thématisation des dossiers + méthode publiée (§5).
+- [x] **Phase 4** — **Thématisation** : textes débattus, familles, méthode publiée (§5).
 - [ ] **Phase 5** — Pages publiques thème × groupe × période.
 - [ ] **Phase 6** — Chat de routage (§8.2).
 - [ ] **Phase 7** — Page méthodologie, journal des corrections (§9).
@@ -223,4 +234,7 @@ direct, ses votes sont les plus lisibles pour l'usage visé. À rouvrir si besoi
 *Note de pivot (août 2026) : ce document remplace la version « générateur de contenus
 courts Instagram/TikTok ». Le socle d'ingestion et le domaine législatif sont conservés ;
 la couche de production éditoriale (short-list hebdomadaire, scripts, posts) est
-abandonnée. Voir `todo/archive/` pour les spécifications devenues caduques.*
+abandonnée. Voir `todo/archive/` pour les spécifications devenues caduques — dont
+`SPEC-scoring-llm.md`, archivée le 03/08/2026 : sa grille faisait noter le LLM de 0 à 10,
+ce que §8 interdit, et ses critères (impact concret, résonance actu, vulgarisabilité)
+appartenaient au produit d'avant le pivot.*
