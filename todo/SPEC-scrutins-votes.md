@@ -1,5 +1,12 @@
 # SCRUTINS — Scrutins et votes des dossiers
 
+> ⚠️ **À réviser avant implémentation** — le pivot vers le site de transparence (PROJECT.md, août 2026) invalide plusieurs choix de cette spec :
+> - **RM-01** (rattachement obligatoire à un dossier) écarte les scrutins orphelins. Mesuré sur les données réelles le 02/08/2026 : **5 826 scrutins sur 8 434 (69 %) n'ont aucun dossier rattaché**. Cette règle viderait le site des deux tiers des votes. PROJECT.md §7 impose de les conserver.
+> - **RM-02** (deux régimes de vote) est faux : les 8 434 scrutins portent tous le décompte nominatif. Les votes à main levée sont absents du jeu, pas présents sans répartition — c'est un trou de couverture à afficher, pas un mode d'affichage.
+> - **Bonne nouvelle** : chaque votant porte la référence de son mandat, donc son groupe **au moment du vote**, sans recherche par date. La répartition par groupe ne dépend pas de la phase acteurs — seul l'affichage des libellés en dépend.
+> - **Position nominale par député** est en hors périmètre §9 ; les données la fournissent pour tous les scrutins et elle devient le niveau de preuve central (PROJECT.md §7).
+> - Les justifications « matière des contenus générés » tombent : la couche éditoriale est abandonnée.
+
 > Ingérer les scrutins publics de l'Assemblée nationale rattachés aux dossiers suivis. Afficher la répartition des votes par groupe politique en chiffres bruts. Matière des futurs contenus (« rejeté par 280 voix contre 250 ») et du critère importance du scoring.
 
 ## 1. Contexte
