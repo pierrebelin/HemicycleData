@@ -139,17 +139,74 @@ Vérifiées sur les données réelles le 2 août 2026 (jeux officiels AN, légis
 | # | Hypothèse | Statut |
 |---|---|---|
 | H1 | Appartenances portent dates de début et de fin, et une qualité | **Confirmée.** Qualités observées : membre, membre apparenté, président, député non-inscrit |
-| H2 | Scrutins désignent acteurs et groupes par les identifiants du référentiel | **Confirmée au-delà.** Chaque votant porte aussi la référence de son mandat : le groupe se lit sans recherche par date. Zéro référence non résolue sur l'ensemble des scrutins |
+| H2 | Scrutins désignent acteurs et groupes par les identifiants du référentiel | **Confirmée pour les identifiants** (zéro référence non résolue sur l'ensemble des scrutins). **Corrigée le 3 août 2026** : le mandat porté par chaque votant est le mandat d'Assemblée — le siège — et non l'appartenance de groupe. Les 1 270 476 références sont de type ASSEMBLEE. Le raccourci « le groupe se lit sans recherche par date » n'existe pas ; c'est la ligne de groupe du scrutin qui porte l'attribution (spec SCRUTINS RM-04) |
 | H3 | Les non-inscrits sont une absence d'appartenance | **Infirmée.** Les non-inscrits constituent un groupe officiel à part entière (voir RM-03) |
-| H4 | Date de dépôt présente à la source mais non conservée aujourd'hui : elle devra l'être pour appliquer RM-01 | **Confirmée.** Gap côté application |
+| H4 | Date de dépôt présente à la source mais non conservée aujourd'hui : elle devra l'être pour appliquer RM-01 | **Confirmée.** Gap côté application — comblé le 3 août 2026 : plus ancien acte `*-DEPOT`, repli sur la date de dépôt du plus ancien document. Couverture 2 810 / 2 833 dossiers de la législature 17 ; les deux sources concordent sur les 2 559 cas où elles coexistent |
+| H5 | RM-07 filtre les acteurs autant que les appartenances | **Infirmée en pratique.** Un filtrage strict des acteurs laisse 3 687 des 6 028 entrées initiateur (61 %, surtout des sénateurs) affichées en identifiant brut, et contredit CU-02 qui suppose le ministre connu. Retenu : identité ingérée sans filtre, groupes et appartenances restreints à la législature en cours |
 
-## 11. Questions ouvertes
+## 11. Questions ouvertes — tranchées
 
-| # | Question | Impact | Options |
-|---|---|---|---|
-| Q1 | Plusieurs appartenances actives à une même date (donnée incohérente) : laquelle retenir ? | Rattachement d'un initiateur | Aucune affichée + signalement / la plus récemment ouverte |
-| Q2 | Groupe dissous en cours de législature : quel libellé sur les actes antérieurs ? | Lisibilité des dossiers anciens | Libellé historique conservé / libellé + mention « groupe dissous » |
-| Q3 | Ministre initiateur : affiche-t-on sa fonction seule, ou aussi son ancien groupe s'il fut député ? | Neutralité de l'affichage | Fonction seule / fonction + mention du mandat passé |
-| Q4 | Référence de groupe factice observée dans 146 scrutins (identifiant sentinelle, aucun organe correspondant) : comment l'afficher ? | Lisibilité de la répartition sur ces scrutins | Ligne « groupe non renseigné » / exclusion de la ligne, totaux inchangés |
+Mesures faites sur les jeux officiels le 3 août 2026 (législature 17).
 
-→ Étape suivante : /plan-implementation
+### Q1 — Plusieurs appartenances actives à une même date
+**Sans objet.** 18 chevauchements observés, **tous sur le même groupe**, la qualité seule
+diffère (Membre + Président). **Zéro chevauchement entre groupes distincts**, y compris en
+traitant la date de fin comme inclusive.
+
+**Règle retenue** : à qualité multiple sur un même groupe, l'appartenance la plus récemment
+ouverte l'emporte — le groupe est identique, seule la qualité affichée change. Deux groupes
+distincts à la même date restent traités comme une donnée incohérente : rien n'est affiché,
+l'anomalie est signalée. Le cas est implémenté bien qu'il ne se présente pas.
+
+### Q2 — Groupe dissous en cours de législature
+**Libellé historique seul.** La date de référence affichée à côté du groupe porte déjà
+l'information ; une mention « dissous » alourdit sans rien ajouter de vérifiable sur l'acte.
+
+Portée mesurée : 60 entrées initiateur sur 60 dossiers, toutes UDR (dissous le 04/09/2025).
+AD (dissous le 11/09/2024) n'a déposé aucun texte. Les dates de vie des groupes restent
+stockées (`parliamentary_groups.end_date`) pour un usage ultérieur.
+
+### Q3 — Ministre initiateur ayant siégé par le passé
+**Fonction seule.** Lecture stricte de RM-01 : on n'affiche que ce qui était vrai à la date
+de l'acte. Rappeler un groupe qu'il n'occupait pas ce jour-là placerait une étiquette
+politique à côté d'un acte qu'elle ne qualifie pas.
+
+Portée mesurée : 357 entrées initiateur pour 33 ministres, dont 16 ont eu un groupe
+parlementaire par le passé (161 entrées). Cas typique : Michel Barnier, dépôts d'octobre 2024
+comme Premier ministre, député seulement depuis le 29/09/2025.
+
+### Q4 — Référence de groupe factice dans les scrutins
+**Répartition reconstruite, avec mention de méthode.**
+
+Chiffre corrigé : la sentinelle `PO0` occupe **146 lignes de groupe réparties sur 14 scrutins**,
+et non 146 scrutins. Dans 12 d'entre eux, *toutes* les lignes sont `PO0` : la ventilation par
+groupe publiée est intégralement perdue.
+
+Le décompte nominatif, lui, survit — chaque votant porte son `acteurRef`. La répartition a été
+reconstruite depuis le référentiel sur les 14 scrutins : **totaux identiques au déclaré 14 fois
+sur 14, zéro acteur non résolu**. Les deux options initiales supposaient l'information perdue ;
+elle ne l'est pas.
+
+L'affichage porte une mention du type « répartition reconstituée à partir du décompte nominatif —
+la source ne publie pas les groupes sur ce scrutin », plus le lien source. Le chiffre est produit
+par le site, pas par l'Assemblée : le dire relève de PROJECT.md §2 (lacune affichée, jamais
+silencieuse) et §9 (méthode publiée).
+
+**Re-vérifié le 3 août 2026** sur les 14 scrutins : totaux reconstruits identiques à la synthèse
+officielle 14 fois sur 14. Sur les 2 scrutins partiellement touchés, les 11 lignes de groupe
+publiées coïncident ligne à ligne avec la reconstruction.
+
+→ Repris dans `todo/SPEC-scrutins.md` (RM-03).
+
+### Q5 — Qualité d'acteur non datée
+**Ouverte.** `actors.role` (Député / Ministre / Sénateur) vaut au jour de l'ingestion, pas à la
+date de l'acte. Même classe d'erreur que celle que RM-01 interdit pour les groupes : Michel Barnier
+s'affiche « Député » à côté de dépôts d'octobre 2024, alors qu'il était Premier ministre et n'est
+député que depuis le 29/09/2025.
+
+Portée : l'affichage des initiateurs de dossier (CU-03). **Sans effet sur la Phase 3** — un votant
+d'un scrutin est député à la date du scrutin par construction.
+
+Options : dériver la qualité de la date de l'acte comme le groupe (cohérent avec RM-01, coût :
+un mandat daté de plus par acteur) · n'afficher aucune qualité quand aucun mandat ne couvre la
+date · laisser tel quel et l'assumer.

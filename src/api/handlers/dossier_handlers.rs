@@ -4,12 +4,13 @@ use axum::Json;
 
 use crate::api::dto::{
     CurateBody, DossierDetailDto, DossierDto, RecentActivityQuery, RecentDossiersResponse,
-    RefreshResponse, SuggestionsQuery, SuggestionsResponse,
+    RefreshResponse, RegistryResponse, SuggestionsQuery, SuggestionsResponse,
 };
 use crate::application::use_cases::curate_dossier::CurateDossier;
 use crate::application::use_cases::fetch_recent_dossiers::FetchRecentDossiers;
 use crate::application::use_cases::get_dossier_detail::GetDossierDetail;
-use crate::application::use_cases::refresh_dossiers::RefreshDossiers;
+use crate::application::use_cases::refresh_actor_registry::RefreshActorRegistry;
+use crate::application::use_cases::refresh_all::RefreshAll;
 use crate::application::use_cases::save_dossier::SaveDossier;
 use crate::application::use_cases::suggest_dossiers::SuggestDossiers;
 use crate::domain::dossier::DossierUid;
@@ -44,7 +45,7 @@ pub async fn get_dossier_detail(
     let uc = GetDossierDetail::new(
         state.dossier_repository.as_ref(),
         state.assembly_source.as_ref(),
-        state.deputy_source.as_ref(),
+        state.actor_repository.as_ref(),
     );
 
     let result = uc
@@ -66,7 +67,7 @@ pub async fn save_dossier(
     let uc = SaveDossier::new(
         state.assembly_source.as_ref(),
         state.dossier_repository.as_ref(),
-        state.deputy_source.as_ref(),
+        state.actor_repository.as_ref(),
     );
 
     uc.execute(&uid)
@@ -117,19 +118,39 @@ pub async fn curate_dossier(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Rafraichit le referentiel puis les dossiers, dans cet ordre.
 pub async fn refresh_dossiers(
     State(state): State<AppState>,
 ) -> Result<Json<RefreshResponse>, (StatusCode, String)> {
-    let uc = RefreshDossiers::new(
+    let uc = RefreshAll::new(
+        state.actor_source.as_ref(),
+        state.actor_repository.as_ref(),
         state.assembly_source.as_ref(),
         state.dossier_repository.as_ref(),
-        state.deputy_source.as_ref(),
+        state.scrutin_source.as_ref(),
+        state.scrutin_repository.as_ref(),
     );
 
-    let count = uc
+    let outcome = uc
         .execute()
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    Ok(Json(RefreshResponse { count }))
+    Ok(Json(RefreshResponse::from(outcome)))
+}
+
+pub async fn refresh_actor_registry(
+    State(state): State<AppState>,
+) -> Result<Json<RegistryResponse>, (StatusCode, String)> {
+    let uc = RefreshActorRegistry::new(
+        state.actor_source.as_ref(),
+        state.actor_repository.as_ref(),
+    );
+
+    let summary = uc
+        .execute()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(RegistryResponse::from(summary)))
 }
