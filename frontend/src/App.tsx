@@ -15,6 +15,7 @@ export default function App() {
             {[
               { to: '/', label: 'Dossiers', end: true },
               { to: '/scrutins', label: 'Scrutins', end: false },
+              { to: '/themes', label: 'Thèmes', end: false },
             ].map((item) => (
               <NavLink
                 key={item.to}
