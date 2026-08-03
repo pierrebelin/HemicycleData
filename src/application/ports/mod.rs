@@ -4,6 +4,8 @@ pub mod assembly_source;
 pub mod dossier_repository;
 pub mod scrutin_repository;
 pub mod scrutin_source;
+pub mod theme_classifier;
+pub mod theme_repository;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SourceError {
