@@ -18,9 +18,21 @@ interface StageDto {
   chamber: string
 }
 
+interface InitiatorGroupDto {
+  uid: string
+  abbrev: string
+  label: string
+  quality: string | null
+}
+
 interface InitiatorDto {
   full_name: string
-  group: string | null
+  actor_uid: string | null
+  role: string | null
+  group: InitiatorGroupDto | null
+  /** Date à laquelle le groupe a été lu. Toujours affichée avec le groupe. */
+  reference_date: string | null
+  official_url: string | null
 }
 
 interface DossierDetailDto {
@@ -275,9 +287,33 @@ export default function DossierDetailPage() {
                     key={i}
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-800 text-gray-200 text-xs"
                   >
-                    {init.full_name}
-                    {init.group && (
-                      <span className="text-amber-400 font-medium">{init.group}</span>
+                    {init.official_url ? (
+                      <a
+                        href={init.official_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline"
+                      >
+                        {init.full_name}
+                      </a>
+                    ) : (
+                      init.full_name
+                    )}
+                    {init.role && <span className="text-gray-500">{init.role}</span>}
+                    {/* Le groupe n'est jamais affiché sans la date à laquelle il a été lu. */}
+                    {init.group && init.reference_date && (
+                      <span className="text-amber-400 font-medium" title={init.group.label}>
+                        {init.group.abbrev}
+                        <span className="text-gray-500 font-normal ml-1">
+                          (au{' '}
+                          {new Date(init.reference_date + 'T00:00:00').toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                          )
+                        </span>
+                      </span>
                     )}
                   </span>
                 ))}

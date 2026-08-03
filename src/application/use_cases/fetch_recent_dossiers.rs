@@ -89,6 +89,7 @@ mod tests {
             legislature: 17,
             url: None,
             summary: None,
+            deposit_date: None,
             last_activity_date: date,
             last_activity_label: label.into(),
             acts: vec![],
