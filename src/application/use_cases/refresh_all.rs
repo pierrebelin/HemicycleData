@@ -2,9 +2,12 @@ use crate::application::ports::actor_repository::{ActorRepository, RegistrySumma
 use crate::application::ports::actor_source::ActorSource;
 use crate::application::ports::assembly_source::AssemblySource;
 use crate::application::ports::dossier_repository::DossierRepository;
+use crate::application::ports::scrutin_repository::ScrutinRepository;
+use crate::application::ports::scrutin_source::ScrutinSource;
 
 use super::refresh_actor_registry::RefreshActorRegistry;
 use super::refresh_dossiers::{RefreshDossiers, RefreshError};
+use super::refresh_scrutins::{RefreshScrutins, ScrutinsSummary};
 
 #[derive(Debug, Clone)]
 pub struct RefreshOutcome {
@@ -13,16 +16,22 @@ pub struct RefreshOutcome {
     /// rafraichi, les rattachements reposent sur la version precedente.
     pub registry_anomaly: Option<String>,
     pub dossiers: usize,
+    pub scrutins: Option<ScrutinsSummary>,
+    /// Idem cote scrutins: source indisponible, les scrutins deja stockes
+    /// restent en place et la lacune est signalee.
+    pub scrutins_anomaly: Option<String>,
 }
 
 /// Rafraichissement complet, dans l'ordre impose: referentiel d'abord, dossiers
-/// ensuite. L'inverse calculerait les rattachements sur des appartenances
-/// perimees.
+/// et scrutins ensuite. L'inverse calculerait les rattachements et les
+/// repartitions reconstruites sur des appartenances perimees (RM-11).
 pub struct RefreshAll<'a> {
     actor_source: &'a dyn ActorSource,
     actor_repository: &'a dyn ActorRepository,
     assembly_source: &'a dyn AssemblySource,
     dossier_repository: &'a dyn DossierRepository,
+    scrutin_source: &'a dyn ScrutinSource,
+    scrutin_repository: &'a dyn ScrutinRepository,
 }
 
 impl<'a> RefreshAll<'a> {
@@ -31,12 +40,16 @@ impl<'a> RefreshAll<'a> {
         actor_repository: &'a dyn ActorRepository,
         assembly_source: &'a dyn AssemblySource,
         dossier_repository: &'a dyn DossierRepository,
+        scrutin_source: &'a dyn ScrutinSource,
+        scrutin_repository: &'a dyn ScrutinRepository,
     ) -> Self {
         Self {
             actor_source,
             actor_repository,
             assembly_source,
             dossier_repository,
+            scrutin_source,
+            scrutin_repository,
         }
     }
 
@@ -63,10 +76,29 @@ impl<'a> RefreshAll<'a> {
         .execute()
         .await?;
 
+        // Meme regle que pour le referentiel: une source indisponible ne fait
+        // pas echouer le reste, elle se signale (PROJECT.md §2).
+        let (scrutins, scrutins_anomaly) = match RefreshScrutins::new(
+            self.scrutin_source,
+            self.scrutin_repository,
+            self.actor_repository,
+        )
+        .execute()
+        .await
+        {
+            Ok(summary) => (Some(summary), None),
+            Err(e) => {
+                tracing::warn!("Scrutins refresh failed, keeping the stored ones: {e}");
+                (None, Some(e.to_string()))
+            }
+        };
+
         Ok(RefreshOutcome {
             registry,
             registry_anomaly,
             dossiers,
+            scrutins,
+            scrutins_anomaly,
         })
     }
 }
@@ -80,6 +112,11 @@ mod tests {
 
     use crate::application::ports::actor_source::SourceError as ActorSourceError;
     use crate::application::ports::assembly_source::SourceError;
+    use crate::application::ports::scrutin_repository::{
+        RepositoryError as ScrutinRepositoryError, ScrutinFilter, ScrutinPage, ScrutinSummary,
+    };
+    use crate::application::ports::scrutin_source::SourceError as ScrutinSourceError;
+    use crate::domain::scrutin::{Scrutin, ScrutinUid};
     use crate::domain::actor::{ActorRegistry, ActorUid};
     use crate::domain::dossier::{DossierUid, LegislativeDossier};
 
@@ -127,6 +164,56 @@ mod tests {
         }
     }
 
+    struct FakeScrutinSource {
+        available: bool,
+    }
+
+    #[async_trait]
+    impl ScrutinSource for FakeScrutinSource {
+        async fn fetch_scrutins(
+            &self,
+            _legislature: u16,
+        ) -> Result<Vec<Scrutin>, ScrutinSourceError> {
+            if !self.available {
+                return Err(ScrutinSourceError::Download("source unavailable".into()));
+            }
+            Ok(vec![])
+        }
+    }
+
+    struct InMemoryScrutinRepository {
+        saved: Mutex<usize>,
+    }
+
+    #[async_trait]
+    impl ScrutinRepository for InMemoryScrutinRepository {
+        async fn save_scrutins(
+            &self,
+            scrutins: &[Scrutin],
+        ) -> Result<usize, ScrutinRepositoryError> {
+            *self.saved.lock().unwrap() += scrutins.len();
+            Ok(scrutins.len())
+        }
+        async fn list(
+            &self,
+            _filter: &ScrutinFilter,
+        ) -> Result<ScrutinPage, ScrutinRepositoryError> {
+            unreachable!()
+        }
+        async fn by_uid(
+            &self,
+            _uid: &ScrutinUid,
+        ) -> Result<Option<Scrutin>, ScrutinRepositoryError> {
+            unreachable!()
+        }
+        async fn by_dossier(
+            &self,
+            _uid: &str,
+        ) -> Result<Vec<ScrutinSummary>, ScrutinRepositoryError> {
+            unreachable!()
+        }
+    }
+
     struct RecordingActorSource {
         available: bool,
         order: Mutex<Vec<&'static str>>,
@@ -159,18 +246,26 @@ mod tests {
         let actor_repository = InMemoryActorRepository::with_deputy_changing_group();
         let assembly_source = FakeAssemblySource;
         let dossier_repository = InMemoryDossierRepository::new();
+        let scrutin_source = FakeScrutinSource { available: true };
+        let scrutin_repository = InMemoryScrutinRepository {
+            saved: Mutex::new(0),
+        };
 
         let outcome = RefreshAll::new(
             &actor_source,
             &actor_repository,
             &assembly_source,
             &dossier_repository,
+            &scrutin_source,
+            &scrutin_repository,
         )
         .execute()
         .await
         .unwrap();
 
         assert_eq!(*actor_source.order.lock().unwrap(), vec!["registry"]);
+        assert!(outcome.scrutins.is_some());
+        assert!(outcome.scrutins_anomaly.is_none());
         assert!(actor_repository
             .requested_uids
             .lock()
@@ -189,18 +284,28 @@ mod tests {
         let actor_repository = InMemoryActorRepository::with_deputy_changing_group();
         let assembly_source = FakeAssemblySource;
         let dossier_repository = InMemoryDossierRepository::new();
+        let scrutin_source = FakeScrutinSource { available: false };
+        let scrutin_repository = InMemoryScrutinRepository {
+            saved: Mutex::new(0),
+        };
 
         let outcome = RefreshAll::new(
             &actor_source,
             &actor_repository,
             &assembly_source,
             &dossier_repository,
+            &scrutin_source,
+            &scrutin_repository,
         )
         .execute()
         .await
         .unwrap();
 
         assert!(outcome.registry.is_none());
+        // Source scrutins indisponible: le reste passe, la lacune est signalee.
+        assert!(outcome.scrutins.is_none());
+        assert!(outcome.scrutins_anomaly.is_some());
+        assert_eq!(*scrutin_repository.saved.lock().unwrap(), 0);
         assert!(outcome.registry_anomaly.is_some());
         assert_eq!(outcome.dossiers, 1);
 
