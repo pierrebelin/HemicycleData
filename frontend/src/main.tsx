@@ -8,6 +8,12 @@ import DossierListPage from './pages/DossierListPage.tsx'
 import DossierDetailPage from './pages/DossierDetailPage.tsx'
 import ScrutinListPage from './pages/ScrutinListPage.tsx'
 import ScrutinDetailPage from './pages/ScrutinDetailPage.tsx'
+import ThemeListPage from './pages/ThemeListPage.tsx'
+import ThemeDetailPage from './pages/ThemeDetailPage.tsx'
+import ThemeMethodPage from './pages/ThemeMethodPage.tsx'
+import ThemeArbitrationPage from './pages/ThemeArbitrationPage.tsx'
+import UnassignedTextsPage from './pages/UnassignedTextsPage.tsx'
+import TextDetailPage from './pages/TextDetailPage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -21,6 +27,12 @@ createRoot(document.getElementById('root')!).render(
             <Route path="dossiers/:uid" element={<DossierDetailPage />} />
             <Route path="scrutins" element={<ScrutinListPage />} />
             <Route path="scrutins/:uid" element={<ScrutinDetailPage />} />
+            <Route path="themes" element={<ThemeListPage />} />
+            <Route path="themes/methode" element={<ThemeMethodPage />} />
+            <Route path="themes/non-rattaches" element={<UnassignedTextsPage />} />
+            <Route path="themes/arbitrage" element={<ThemeArbitrationPage />} />
+            <Route path="themes/:code" element={<ThemeDetailPage />} />
+            <Route path="textes/:key" element={<TextDetailPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

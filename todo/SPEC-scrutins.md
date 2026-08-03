@@ -187,7 +187,7 @@ Vérifiées sur les données réelles le 3 août 2026 (archive officielle des sc
 |---|---|---|---|
 | Q1 | Le premier scrutin de la législature publie 10 non-votants en synthèse et 21 dans les groupes. Anomalie de source isolée. | 1 scrutin sur 8 434. Affiché tel quel (RM-02), mais rien ne le signale au visiteur | Laisser tel quel · signaler l'écart sur ce scrutin · journal des corrections (Phase 7) |
 | Q2 | Les causes de non-vote sont publiées en codes (3 valeurs, 23 383 positions). Aucun libellé officiel dans le jeu de données. | Le visiteur lit un code brut | Sourcer les libellés dans un autre jeu AN · afficher le code seul · publier la table sur la page méthodologie |
-| Q3 | Le rattachement d'un scrutin à un dossier ne vaut que si le dossier est ingéré. 75 dossiers sont référencés ; la couverture réelle n'est pas mesurée. | Un lien dossier peut pointer vers un dossier absent du site | Mesurer puis ingérer les dossiers manquants · afficher le libellé publié sans lien quand le dossier est absent |
+| Q3 | ~~Le rattachement d'un scrutin à un dossier ne vaut que si le dossier est ingéré. 75 dossiers sont référencés ; la couverture réelle n'est pas mesurée.~~ **Répondu le 03/08/2026** : les 75 dossiers référencés sont tous ingérés, **zéro lien mort** sur les 2 608 scrutins concernés. Aucune action. | — | — |
 | Q4 | Les non-votants volontaires sont comptés sans être nommés, et absents de la synthèse officielle. Leur définition n'est pas publiée. | Chiffre affiché sans définition, sur 6 204 scrutins | Afficher le libellé source seul (retenu) · sourcer la définition et la publier en méthodologie |
 
 → Étape suivante : /plan-implementation
