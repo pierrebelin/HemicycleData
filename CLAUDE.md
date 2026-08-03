@@ -1,6 +1,10 @@
-# Générateur de posts Instagram
+# hémicycle.data — Transparence des votes parlementaires
 
-Application web de génération de posts Instagram. Backend Rust (API REST), frontend SPA React/TypeScript.
+Site de consultation des votes de l'Assemblée nationale, par thème et par groupe parlementaire, en vue de 2027. Backend Rust (API REST), frontend SPA React/TypeScript.
+
+**Lire `PROJECT.md` avant toute décision produit** — il porte les règles non négociables : exhaustivité (§2), groupe ≠ parti et appartenance datée (§3), neutralité (§6), aucun chiffre produit par un LLM (§8).
+
+Le produit a pivoté en août 2026 : l'ancienne cible « génération de posts Instagram / TikTok » est abandonnée. Le socle d'ingestion et le domaine législatif sont conservés. Du code et de l'interface portent encore le vocabulaire éditorial d'avant (curation, suggestions, short-list) — c'est de la dette, pas une intention.
 
 ## Stack
 
