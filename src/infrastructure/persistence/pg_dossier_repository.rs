@@ -3,7 +3,8 @@ use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use crate::application::ports::dossier_repository::{DossierRepository, RepositoryError};
-use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, LegislativeAct, LegislativeDocument, LegislativeStage, LegislativeDossier, Score};
+use crate::domain::actor::{ActorRole, ActorUid, GroupUid, MembershipQuality};
+use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, InitiatorGroup, LegislativeAct, LegislativeDocument, LegislativeStage, LegislativeDossier, Score};
 
 pub struct PgDossierRepository {
     pool: PgPool,
@@ -65,10 +66,11 @@ impl PgDossierRepository {
             let stage_code = dossier.current_stage.map(|s| s.to_code().to_string());
 
             sqlx::query(
-                "INSERT INTO legislative_dossiers (uid, title, procedure_label, last_activity_date, last_activity_label, score_progress, score_magnitude, score_momentum, score_total, current_stage_code, committee, curation_status, legislature, url, summary)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                "INSERT INTO legislative_dossiers (uid, title, procedure_label, last_activity_date, last_activity_label, score_progress, score_magnitude, score_momentum, score_total, current_stage_code, committee, curation_status, legislature, url, summary, deposit_date)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                  ON CONFLICT (uid) DO UPDATE SET
                     title = EXCLUDED.title,
+                    deposit_date = EXCLUDED.deposit_date,
                     procedure_label = EXCLUDED.procedure_label,
                     last_activity_date = EXCLUDED.last_activity_date,
                     last_activity_label = EXCLUDED.last_activity_label,
@@ -98,6 +100,7 @@ impl PgDossierRepository {
             .bind(dossier.legislature as i16)
             .bind(&dossier.url)
             .bind(&dossier.summary)
+            .bind(dossier.deposit_date)
             .execute(&mut *tx)
             .await
             .map_err(|e| RepositoryError::Database(e.to_string()))?;
@@ -128,12 +131,21 @@ impl PgDossierRepository {
                 .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
             for initiator in &dossier.initiators {
+                let group = initiator.group();
                 sqlx::query(
-                    "INSERT INTO dossier_initiators (dossier_uid, full_name, group_sigle) VALUES ($1, $2, $3)",
+                    "INSERT INTO dossier_initiators (dossier_uid, full_name, actor_uid, actor_role, group_uid, group_abbrev, group_label, membership_quality, reference_date, official_url)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 )
                 .bind(dossier.uid.as_str())
                 .bind(initiator.full_name())
-                .bind(initiator.group())
+                .bind(initiator.actor_uid().map(|u| u.as_str()))
+                .bind(initiator.role().map(|r| r.as_str()))
+                .bind(group.map(|g| g.uid.as_str()))
+                .bind(group.map(|g| g.abbrev.as_str()))
+                .bind(group.map(|g| g.label.as_str()))
+                .bind(group.and_then(|g| g.quality.as_ref()).map(|q| q.as_str()))
+                .bind(initiator.reference_date())
+                .bind(initiator.official_url())
                 .execute(&mut *tx)
                 .await
                 .map_err(|e| RepositoryError::Database(e.to_string()))?;
@@ -169,20 +181,15 @@ impl PgDossierRepository {
 
     async fn fetch_initiators(&self, dossier_uid: &str) -> Result<Vec<Initiator>, RepositoryError> {
         let rows = sqlx::query_as::<_, InitiatorRow>(
-            "SELECT full_name, group_sigle FROM dossier_initiators WHERE dossier_uid = $1 ORDER BY id",
+            "SELECT full_name, actor_uid, actor_role, group_uid, group_abbrev, group_label, membership_quality, reference_date, official_url
+             FROM dossier_initiators WHERE dossier_uid = $1 ORDER BY id",
         )
         .bind(dossier_uid)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
-        Ok(rows
-            .into_iter()
-            .map(|r| {
-                Initiator::new(r.full_name, r.group_sigle)
-                    .expect("DB initiator name is non-empty")
-            })
-            .collect())
+        Ok(rows.into_iter().map(InitiatorRow::into_initiator).collect())
     }
 }
 
@@ -208,7 +215,7 @@ impl DossierRepository for PgDossierRepository {
             "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
                     score_progress, score_magnitude, score_momentum, score_total,
                     current_stage_code, committee, curation_status,
-                    legislature, url, summary
+                    legislature, url, summary, deposit_date
              FROM legislative_dossiers
              WHERE last_activity_date >= $1
              ORDER BY last_activity_date DESC",
@@ -229,7 +236,7 @@ impl DossierRepository for PgDossierRepository {
             "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
                     score_progress, score_magnitude, score_momentum, score_total,
                     current_stage_code, committee, curation_status,
-                    legislature, url, summary
+                    legislature, url, summary, deposit_date
              FROM legislative_dossiers
              WHERE uid = $1",
         )
@@ -258,7 +265,7 @@ impl DossierRepository for PgDossierRepository {
             "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
                     score_progress, score_magnitude, score_momentum, score_total,
                     current_stage_code, committee, curation_status,
-                    legislature, url, summary
+                    legislature, url, summary, deposit_date
              FROM legislative_dossiers
              WHERE curation_status = 'new'
              ORDER BY score_total DESC
@@ -307,6 +314,7 @@ struct DossierRow {
     legislature: i16,
     url: Option<String>,
     summary: Option<String>,
+    deposit_date: Option<NaiveDate>,
 }
 
 impl DossierRow {
@@ -318,6 +326,7 @@ impl DossierRow {
             legislature: self.legislature as u16,
             url: self.url,
             summary: self.summary,
+            deposit_date: self.deposit_date,
             last_activity_date: self.last_activity_date,
             last_activity_label: self.last_activity_label,
             acts,
@@ -350,7 +359,57 @@ struct ActRow {
 #[derive(sqlx::FromRow)]
 struct InitiatorRow {
     full_name: String,
-    group_sigle: Option<String>,
+    actor_uid: Option<String>,
+    actor_role: Option<String>,
+    group_uid: Option<String>,
+    group_abbrev: Option<String>,
+    group_label: Option<String>,
+    membership_quality: Option<String>,
+    reference_date: Option<NaiveDate>,
+    official_url: Option<String>,
+}
+
+impl InitiatorRow {
+    fn into_initiator(self) -> Initiator {
+        let name = self.full_name.clone();
+        let unresolved =
+            || Initiator::unresolved(name.clone()).expect("DB initiator name is non-empty");
+
+        let Some(actor_uid) = self.actor_uid.and_then(|u| ActorUid::new(u).ok()) else {
+            return unresolved();
+        };
+        let role = self
+            .actor_role
+            .as_deref()
+            .and_then(ActorRole::parse)
+            .unwrap_or(ActorRole::Other);
+
+        // RM-01: la contrainte SQL garantit deja qu'un groupe stocke porte sa
+        // date de reference; la construction du domaine la revalide.
+        let group = match (self.group_uid, self.group_abbrev, self.group_label) {
+            (Some(uid), Some(abbrev), Some(label)) => GroupUid::new(uid).ok().map(|uid| {
+                InitiatorGroup {
+                    uid,
+                    abbrev,
+                    label,
+                    quality: self
+                        .membership_quality
+                        .and_then(|q| MembershipQuality::new(q).ok()),
+                }
+            }),
+            _ => None,
+        };
+
+        Initiator::resolved(
+            self.full_name,
+            actor_uid,
+            role,
+            group,
+            self.reference_date,
+            self.official_url,
+        )
+        .unwrap_or_else(|_| unresolved())
+    }
 }
 
 #[derive(sqlx::FromRow)]

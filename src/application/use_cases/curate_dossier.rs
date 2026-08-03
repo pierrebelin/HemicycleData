@@ -99,6 +99,7 @@ mod tests {
             legislature: 17,
             url: None,
             summary: None,
+            deposit_date: None,
             last_activity_date: NaiveDate::from_ymd_opt(2026, 6, 25).unwrap(),
             last_activity_label: "Dépôt".into(),
             acts: vec![],

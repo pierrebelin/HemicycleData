@@ -13,7 +13,7 @@ use crate::domain::scoring::compute_score;
 use super::committees::resolve_committee;
 use super::parsing::{
     collect_all_acts, extract_document_refs, extract_initiator_refs,
-    find_committee_organe_ref, find_current_stage, find_latest_act,
+    find_committee_organe_ref, find_current_stage, find_deposit_date, find_latest_act,
     RawDocumentWrapper, RawDossierWrapper,
 };
 
@@ -142,6 +142,14 @@ impl NationalAssemblyClient {
             })
             .collect();
 
+        // Date de reference du rattachement des initiateurs (RM-01). L'acte de
+        // depot la porte quand il existe; sinon la date de depot du plus ancien
+        // document du dossier, qui coincide avec elle partout ou les deux sont
+        // publiees.
+        let deposit_date = find_deposit_date(&raw.legislative_acts)
+            .and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok())
+            .or_else(|| documents.iter().filter_map(|d| d.date).min());
+
         let score = compute_score(&raw.dossier_title.titre, &act_info.label, all_acts.len());
         let current_stage = find_current_stage(&raw.legislative_acts);
         let committee = find_committee_organe_ref(&raw.legislative_acts)
@@ -152,7 +160,7 @@ impl NationalAssemblyClient {
         let is_government_bill = raw.parliamentary_procedure.libelle.starts_with("Projet de loi");
 
         let initiators = if initiator_refs.is_empty() && is_government_bill {
-            vec![Initiator::new("Gouvernement".to_string(), None).expect("non-empty")]
+            vec![Initiator::unresolved("Gouvernement".to_string()).expect("non-empty")]
         } else {
             vec![]
         };
@@ -165,6 +173,7 @@ impl NationalAssemblyClient {
                 legislature,
                 url,
                 summary: None,
+                deposit_date,
                 last_activity_date: date,
                 last_activity_label: act_info.label,
                 acts: all_acts,

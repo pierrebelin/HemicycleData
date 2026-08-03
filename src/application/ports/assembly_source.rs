@@ -3,13 +3,7 @@ use chrono::NaiveDate;
 
 use crate::domain::dossier::{DossierUid, LegislativeDossier};
 
-#[derive(Debug, thiserror::Error)]
-pub enum SourceError {
-    #[error("download failed: {0}")]
-    Download(String),
-    #[error("parse failed: {0}")]
-    Parse(String),
-}
+pub use super::SourceError;
 
 #[async_trait]
 pub trait AssemblySource: Send + Sync {
