@@ -270,6 +270,43 @@ async fn coverage(pool: &PgPool) -> Result<(), Box<dyn std::error::Error>> {
         r.get::<i64, _>("scrutins"),
     );
 
+    println!("\n=== M10. Cles eclatees par une mention de stade non retiree (RM-02) ===");
+    // « (texte de la commission mixte paritaire) » n'est pas dans les suffixes
+    // de stade retires par la regle d'extraction: la version CMP d'un texte
+    // forme sa propre cle. Meme effet pour une parenthese fermante orpheline.
+    let sql = "
+        WITH normalised AS (
+            SELECT text_key,
+                   btrim(regexp_replace(
+                       regexp_replace(text_key, '\\s*\\(texte de la commission mixte paritaire\\)', '', 'g'),
+                       '\\)+$', '', 'g')) AS base
+            FROM debated_texts
+        )
+        SELECT n.base,
+               count(*) AS keys,
+               sum((SELECT count(*) FROM scrutin_debated_texts l WHERE l.text_key = n.text_key))::int8 AS scrutins
+        FROM normalised n
+        GROUP BY n.base
+        HAVING count(*) > 1
+        ORDER BY scrutins DESC";
+    let split = rows(pool, sql).await?;
+    let mut extra_keys = 0i64;
+    for r in &split {
+        let base: String = r.get("base");
+        println!(
+            "  {} cles, {:>4} scrutins : {}",
+            r.get::<i64, _>("keys"),
+            r.get::<Option<i64>, _>("scrutins").unwrap_or(0),
+            base.chars().take(72).collect::<String>(),
+        );
+        extra_keys += r.get::<i64, _>("keys") - 1;
+    }
+    println!(
+        "  => {} textes eclates en {} cles surnumeraires",
+        split.len(),
+        extra_keys
+    );
+
     println!("\n=== M9. Positions nominales rattachables a un groupe ===");
     let sql = "
         SELECT COUNT(*) AS positions,
