@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DossierScrutins from '../components/DossierScrutins'
 
 /** Actes visibles avant dépliage. Un dossier peut en porter des dizaines. */
-const VISIBLE_ACTS = 5
+const VISIBLE_ACTS = 3
 
 interface ActeDto {
   date: string
@@ -399,7 +399,7 @@ export default function DossierDetailPage() {
                 <>
                   <div
                     className={`relative pl-4 border-l border-gray-700 space-y-4 ${
-                      allActsShown ? 'max-h-96 overflow-y-auto pr-2' : ''
+                      allActsShown ? 'max-h-56 overflow-y-auto pr-2' : ''
                     }`}
                   >
                     {shown.map((acte, i) => (
