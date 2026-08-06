@@ -1,0 +1,256 @@
+use chrono::NaiveDate;
+use serde::{Deserialize, Serialize};
+
+use crate::api::theme_dto::AssignedFamilyDto;
+use crate::application::ports::final_vote_repository::GroupOption;
+use crate::application::use_cases::browse_final_votes::{
+    BrowseFinalVotesCommand, FinalVoteEntry, FinalVoteView, MAX_COMPARED_GROUPS,
+};
+use crate::domain::final_vote::{GroupStance, VoterShare};
+use crate::domain::scrutin::{VotePosition, VoteTally};
+
+/// Perimetre de la page, affiche en tete (PROJECT.md §2): la restriction est
+/// annoncee, et le reste des scrutins reste accessible.
+pub const SCOPE_NOTE: &str = "Cette page ne montre que le vote sur l'ensemble d'un texte, \
+     celui qui tranche le texte entier. Les votes d'amendement, d'article et les motions de \
+     censure restent consultables sur la page Scrutins.";
+
+/// Methode du pourcentage, affichee a cote des chiffres (PROJECT.md §6, §9).
+pub const SHARE_NOTE: &str = "Le pourcentage rapporte les voix d'un groupe à ses seuls votants \
+     (pour + contre + abstention). Les non-votants sont comptés à part, en valeur brute.";
+
+/// Portee de l'issue affichee: elle vaut pour cette lecture, pas pour le sort
+/// final de la loi.
+pub const OUTCOME_NOTE: &str = "« Adopté » ou « rejeté » est l'issue publiée de ce scrutin, \
+     pour cette lecture à l'Assemblée. Ce n'est pas l'état final de la loi.";
+
+#[derive(Debug, Deserialize)]
+pub struct FinalVoteListQuery {
+    /// Code de famille thematique.
+    pub theme: Option<String>,
+    /// Groupes compares, sigles ou identifiants separes par une virgule.
+    pub groupes: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+impl From<FinalVoteListQuery> for BrowseFinalVotesCommand {
+    fn from(query: FinalVoteListQuery) -> Self {
+        Self {
+            family: query.theme,
+            groups: query
+                .groupes
+                .unwrap_or_default()
+                .split(',')
+                .map(|token| token.trim().to_string())
+                .filter(|token| !token.is_empty())
+                .collect(),
+            limit: query.limit,
+            offset: query.offset,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct TallyDto {
+    pub votes_for: u16,
+    pub votes_against: u16,
+    pub abstentions: u16,
+    pub not_voting: u16,
+    pub voluntary_not_voting: u16,
+}
+
+impl From<VoteTally> for TallyDto {
+    fn from(tally: VoteTally) -> Self {
+        Self {
+            votes_for: tally.votes_for,
+            votes_against: tally.votes_against,
+            abstentions: tally.abstentions,
+            not_voting: tally.not_voting,
+            voluntary_not_voting: tally.voluntary_not_voting,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ShareDto {
+    pub voters: u16,
+    pub for_percent: u8,
+    pub against_percent: u8,
+    pub abstention_percent: u8,
+    /// Position rassemblant le plus de votants. `null` a egalite.
+    pub leading: Option<String>,
+    pub leading_label: Option<String>,
+    pub leading_percent: Option<u8>,
+    /// Positions a egalite en tete, nommees. Un seul element hors egalite.
+    pub tied_labels: Vec<String>,
+}
+
+impl From<VoterShare> for ShareDto {
+    fn from(share: VoterShare) -> Self {
+        let leading = share.leading();
+        Self {
+            voters: share.voters,
+            for_percent: share.for_percent,
+            against_percent: share.against_percent,
+            abstention_percent: share.abstention_percent,
+            leading: leading.map(|p| p.as_str().to_string()),
+            leading_label: leading.map(position_label),
+            leading_percent: share.leading_percent(),
+            tied_labels: share.tied.iter().copied().map(position_label).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct GroupDto {
+    pub uid: String,
+    pub abbrev: String,
+    pub label: String,
+    pub color: Option<String>,
+    /// Votes sur l'ensemble ou le groupe apparait. Un groupe constitue en cours
+    /// de legislature en porte moins que le total.
+    pub final_vote_count: i64,
+}
+
+impl From<GroupOption> for GroupDto {
+    fn from(group: GroupOption) -> Self {
+        Self {
+            uid: group.uid,
+            abbrev: group.abbrev,
+            label: group.label,
+            color: group.color,
+            final_vote_count: group.final_vote_count,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct StanceDto {
+    pub group_uid: String,
+    pub abbrev: String,
+    pub label: String,
+    pub color: Option<String>,
+    pub member_count: Option<u16>,
+    /// Position majoritaire publiee par la source, jamais recalculee (RM-02).
+    /// `null` quand la source n'en publie pas.
+    pub majority: Option<String>,
+    pub majority_label: Option<String>,
+    pub tally: TallyDto,
+    /// `null` quand aucun membre du groupe ne s'est prononce.
+    pub share: Option<ShareDto>,
+}
+
+impl From<&GroupStance> for StanceDto {
+    fn from(stance: &GroupStance) -> Self {
+        Self {
+            group_uid: stance.group.uid.as_str().to_string(),
+            abbrev: stance.group.abbrev.clone(),
+            label: stance.group.label.clone(),
+            color: stance.group.color.clone(),
+            member_count: stance.member_count,
+            majority: stance.published_majority.map(|p| p.as_str().to_string()),
+            majority_label: stance.published_majority.map(position_label),
+            tally: stance.tally.into(),
+            share: stance.share.clone().map(ShareDto::from),
+        }
+    }
+}
+
+/// Libelle francais d'une position, tel que la source la nomme.
+fn position_label(position: VotePosition) -> String {
+    match position {
+        VotePosition::For => "pour",
+        VotePosition::Against => "contre",
+        VotePosition::Abstention => "abstention",
+        VotePosition::NotVoting => "non-votant",
+    }
+    .to_string()
+}
+
+#[derive(Debug, Serialize)]
+pub struct FinalVoteDto {
+    pub scrutin_uid: String,
+    pub number: String,
+    pub date: NaiveDate,
+    pub ballot_type_label: String,
+    /// Titre affiche: le libelle du texte debattu. 150 des 222 votes sur
+    /// l'ensemble ne portent aucun dossier, le titre ne peut donc pas en venir.
+    pub text_key: String,
+    pub text_label: String,
+    /// Mention de lecture, quand le libelle du texte ne la porte pas deja.
+    pub reading: Option<String>,
+    pub outcome_code: String,
+    pub outcome_label: String,
+    pub adopted: bool,
+    pub dossier_uid: Option<String>,
+    pub dossier_label: Option<String>,
+    /// Decompte officiel de l'Assemblee entiere.
+    pub synthesis: TallyDto,
+    pub families: Vec<AssignedFamilyDto>,
+    /// Positions des groupes compares, dans l'ordre demande. Un groupe sans
+    /// ligne dans ce scrutin en est absent: rien n'est comble par un zero.
+    pub stances: Vec<StanceDto>,
+}
+
+impl From<FinalVoteEntry> for FinalVoteDto {
+    fn from(entry: FinalVoteEntry) -> Self {
+        let vote = entry.vote;
+        Self {
+            scrutin_uid: vote.scrutin_uid,
+            number: vote.number,
+            date: vote.date,
+            ballot_type_label: vote.ballot_type_label,
+            text_key: vote.text_key,
+            text_label: vote.text_label,
+            reading: vote.reading,
+            outcome_code: vote.outcome.code().to_string(),
+            outcome_label: vote.outcome.label().to_string(),
+            adopted: vote.outcome.is_adopted(),
+            dossier_uid: vote.dossier_uid,
+            dossier_label: vote.dossier_label,
+            synthesis: vote.synthesis.into(),
+            families: entry
+                .families
+                .into_iter()
+                .map(AssignedFamilyDto::from)
+                .collect(),
+            stances: vote.stances.iter().map(StanceDto::from).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct FinalVoteListResponse {
+    pub items: Vec<FinalVoteDto>,
+    pub total: i64,
+    /// Votes sur l'ensemble hors filtre thematique.
+    pub total_unfiltered: i64,
+    /// Votes sur l'ensemble deja rattaches a une famille.
+    pub total_with_family: i64,
+    pub offset: i64,
+    pub groups: Vec<GroupDto>,
+    pub selected: Vec<GroupDto>,
+    pub max_compared_groups: usize,
+    pub scope_note: &'static str,
+    pub share_note: &'static str,
+    pub outcome_note: &'static str,
+}
+
+impl From<(FinalVoteView, i64)> for FinalVoteListResponse {
+    fn from((view, offset): (FinalVoteView, i64)) -> Self {
+        Self {
+            items: view.items.into_iter().map(FinalVoteDto::from).collect(),
+            total: view.total,
+            total_unfiltered: view.total_unfiltered,
+            total_with_family: view.total_with_family,
+            offset,
+            groups: view.groups.into_iter().map(GroupDto::from).collect(),
+            selected: view.selected.into_iter().map(GroupDto::from).collect(),
+            max_compared_groups: MAX_COMPARED_GROUPS,
+            scope_note: SCOPE_NOTE,
+            share_note: SHARE_NOTE,
+            outcome_note: OUTCOME_NOTE,
+        }
+    }
+}

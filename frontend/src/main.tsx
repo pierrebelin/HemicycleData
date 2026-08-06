@@ -6,6 +6,8 @@ import './index.css'
 import App from './App.tsx'
 import DossierListPage from './pages/DossierListPage.tsx'
 import DossierDetailPage from './pages/DossierDetailPage.tsx'
+import DossierSelectionPage from './pages/DossierSelectionPage.tsx'
+import GroupVotesPage from './pages/GroupVotesPage.tsx'
 import ScrutinListPage from './pages/ScrutinListPage.tsx'
 import ScrutinDetailPage from './pages/ScrutinDetailPage.tsx'
 import ThemeListPage from './pages/ThemeListPage.tsx'
@@ -26,6 +28,8 @@ createRoot(document.getElementById('root')!).render(
           <Route element={<App />}>
             <Route index element={<DossierListPage />} />
             <Route path="dossiers/:uid" element={<DossierDetailPage />} />
+            <Route path="selection" element={<DossierSelectionPage />} />
+            <Route path="groupes" element={<GroupVotesPage />} />
             <Route path="scrutins" element={<ScrutinListPage />} />
             <Route path="scrutins/:uid" element={<ScrutinDetailPage />} />
             <Route path="themes" element={<ThemeListPage />} />
