@@ -5,13 +5,15 @@ use crate::application::ports::final_vote_repository::{
 use crate::application::ports::theme_repository::AssignedFamily;
 use crate::domain::actor::GroupUid;
 use crate::domain::final_vote::{reading_of, FinalVote, GroupIdentity, GroupStance};
+use crate::domain::group_lineage::{lineage_of_uid, GroupLineage};
 use crate::domain::scrutin::{Outcome, VotePosition};
 use crate::domain::theme::FamilyCode;
 
-/// Deux groupes au plus. Au-dela, la page cesse d'etre une comparaison lisible
-/// et devient un tableau de bord comparatif — soit exactement l'agregat qui se
-/// lit comme un classement, interdit par PROJECT.md §6.
-pub const MAX_COMPARED_GROUPS: usize = 2;
+/// Quatre groupes au plus. La comparaison reste une lecture cote a cote, ou
+/// chaque groupe garde ses chiffres bruts; au-dela, les colonnes se resserrent
+/// au point qu'il ne reste que les pourcentages, et la page se lit comme un
+/// classement — interdit par PROJECT.md §6.
+pub const MAX_COMPARED_GROUPS: usize = 4;
 pub const DEFAULT_PAGE_SIZE: i64 = 20;
 pub const MAX_PAGE_SIZE: i64 = 100;
 
@@ -90,12 +92,15 @@ impl<'a> BrowseFinalVotes<'a> {
             None => None,
         };
 
-        let groups = self.repository.groups().await?;
+        let groups = merge_renamed_groups(self.repository.groups().await?);
         let selected = resolve_groups(&groups, &command.groups)?;
 
         let filter = FinalVoteFilter {
             family,
-            group_uids: selected.iter().map(|g| g.uid.clone()).collect(),
+            // Un groupe renomme repond a plusieurs identifiants: les demander
+            // tous evite que ses votes d'avant le changement de nom
+            // disparaissent de la comparaison (PROJECT.md §2).
+            group_uids: selected.iter().flat_map(uids_of).collect(),
             limit: command
                 .limit
                 .unwrap_or(DEFAULT_PAGE_SIZE)
@@ -123,27 +128,94 @@ impl<'a> BrowseFinalVotes<'a> {
     }
 }
 
+/// Rassemble en une seule entree les identifiants successifs d'un groupe
+/// renomme.
+///
+/// Sans ce repli, le selecteur propose deux fois le meme groupe et chacune des
+/// deux entrees est vide sur la periode de l'autre: le visiteur en conclut que
+/// le groupe n'a pas vote. La couverture affichee est la somme des periodes,
+/// pas celle de la derniere.
+fn merge_renamed_groups(groups: Vec<GroupOption>) -> Vec<GroupOption> {
+    let mut merged: Vec<GroupOption> = Vec::with_capacity(groups.len());
+
+    for group in groups {
+        let Some(lineage) = lineage_of_uid(&group.uid) else {
+            merged.push(group);
+            continue;
+        };
+
+        match merged
+            .iter_mut()
+            .find(|kept| kept.uid == lineage.canonical_uid)
+        {
+            Some(kept) => {
+                kept.final_vote_count += group.final_vote_count;
+                kept.color = kept.color.take().or(group.color);
+            }
+            None => merged.push(GroupOption {
+                uid: lineage.canonical_uid.to_string(),
+                abbrev: lineage.abbrev.to_string(),
+                label: lineage.label.to_string(),
+                color: group.color,
+                final_vote_count: group.final_vote_count,
+            }),
+        }
+    }
+
+    // Le depot trie par couverture decroissante; la fusion additionne des
+    // comptes et defait ce tri.
+    merged.sort_by(|a, b| {
+        b.final_vote_count
+            .cmp(&a.final_vote_count)
+            .then_with(|| a.abbrev.cmp(&b.abbrev))
+    });
+    merged
+}
+
+/// Identifiants sous lesquels les ventilations d'un groupe sont enregistrees.
+fn uids_of(group: &GroupOption) -> Vec<String> {
+    match lineage_of_uid(&group.uid) {
+        Some(lineage) => lineage.uids.iter().map(|uid| uid.to_string()).collect(),
+        None => vec![group.uid.clone()],
+    }
+}
+
 /// Un groupe est designe par son identifiant ou par son sigle. Le sigle rend
 /// l'adresse partageable (`?groupes=RN,SOC`), l'identifiant la rend stable
-/// (PROJECT.md §8.1).
+/// (PROJECT.md §8.1). Un groupe renomme repond aussi a son ancien sigle.
 fn resolve_groups(
     known: &[GroupOption],
     requested: &[String],
 ) -> Result<Vec<GroupOption>, BrowseFinalVotesError> {
-    requested
-        .iter()
-        .filter(|token| !token.trim().is_empty())
-        .map(|token| {
-            let token = token.trim();
-            known
-                .iter()
-                .find(|group| {
-                    group.uid == token || group.abbrev.eq_ignore_ascii_case(token)
-                })
-                .cloned()
-                .ok_or_else(|| BrowseFinalVotesError::UnknownGroup(token.to_string()))
-        })
-        .collect()
+    let mut resolved: Vec<GroupOption> = Vec::with_capacity(requested.len());
+
+    for token in requested {
+        let token = token.trim();
+        if token.is_empty() {
+            continue;
+        }
+
+        let group = known
+            .iter()
+            .find(|group| designates(group, token))
+            .cloned()
+            .ok_or_else(|| BrowseFinalVotesError::UnknownGroup(token.to_string()))?;
+
+        // Deux jetons pour un meme groupe — `?groupes=UDR,UDDPLR` — donneraient
+        // deux colonnes identiques. Le doublon est absorbe, pas refuse: l'adresse
+        // reste valide.
+        if !resolved.iter().any(|kept| kept.uid == group.uid) {
+            resolved.push(group);
+        }
+    }
+
+    Ok(resolved)
+}
+
+fn designates(group: &GroupOption, token: &str) -> bool {
+    group.uid == token
+        || group.abbrev.eq_ignore_ascii_case(token)
+        || lineage_of_uid(&group.uid).is_some_and(|lineage| lineage.matches(token))
 }
 
 fn build_entry(record: FinalVoteRecord, selected: &[GroupOption]) -> FinalVoteEntry {
@@ -152,11 +224,15 @@ fn build_entry(record: FinalVoteRecord, selected: &[GroupOption]) -> FinalVoteEn
     let stances = selected
         .iter()
         .filter_map(|group| {
+            let lineage = lineage_of_uid(&group.uid);
             record
                 .tallies
                 .iter()
-                .find(|tally| tally.group_uid == group.uid)
-                .map(build_stance)
+                .find(|tally| match lineage {
+                    Some(lineage) => lineage.contains_uid(&tally.group_uid),
+                    None => tally.group_uid == group.uid,
+                })
+                .map(|tally| build_stance(tally, lineage))
         })
         .collect();
 
@@ -184,13 +260,27 @@ fn build_entry(record: FinalVoteRecord, selected: &[GroupOption]) -> FinalVoteEn
     }
 }
 
-fn build_stance(record: &GroupTallyRecord) -> GroupStance {
-    let identity = GroupIdentity {
-        uid: GroupUid::new(record.group_uid.clone())
-            .expect("group uids come from the referential, never empty"),
-        abbrev: record.abbrev.clone(),
-        label: record.label.clone(),
-        color: record.color.clone(),
+/// Position d'un groupe sur un vote.
+///
+/// Sous une lignee, l'identite affichee est celle de la lignee et non celle que
+/// la ventilation porte: sinon la meme colonne changerait de sigle au milieu de
+/// la liste, au vote ou le groupe a ete renomme.
+fn build_stance(record: &GroupTallyRecord, lineage: Option<&GroupLineage>) -> GroupStance {
+    let identity = match lineage {
+        Some(lineage) => GroupIdentity {
+            uid: GroupUid::new(lineage.canonical_uid.to_string())
+                .expect("lineage uids are never empty"),
+            abbrev: lineage.abbrev.to_string(),
+            label: lineage.label.to_string(),
+            color: record.color.clone(),
+        },
+        None => GroupIdentity {
+            uid: GroupUid::new(record.group_uid.clone())
+                .expect("group uids come from the referential, never empty"),
+            abbrev: record.abbrev.clone(),
+            label: record.label.clone(),
+            color: record.color.clone(),
+        },
     };
 
     GroupStance::new(
@@ -421,18 +511,111 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn comparing_more_than_two_groups_is_refused() {
+    async fn comparing_more_groups_than_allowed_is_refused() {
         let repository = repository();
+        let requested: Vec<String> = (0..MAX_COMPARED_GROUPS + 1)
+            .map(|i| format!("PO{i}"))
+            .collect();
 
         let error = BrowseFinalVotes::new(&repository)
             .execute(BrowseFinalVotesCommand {
-                groups: vec!["RN".to_string(), "SOC".to_string(), "PO1".to_string()],
+                groups: requested,
                 ..Default::default()
             })
             .await
             .unwrap_err();
 
-        assert!(matches!(error, BrowseFinalVotesError::TooManyGroups(3)));
+        // Le refus tombe avant la resolution des sigles: la limite porte sur la
+        // demande, pas sur ce qu'elle designe.
+        assert!(matches!(
+            error,
+            BrowseFinalVotesError::TooManyGroups(n) if n == MAX_COMPARED_GROUPS + 1
+        ));
+    }
+
+    /// Depot portant un groupe renomme: l'ancien identifiant sur un vote, le
+    /// nouveau sur l'autre — la situation exacte de UDR devenu UDDPLR.
+    fn renamed_group_repository() -> InMemoryFinalVoteRepository {
+        let repository = InMemoryFinalVoteRepository::default();
+        *repository.groups.lock().unwrap() = vec![
+            group("PO1", "RN"),
+            group("PO872880", "UDDPLR"),
+            group("PO847173", "UDR"),
+        ];
+        *repository.records.lock().unwrap() = vec![
+            record("S1", vec![tally_record("PO872880", "UDDPLR", 16, 0)]),
+            record("S2", vec![tally_record("PO847173", "UDR", 0, 16)]),
+        ];
+        repository
+    }
+
+    #[tokio::test]
+    async fn a_renamed_group_is_offered_once_with_the_coverage_of_both_periods() {
+        let repository = renamed_group_repository();
+
+        let view = BrowseFinalVotes::new(&repository)
+            .execute(BrowseFinalVotesCommand::default())
+            .await
+            .unwrap();
+
+        let abbrevs: Vec<&str> = view.groups.iter().map(|g| g.abbrev.as_str()).collect();
+        assert_eq!(abbrevs, vec!["UDDPLR", "RN"]);
+        assert_eq!(view.groups[0].uid, "PO872880");
+        assert_eq!(view.groups[0].final_vote_count, 2);
+    }
+
+    #[tokio::test]
+    async fn a_renamed_group_keeps_its_votes_from_before_the_rename() {
+        let repository = renamed_group_repository();
+
+        let view = BrowseFinalVotes::new(&repository)
+            .execute(BrowseFinalVotesCommand {
+                groups: vec!["UDDPLR".to_string()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        // Un vote par periode, et la colonne garde le meme sigle sur les deux:
+        // le renommage ne doit pas se lire comme deux groupes distincts.
+        let stances: Vec<&str> = view
+            .items
+            .iter()
+            .flat_map(|entry| entry.vote.stances.iter())
+            .map(|stance| stance.group.abbrev.as_str())
+            .collect();
+        assert_eq!(stances, vec!["UDDPLR", "UDDPLR"]);
+    }
+
+    #[tokio::test]
+    async fn the_two_names_of_a_renamed_group_yield_one_column() {
+        let repository = renamed_group_repository();
+
+        let view = BrowseFinalVotes::new(&repository)
+            .execute(BrowseFinalVotesCommand {
+                groups: vec!["UDR".to_string(), "UDDPLR".to_string()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(view.selected.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn the_former_abbrev_still_resolves_to_the_group() {
+        let repository = renamed_group_repository();
+
+        let view = BrowseFinalVotes::new(&repository)
+            .execute(BrowseFinalVotesCommand {
+                groups: vec!["UDR".to_string()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(view.selected.len(), 1);
+        assert_eq!(view.selected[0].uid, "PO872880");
     }
 
     #[tokio::test]
