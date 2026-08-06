@@ -304,10 +304,6 @@ export default function GroupVotesPage() {
     <>
       <div className="mb-6">
         <h2 className="mb-1 text-xl font-semibold">Votes par groupe</h2>
-        <p className="text-sm text-gray-500">
-          Le vote sur l'ensemble de chaque texte, groupe parlementaire par groupe
-          parlementaire.
-        </p>
       </div>
 
       <div className="mb-6 space-y-3">
