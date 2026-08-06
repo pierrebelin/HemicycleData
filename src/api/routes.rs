@@ -6,7 +6,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::AppState;
 
-use super::handlers::{dossier_handlers, scrutin_handlers, theme_handlers};
+use super::handlers::{dossier_handlers, guide_handlers, scrutin_handlers, theme_handlers};
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
@@ -41,6 +41,8 @@ pub fn create_router(state: AppState) -> Router {
             "/api/scrutins/{uid}",
             get(scrutin_handlers::get_scrutin_detail),
         )
+        // Guide de lecture: chiffres de la page « Comprendre ».
+        .route("/api/dataset", get(guide_handlers::get_dataset))
         // Thematisation (todo/SPEC-thematisation.md).
         .route("/api/themes", get(theme_handlers::list_families))
         .route("/api/themes/method", get(theme_handlers::get_method))

@@ -614,6 +614,10 @@ impl ThemeRepository for PgThemeRepository {
         Ok(rows.iter().filter_map(assigned_from_row).collect())
     }
 
+    async fn text_count(&self) -> Result<i64, RepositoryError> {
+        self.count("SELECT count(*) FROM debated_texts").await
+    }
+
     async fn method_report(&self) -> Result<MethodReport, RepositoryError> {
         let rows = sqlx::query(
             "SELECT f.code,

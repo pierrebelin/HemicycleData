@@ -146,7 +146,7 @@ mod tests {
 
     use crate::application::ports::actor_repository::{RegistrySummary, RepositoryError};
     use crate::application::ports::scrutin_repository::{
-        ScrutinFilter, ScrutinPage, ScrutinSummary as PageSummary,
+        DatasetShape, ScrutinFilter, ScrutinPage, ScrutinSummary as PageSummary,
     };
     use crate::application::ports::scrutin_source::SourceError;
     use crate::domain::actor::{
@@ -248,6 +248,10 @@ mod tests {
         }
 
         async fn by_dossier(&self, _uid: &str) -> Result<Vec<PageSummary>, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn dataset_shape(&self) -> Result<DatasetShape, RepositoryError> {
             unreachable!()
         }
     }

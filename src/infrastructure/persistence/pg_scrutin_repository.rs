@@ -3,7 +3,8 @@ use chrono::NaiveDate;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 
 use crate::application::ports::scrutin_repository::{
-    RepositoryError, ScrutinFilter, ScrutinPage, ScrutinRepository, ScrutinSummary,
+    CodeCount, DatasetShape, RepositoryError, ScrutinFilter, ScrutinPage, ScrutinRepository,
+    ScrutinSummary,
 };
 use crate::domain::actor::{ActorUid, GroupUid};
 use crate::domain::scrutin::{
@@ -25,6 +26,36 @@ pub struct PgScrutinRepository {
 impl PgScrutinRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    /// Répartition des scrutins sur un couple code/libellé de la table. Les
+    /// deux noms de colonnes sont des constantes du code, jamais une saisie.
+    async fn code_counts(
+        &self,
+        code_column: &str,
+        label_column: &str,
+    ) -> Result<Vec<CodeCount>, RepositoryError> {
+        let rows = sqlx::query(&format!(
+            "SELECT {code_column} AS code,
+                    min({label_column}) AS label,
+                    count(*) AS total
+             FROM scrutins
+             GROUP BY {code_column}
+             ORDER BY count(*) DESC, {code_column}"
+        ))
+        .persistent(false)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db)?;
+
+        Ok(rows
+            .iter()
+            .map(|row| CodeCount {
+                code: row.get("code"),
+                label: row.get("label"),
+                count: row.get("total"),
+            })
+            .collect())
     }
 }
 
@@ -432,6 +463,54 @@ impl ScrutinRepository for PgScrutinRepository {
             .await
             .map_err(db)?;
         Ok(rows.iter().map(summary_from_row).collect())
+    }
+
+    async fn dataset_shape(&self) -> Result<DatasetShape, RepositoryError> {
+        let totals = sqlx::query(
+            "SELECT count(*) AS scrutins_total,
+                    count(*) FILTER (WHERE dossier_uid IS NOT NULL) AS with_dossier,
+                    min(scrutin_date) AS first_date,
+                    max(scrutin_date) AS last_date
+             FROM scrutins",
+        )
+        .persistent(false)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db)?;
+
+        let legislatures = sqlx::query(
+            "SELECT DISTINCT legislature FROM scrutins ORDER BY legislature",
+        )
+        .persistent(false)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db)?
+        .iter()
+        .map(|row| row.get::<i16, _>("legislature") as i64)
+        .collect();
+
+        let dossiers_total: i64 = sqlx::query("SELECT count(*) FROM legislative_dossiers")
+            .persistent(false)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(db)?
+            .try_get(0)
+            .map_err(db)?;
+
+        Ok(DatasetShape {
+            scrutins_total: totals.get("scrutins_total"),
+            scrutins_with_dossier: totals.get("with_dossier"),
+            first_scrutin_date: totals.get("first_date"),
+            last_scrutin_date: totals.get("last_date"),
+            legislatures,
+            outcomes: self
+                .code_counts("outcome_code", "outcome_label")
+                .await?,
+            ballot_types: self
+                .code_counts("ballot_type_code", "ballot_type_label")
+                .await?,
+            dossiers_total,
+        })
     }
 }
 
