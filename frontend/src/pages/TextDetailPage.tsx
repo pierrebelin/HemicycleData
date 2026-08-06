@@ -72,48 +72,6 @@ export default function TextDetailPage() {
         )}
       </section>
 
-      {data.proposal && (
-        <section>
-          <h3 className="mb-2 text-sm font-semibold text-gray-300">
-            Proposition automatique
-          </h3>
-          <p className="text-xs text-gray-500">
-            Modèle {data.proposal.model}, instruction{' '}
-            {data.proposal.prompt_version}, le{' '}
-            {frenchDate(data.proposal.produced_on)}. Le modèle n'a reçu que le
-            libellé du texte et n'a produit aucun chiffre.
-          </p>
-          <ul className="mt-2 space-y-1 text-xs text-gray-400">
-            {data.proposal.families.map((f) => (
-              <li key={f.code}>
-                <span className="text-gray-300">{f.label}</span> —{' '}
-                {f.justification}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {data.history.length > 0 && (
-        <section>
-          <h3 className="mb-2 text-sm font-semibold text-gray-300">
-            Historique des rattachements
-          </h3>
-          <ul className="space-y-1 text-xs text-gray-500">
-            {data.history.map((entry, index) => (
-              <li key={`${entry.code}-${entry.opened_on}-${index}`}>
-                {entry.label} · {entry.origin_note} · du{' '}
-                {frenchDate(entry.opened_on)}
-                {entry.closed_on
-                  ? ` au ${frenchDate(entry.closed_on)}`
-                  : ' à aujourd’hui'}{' '}
-                · {entry.author}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <section>
         <h3 className="mb-2 text-sm font-semibold text-gray-300">
           Scrutins de ce texte
