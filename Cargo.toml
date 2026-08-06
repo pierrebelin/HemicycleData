@@ -2,6 +2,9 @@
 name = "hemicycle-data"
 version = "0.1.0"
 edition = "2021"
+# Les binaires de `src/bin/` sont des outils de mesure jetables. `cargo run`
+# lance le serveur.
+default-run = "hemicycle-data"
 
 [dependencies]
 axum = "0.8"
