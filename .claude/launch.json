@@ -4,7 +4,7 @@
     {
       "name": "Backend Rust (Axum)",
       "runtimeExecutable": "cargo",
-      "runtimeArgs": ["run"],
+      "runtimeArgs": ["run", "--bin", "hemicycle-data"],
       "port": 3000,
       "autoPort": true
     },
