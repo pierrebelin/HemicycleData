@@ -5,6 +5,7 @@ use hemicycle_data::application::ports::actor_repository::ActorRepository;
 use hemicycle_data::application::ports::actor_source::ActorSource;
 use hemicycle_data::application::ports::assembly_source::AssemblySource;
 use hemicycle_data::application::ports::dossier_repository::DossierRepository;
+use hemicycle_data::application::ports::final_vote_repository::FinalVoteRepository;
 use hemicycle_data::application::ports::scrutin_repository::ScrutinRepository;
 use hemicycle_data::application::ports::scrutin_source::ScrutinSource;
 use hemicycle_data::application::ports::theme_classifier::ThemeClassifier;
@@ -17,6 +18,7 @@ use hemicycle_data::infrastructure::national_assembly::client::NationalAssemblyC
 use hemicycle_data::infrastructure::national_assembly::scrutin_client::ScrutinClient;
 use hemicycle_data::infrastructure::persistence::pg_actor_repository::PgActorRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_repository::PgDossierRepository;
+use hemicycle_data::infrastructure::persistence::pg_final_vote_repository::PgFinalVoteRepository;
 use hemicycle_data::infrastructure::persistence::pg_scrutin_repository::PgScrutinRepository;
 use hemicycle_data::infrastructure::persistence::pg_theme_repository::PgThemeRepository;
 use hemicycle_data::AppState;
@@ -39,6 +41,8 @@ async fn main() {
     let scrutin_source: Arc<dyn ScrutinSource> = Arc::new(ScrutinClient::new());
     let scrutin_repository: Arc<dyn ScrutinRepository> =
         Arc::new(PgScrutinRepository::new(db.clone()));
+    let final_vote_repository: Arc<dyn FinalVoteRepository> =
+        Arc::new(PgFinalVoteRepository::new(db.clone()));
     let theme_repository: Arc<dyn ThemeRepository> = Arc::new(PgThemeRepository::new(db.clone()));
 
     // BYOK: sans cle, la thematisation ne propose rien et le reste du site
@@ -67,6 +71,7 @@ async fn main() {
         actor_repository,
         scrutin_source,
         scrutin_repository,
+        final_vote_repository,
         theme_repository,
         theme_classifier,
         admin_token,
