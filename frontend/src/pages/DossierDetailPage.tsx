@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DossierScrutins from '../components/DossierScrutins'
+
+/** Actes visibles avant dépliage. Un dossier peut en porter des dizaines. */
+const VISIBLE_ACTS = 5
 
 interface ActeDto {
   date: string
@@ -98,6 +102,7 @@ function scoreTotalColor(score: number) {
 export default function DossierDetailPage() {
   const { uid } = useParams<{ uid: string }>()
   const queryClient = useQueryClient()
+  const [allActsShown, setAllActsShown] = useState(false)
 
   const { data, isLoading, isError, error } = useQuery<DossierDetailDto>({
     queryKey: ['dossier', uid],
@@ -381,23 +386,54 @@ export default function DossierDetailPage() {
           {data.acts.length === 0 ? (
             <p className="text-gray-500 text-sm">Aucun acte enregistré</p>
           ) : (
-            <div className="relative pl-4 border-l border-gray-700 space-y-4">
-              {data.acts.map((acte, i) => (
-                <div key={i} className="relative">
-                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-gray-900" />
-                  <p className="text-sm text-white">{acte.label}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(
-                      acte.date + 'T00:00:00',
-                    ).toLocaleDateString('fr-FR', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </p>
-                </div>
-              ))}
-            </div>
+            (() => {
+              // La source les rend du plus ancien au plus récent. On montre les
+              // derniers actes en premier: c'est l'état courant du dossier.
+              const recentFirst = [...data.acts].reverse()
+              const hidden = recentFirst.length - VISIBLE_ACTS
+              const shown = allActsShown
+                ? recentFirst
+                : recentFirst.slice(0, VISIBLE_ACTS)
+
+              return (
+                <>
+                  <div
+                    className={`relative pl-4 border-l border-gray-700 space-y-4 ${
+                      allActsShown ? 'max-h-96 overflow-y-auto pr-2' : ''
+                    }`}
+                  >
+                    {shown.map((acte, i) => (
+                      <div key={`${acte.date}-${i}`} className="relative">
+                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-gray-900" />
+                        <p className="text-sm text-white">{acte.label}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(
+                            acte.date + 'T00:00:00',
+                          ).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {hidden > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAllActsShown(!allActsShown)}
+                      aria-expanded={allActsShown}
+                      className="mt-4 text-sm text-blue-400 hover:text-blue-300 underline"
+                    >
+                      {allActsShown
+                        ? 'Masquer les actes antérieurs'
+                        : `Afficher les ${hidden} actes antérieurs`}
+                    </button>
+                  )}
+                </>
+              )
+            })()
           )}
         </section>
       </div>
