@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
+import GuideLink from '../components/GuideLink'
 import { CoverageNote, TallyLine } from '../components/ScrutinList'
 import type { GroupBreakdownDto, ScrutinDetailDto } from '../types/scrutins'
 import { formatDate, positionClasses, positionLabels } from '../types/scrutins'
@@ -189,6 +190,11 @@ export default function ScrutinDetailPage() {
           )}
         </div>
         <h2 className="text-xl font-semibold leading-snug">{data.subject}</h2>
+        <p className="mt-2 text-xs text-gray-500">
+          Le vote porte sur cet objet, pas nécessairement sur l'ensemble du
+          texte.{' '}
+          <GuideLink ancre="q-scrutin-loi">Comment lire un scrutin</GuideLink>
+        </p>
         {data.majority_label && (
           <p className="text-xs text-gray-500 mt-2">{data.majority_label}</p>
         )}
@@ -215,6 +221,13 @@ export default function ScrutinDetailPage() {
             </Link>
           )}
         </div>
+        {!data.dossier_uid && (
+          <p className="mt-2 text-xs text-gray-500">
+            La source ne rattache ce scrutin à aucun dossier législatif. C'est
+            le cas de la majorité des scrutins.{' '}
+            <GuideLink ancre="q-sans-dossier">Pourquoi</GuideLink>
+          </p>
+        )}
       </div>
 
       <section className="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-6">
@@ -241,12 +254,23 @@ export default function ScrutinDetailPage() {
           {s.required} requis
         </p>
         <p className="text-xs text-gray-500 mt-1">{s.announcement}</p>
+        <p className="mt-2 text-xs text-gray-500">
+          Les abstentions n'entrent pas dans les suffrages exprimés, et
+          « non-votant » ne se lit pas comme une absence.{' '}
+          <GuideLink ancre="q-non-votant">
+            Ce que recouvrent les positions
+          </GuideLink>
+        </p>
       </section>
 
       <section className="mb-6">
         <h3 className="text-sm font-semibold text-gray-300 mb-3">
           Répartition par groupe
         </h3>
+        <p className="mb-3 text-xs text-gray-500">
+          Groupe du député à la date du scrutin. Un groupe n'est pas un parti.{' '}
+          <GuideLink ancre="q-groupe">Pourquoi cette distinction</GuideLink>
+        </p>
         {/* Mention de méthode portée une fois pour toute la section : les
             chiffres marqués « reconstituée » sont produits par le site, pas
             publiés par l'Assemblée. */}
