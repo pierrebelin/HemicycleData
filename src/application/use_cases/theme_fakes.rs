@@ -215,6 +215,10 @@ impl ThemeRepository for InMemoryThemeRepository {
     async fn method_report(&self) -> Result<MethodReport, RepositoryError> {
         unimplemented!("read model, teste sur la base")
     }
+
+    async fn text_count(&self) -> Result<i64, RepositoryError> {
+        Ok(self.texts.lock().unwrap().len() as i64)
+    }
 }
 
 /// Doublure du port d'effet: rend la reponse programmee pour chaque libelle.

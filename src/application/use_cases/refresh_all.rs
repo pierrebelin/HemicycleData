@@ -113,7 +113,8 @@ mod tests {
     use crate::application::ports::actor_source::SourceError as ActorSourceError;
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::scrutin_repository::{
-        RepositoryError as ScrutinRepositoryError, ScrutinFilter, ScrutinPage, ScrutinSummary,
+        DatasetShape, RepositoryError as ScrutinRepositoryError, ScrutinFilter, ScrutinPage,
+        ScrutinSummary,
     };
     use crate::application::ports::scrutin_source::SourceError as ScrutinSourceError;
     use crate::domain::scrutin::{Scrutin, ScrutinUid};
@@ -210,6 +211,10 @@ mod tests {
             &self,
             _uid: &str,
         ) -> Result<Vec<ScrutinSummary>, ScrutinRepositoryError> {
+            unreachable!()
+        }
+
+        async fn dataset_shape(&self) -> Result<DatasetShape, ScrutinRepositoryError> {
             unreachable!()
         }
     }

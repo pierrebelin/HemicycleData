@@ -205,4 +205,8 @@ pub trait ThemeRepository: Send + Sync {
     ) -> Result<Vec<AssignedFamily>, RepositoryError>;
 
     async fn method_report(&self) -> Result<MethodReport, RepositoryError>;
+
+    /// Nombre de textes débattus extraits. Compte seul, sans le reste du
+    /// rapport de méthode : la page « Comprendre » n'a besoin que de celui-là.
+    async fn text_count(&self) -> Result<i64, RepositoryError>;
 }
