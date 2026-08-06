@@ -288,6 +288,15 @@ pub(crate) mod tests {
             unreachable!()
         }
 
+        async fn find_page(
+            &self,
+            _limit: i64,
+            _offset: i64,
+        ) -> Result<crate::application::ports::dossier_repository::DossierPage, RepositoryError>
+        {
+            unreachable!()
+        }
+
         async fn find_by_uid(
             &self,
             _uid: &DossierUid,

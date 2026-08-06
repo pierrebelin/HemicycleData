@@ -1,4 +1,6 @@
 pub mod arbitrate_theme;
+pub mod browse_dossiers;
+pub mod browse_final_votes;
 pub mod browse_themes;
 pub mod curate_dossier;
 pub mod describe_dataset;

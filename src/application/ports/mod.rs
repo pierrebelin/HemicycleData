@@ -2,6 +2,7 @@ pub mod actor_repository;
 pub mod actor_source;
 pub mod assembly_source;
 pub mod dossier_repository;
+pub mod final_vote_repository;
 pub mod scrutin_repository;
 pub mod scrutin_source;
 pub mod theme_classifier;

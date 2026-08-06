@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use sqlx::PgPool;
 
-use crate::application::ports::dossier_repository::{DossierRepository, RepositoryError};
+use crate::application::ports::dossier_repository::{
+    DossierPage, DossierRepository, RepositoryError,
+};
 use crate::domain::actor::{ActorRole, ActorUid, GroupUid, MembershipQuality};
 use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, InitiatorGroup, LegislativeAct, LegislativeDocument, LegislativeStage, LegislativeDossier, Score};
 
@@ -226,6 +228,38 @@ impl DossierRepository for PgDossierRepository {
         .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
         Ok(rows.into_iter().map(|r| r.into_dossier(vec![], vec![], vec![])).collect())
+    }
+
+    async fn find_page(&self, limit: i64, offset: i64) -> Result<DossierPage, RepositoryError> {
+        let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM legislative_dossiers")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| RepositoryError::Database(e.to_string()))?;
+
+        // `uid` départage les dossiers d'une même journée : sans lui, deux pages
+        // successives peuvent renvoyer deux fois la même ligne.
+        let rows = sqlx::query_as::<_, DossierRow>(
+            "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
+                    score_progress, score_magnitude, score_momentum, score_total,
+                    current_stage_code, committee, curation_status,
+                    legislature, url, summary, deposit_date
+             FROM legislative_dossiers
+             ORDER BY last_activity_date DESC, uid DESC
+             LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| RepositoryError::Database(e.to_string()))?;
+
+        Ok(DossierPage {
+            items: rows
+                .into_iter()
+                .map(|r| r.into_dossier(vec![], vec![], vec![]))
+                .collect(),
+            total,
+        })
     }
 
     async fn find_by_uid(

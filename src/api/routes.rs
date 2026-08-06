@@ -6,12 +6,20 @@ use tower_http::cors::CorsLayer;
 
 use crate::AppState;
 
-use super::handlers::{dossier_handlers, guide_handlers, scrutin_handlers, theme_handlers};
+use super::handlers::{
+    dossier_handlers, final_vote_handlers, guide_handlers, scrutin_handlers, theme_handlers,
+};
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
-        .route("/api/dossiers", get(dossier_handlers::get_recent_dossiers))
+        // Liste principale : tous les dossiers, paginés (PROJECT.md §2).
+        .route("/api/dossiers", get(dossier_handlers::browse_dossiers))
+        // Activité récente, utilisée par la sélection éditoriale.
+        .route(
+            "/api/dossiers/recent",
+            get(dossier_handlers::get_recent_dossiers),
+        )
         .route(
             "/api/dossiers/{uid}",
             get(dossier_handlers::get_dossier_detail),
@@ -33,6 +41,11 @@ pub fn create_router(state: AppState) -> Router {
             get(scrutin_handlers::get_dossier_scrutins),
         )
         .route("/api/scrutins", get(scrutin_handlers::list_scrutins))
+        // Votes sur l'ensemble d'un texte, groupe par groupe (CU-07).
+        .route(
+            "/api/votes-finaux",
+            get(final_vote_handlers::list_final_votes),
+        )
         .route(
             "/api/scrutins/refresh",
             post(scrutin_handlers::refresh_scrutins),
