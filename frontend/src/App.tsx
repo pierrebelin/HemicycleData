@@ -16,6 +16,7 @@ export default function App() {
               { to: '/', label: 'Dossiers', end: true },
               { to: '/groupes', label: 'Votes par groupe', end: false },
               { to: '/themes', label: 'Thèmes', end: false },
+              { to: '/comprendre', label: 'Comprendre', end: false },
             ].map((item) => (
               <NavLink
                 key={item.to}

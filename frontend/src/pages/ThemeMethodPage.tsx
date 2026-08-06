@@ -111,19 +111,6 @@ export default function ThemeMethodPage() {
         <Row label="Dossiers reliés à un texte voté" value={data.dossiers_linked_to_text} />
         <Row label="Dossiers portant une famille" value={data.dossiers_assigned} />
       </section>
-
-      <section>
-        <h3 className="mb-2 text-sm font-semibold text-gray-300">
-          Par famille
-        </h3>
-        {data.families.map((family) => (
-          <Row
-            key={family.code}
-            label={family.label}
-            value={`${family.text_count} textes · ${family.scrutin_count} scrutins · ${family.arbitrated_text_count} arbitrés`}
-          />
-        ))}
-      </section>
     </div>
   )
 }

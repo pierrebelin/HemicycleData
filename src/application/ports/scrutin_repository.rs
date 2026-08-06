@@ -65,6 +65,37 @@ pub struct ScrutinPage {
     pub total: i64,
 }
 
+/// Un code de la source, son libellé publié, et le nombre de scrutins qui le
+/// portent. Sert à montrer la fréquence d'un mécanisme sans la qualifier.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodeCount {
+    pub code: String,
+    pub label: String,
+    pub count: i64,
+}
+
+/// Forme du jeu de données, telle qu'affichée sur la page « Comprendre ».
+///
+/// Ce sont des faits de couverture, pas une mesure d'activité parlementaire :
+/// ils disent ce que le site contient et, par différence, ce qu'il ne contient
+/// pas (PROJECT.md §2, §7).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DatasetShape {
+    pub scrutins_total: i64,
+    /// Scrutins que la source rattache à un dossier législatif. Le complément
+    /// n'est pas une anomalie : il est majoritaire (RM-10).
+    pub scrutins_with_dossier: i64,
+    pub first_scrutin_date: Option<NaiveDate>,
+    pub last_scrutin_date: Option<NaiveDate>,
+    /// Législatures couvertes, ordre croissant.
+    pub legislatures: Vec<i64>,
+    /// Répartition par sort du scrutin, la plus fréquente d'abord.
+    pub outcomes: Vec<CodeCount>,
+    /// Répartition par type de scrutin (ordinaire, solennel, ...).
+    pub ballot_types: Vec<CodeCount>,
+    pub dossiers_total: i64,
+}
+
 #[async_trait]
 pub trait ScrutinRepository: Send + Sync {
     /// Ecrit les scrutins et tout ce qu'ils portent. Reecrit integralement les
@@ -80,4 +111,7 @@ pub trait ScrutinRepository: Send + Sync {
         &self,
         dossier_uid: &str,
     ) -> Result<Vec<ScrutinSummary>, RepositoryError>;
+
+    /// Read model de la page « Comprendre » : volumétrie et répartitions.
+    async fn dataset_shape(&self) -> Result<DatasetShape, RepositoryError>;
 }
