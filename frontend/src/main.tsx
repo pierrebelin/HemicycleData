@@ -14,6 +14,7 @@ import ThemeMethodPage from './pages/ThemeMethodPage.tsx'
 import ThemeArbitrationPage from './pages/ThemeArbitrationPage.tsx'
 import UnassignedTextsPage from './pages/UnassignedTextsPage.tsx'
 import TextDetailPage from './pages/TextDetailPage.tsx'
+import ComprendrePage from './pages/ComprendrePage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="themes/arbitrage" element={<ThemeArbitrationPage />} />
             <Route path="themes/:code" element={<ThemeDetailPage />} />
             <Route path="textes/:key" element={<TextDetailPage />} />
+            <Route path="comprendre" element={<ComprendrePage />} />
           </Route>
         </Routes>
       </BrowserRouter>

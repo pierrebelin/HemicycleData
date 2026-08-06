@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import ScrutinList, { CoverageNote } from './ScrutinList'
+import GuideLink from './GuideLink'
 import type { DossierScrutinsResponse } from '../types/scrutins'
 
 /**
@@ -45,7 +46,11 @@ export default function DossierScrutins({ uid }: { uid: string }) {
         <div className="space-y-3">
           {data.count === 0 ? (
             <p className="text-gray-500 text-sm border border-gray-800 rounded-lg p-4">
-              La source ne rattache aucun scrutin public à ce dossier.
+              La source ne rattache aucun scrutin public à ce dossier. Cela ne
+              signifie pas qu'aucun vote n'a eu lieu sur ce texte.{' '}
+              <GuideLink ancre="q-sans-dossier">
+                Pourquoi la plupart des scrutins n'ont pas de dossier
+              </GuideLink>
             </p>
           ) : (
             <ScrutinList scrutins={data.scrutins} />
