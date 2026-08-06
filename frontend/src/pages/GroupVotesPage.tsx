@@ -12,6 +12,9 @@ import { formatDate } from '../types/scrutins'
 
 const PAGE_SIZE = 20
 
+/** Plafond supposé tant que la réponse n'a pas donné le sien. */
+const MAX_GROUPS_BEFORE_LOAD = 4
+
 /**
  * Couleurs des positions, jamais des groupes : le vert et le rouge disent
  * « pour » et « contre », pas « bien » et « mal ». La couleur du groupe reste
@@ -183,7 +186,12 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
       </div>
 
       {selected.length > 0 && (
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        // Deux colonnes au plus par ligne : à quatre groupes de front, les
+        // cartes seraient trop étroites pour porter les chiffres bruts, et il
+        // ne resterait que les pourcentages (PROJECT.md §6).
+        <div
+          className={`mt-3 grid gap-2 ${selected.length > 1 ? 'sm:grid-cols-2' : ''}`}
+        >
           {selected.map((group) => {
             const stance = vote.stances.find((s) => s.group_uid === group.uid)
             return stance ? (
@@ -203,35 +211,60 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
   )
 }
 
-function GroupSelect({
-  label,
-  value,
+/**
+ * Sélecteur des groupes comparés. Une pastille par groupe du référentiel :
+ * l'offre reste entière et visible, et la limite est annoncée avant d'être
+ * atteinte plutôt que signalée par une erreur du serveur.
+ */
+function GroupPicker({
   groups,
-  allowEmpty,
-  onChange,
+  selected,
+  max,
+  onToggle,
 }: {
-  label: string
-  value: string
   groups: GroupDto[]
-  allowEmpty: boolean
-  onChange: (value: string) => void
+  selected: string[]
+  max: number
+  onToggle: (abbrev: string) => void
 }) {
+  const full = selected.length >= max
+
   return (
-    <label className="flex items-center gap-2 text-xs text-gray-500">
-      {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-gray-800 bg-gray-900 px-2 py-1 text-sm text-gray-200 focus:border-gray-600 focus:outline-none"
-      >
-        {allowEmpty && <option value="">Aucun</option>}
-        {groups.map((group) => (
-          <option key={group.uid} value={group.abbrev}>
-            {group.abbrev} — {group.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="text-xs text-gray-500">Groupes comparés</span>
+        <span className="text-xs tabular-nums text-gray-600">
+          {selected.length} sur {max} au maximum
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {groups.map((group) => {
+          const isSelected = selected.includes(group.abbrev)
+          return (
+            <button
+              key={group.uid}
+              type="button"
+              onClick={() => onToggle(group.abbrev)}
+              aria-pressed={isSelected}
+              disabled={full && !isSelected}
+              title={group.label}
+              className={`flex items-center gap-1.5 rounded border px-2 py-1 text-sm transition-colors ${
+                isSelected
+                  ? 'border-gray-600 bg-gray-800 text-gray-100'
+                  : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-800 disabled:hover:text-gray-400'
+              }`}
+            >
+              <span
+                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-gray-700"
+                style={{ backgroundColor: group.color ?? 'transparent' }}
+                aria-hidden
+              />
+              {group.abbrev}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -274,7 +307,7 @@ export default function GroupVotesPage() {
       }),
   })
 
-  const [groupA = '', groupB = ''] = groupsParam
+  const requested = groupsParam
     .split(',')
     .map((token) => token.trim())
     .filter(Boolean)
@@ -292,13 +325,25 @@ export default function GroupVotesPage() {
     setParams(merged)
   }
 
-  function setGroups(a: string, b: string) {
-    update({ groupes: [a, b].filter(Boolean).join(',') })
-  }
-
   const groups = data?.groups ?? []
   const selected = data?.selected ?? []
   const shown = data?.items.length ?? 0
+  const maxGroups = data?.max_compared_groups ?? MAX_GROUPS_BEFORE_LOAD
+
+  // Le sigle affiché fait foi : un groupe renommé est proposé sous son sigle
+  // courant, et c'est celui-là qui part dans l'adresse.
+  const selectedAbbrevs =
+    data === undefined ? requested : selected.map((group) => group.abbrev)
+
+  function toggleGroup(abbrev: string) {
+    const next = selectedAbbrevs.includes(abbrev)
+      ? selectedAbbrevs.filter((token) => token !== abbrev)
+      : [...selectedAbbrevs, abbrev].slice(0, maxGroups)
+    // Un groupe au moins : sans paramètre, l'adresse retomberait sur la
+    // sélection par défaut, ce qui se lirait comme un bug.
+    if (next.length === 0) return
+    update({ groupes: next.join(',') })
+  }
 
   return (
     <>
@@ -307,21 +352,14 @@ export default function GroupVotesPage() {
       </div>
 
       <div className="mb-6 space-y-3">
+        <GroupPicker
+          groups={groups}
+          selected={selectedAbbrevs}
+          max={maxGroups}
+          onToggle={toggleGroup}
+        />
+
         <div className="flex flex-wrap items-center gap-4">
-          <GroupSelect
-            label="Groupe"
-            value={groupA}
-            groups={groups}
-            allowEmpty={false}
-            onChange={(value) => setGroups(value, groupB)}
-          />
-          <GroupSelect
-            label="Comparer à"
-            value={groupB}
-            groups={groups.filter((g) => g.abbrev !== groupA)}
-            allowEmpty
-            onChange={(value) => setGroups(groupA, value)}
-          />
           <label className="flex items-center gap-2 text-xs text-gray-500">
             Thème
             <select
