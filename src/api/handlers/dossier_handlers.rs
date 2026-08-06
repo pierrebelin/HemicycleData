@@ -3,9 +3,11 @@ use axum::http::StatusCode;
 use axum::Json;
 
 use crate::api::dto::{
-    CurateBody, DossierDetailDto, DossierDto, RecentActivityQuery, RecentDossiersResponse,
-    RefreshResponse, RegistryResponse, SuggestionsQuery, SuggestionsResponse,
+    CurateBody, DossierDetailDto, DossierDto, DossierPageQuery, DossierPageResponse,
+    RecentActivityQuery, RecentDossiersResponse, RefreshResponse, RegistryResponse,
+    SuggestionsQuery, SuggestionsResponse,
 };
+use crate::application::use_cases::browse_dossiers::{BrowseDossiers, PageRequest};
 use crate::application::use_cases::curate_dossier::CurateDossier;
 use crate::application::use_cases::fetch_recent_dossiers::FetchRecentDossiers;
 use crate::application::use_cases::get_dossier_detail::GetDossierDetail;
@@ -32,6 +34,29 @@ pub async fn get_recent_dossiers(
     Ok(Json(RecentDossiersResponse {
         count: dtos.len(),
         dossiers: dtos,
+    }))
+}
+
+/// Liste paginée de tous les dossiers, du plus récent au plus ancien.
+pub async fn browse_dossiers(
+    State(state): State<AppState>,
+    Query(params): Query<DossierPageQuery>,
+) -> Result<Json<DossierPageResponse>, (StatusCode, String)> {
+    let request = PageRequest::new(params.page, params.per_page);
+    let uc = BrowseDossiers::new(state.dossier_repository.as_ref());
+
+    let page = uc
+        .execute(request)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(DossierPageResponse {
+        page: request.page(),
+        per_page: request.per_page(),
+        total: page.total,
+        total_pages: page.total.div_euclid(request.per_page())
+            + i64::from(page.total.rem_euclid(request.per_page()) > 0),
+        dossiers: page.items.into_iter().map(DossierDto::from).collect(),
     }))
 }
 

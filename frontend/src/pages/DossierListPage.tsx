@@ -1,6 +1,5 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { Link, useSearchParams } from 'react-router'
 
 interface StageDto {
   label: string
@@ -13,191 +12,52 @@ interface DossierDto {
   procedure: string
   last_activity_date: string
   last_activity_label: string
-  score_total: number
   current_stage: StageDto | null
-  committee: string | null
-  curation_status: string
 }
 
-interface SuggestionsResponse {
-  count: number
-  suggestions: DossierDto[]
-}
-
-interface RecentDossiersResponse {
-  count: number
+interface DossierPageResponse {
+  page: number
+  per_page: number
+  total: number
+  total_pages: number
   dossiers: DossierDto[]
 }
 
-function scoreBadgeColor(score: number) {
-  if (score >= 60) return 'bg-emerald-600'
-  if (score >= 30) return 'bg-amber-600'
-  return 'bg-gray-600'
-}
+const PER_PAGE = 20
 
 export default function DossierListPage() {
-  const [days, setDays] = useState(7)
-  const queryClient = useQueryClient()
+  const [params, setParams] = useSearchParams()
+  const page = Math.max(1, Number(params.get('page')) || 1)
 
-  const { data, isLoading, isError, error } =
-    useQuery<RecentDossiersResponse>({
-      queryKey: ['dossiers', days],
+  const { data, isLoading, isError, error, isPlaceholderData } =
+    useQuery<DossierPageResponse>({
+      queryKey: ['dossiers', page],
       queryFn: () =>
-        fetch(`/api/dossiers?days=${days}`).then((res) => {
+        fetch(`/api/dossiers?page=${page}&per_page=${PER_PAGE}`).then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
           return res.json()
         }),
+      // Garde la page précédente affichée pendant le chargement de la suivante :
+      // la liste ne clignote pas à chaque changement de page.
+      placeholderData: keepPreviousData,
     })
 
-  const suggestions = useQuery<SuggestionsResponse>({
-    queryKey: ['suggestions'],
-    queryFn: () =>
-      fetch('/api/suggestions?count=3').then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      }),
-  })
-
-  const curate = useMutation({
-    mutationFn: ({ uid, status }: { uid: string; status: string }) =>
-      fetch(`/api/dossiers/${uid}/curate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      }).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] })
-      queryClient.invalidateQueries({ queryKey: ['dossiers'] })
-    },
-  })
-
-  const refresh = useMutation({
-    mutationFn: () =>
-      fetch('/api/refresh', { method: 'POST' }).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json() as Promise<{ count: number }>
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dossiers'] })
-      queryClient.invalidateQueries({ queryKey: ['dossier'] })
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] })
-    },
-  })
+  const goTo = (next: number) => {
+    setParams(next === 1 ? {} : { page: String(next) })
+    window.scrollTo({ top: 0 })
+  }
 
   return (
     <>
-      <div className="flex items-center gap-4 mb-8">
-        <h2 className="text-xl font-semibold">Dossiers actifs</h2>
-        <div className="flex gap-1">
-          {[7, 14, 30].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1 rounded text-sm ${
-                days === d
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              {d}j
-            </button>
-          ))}
-        </div>
+      <div className="flex items-baseline gap-3 mb-8">
+        <h2 className="text-xl font-semibold">Dossiers législatifs</h2>
         {data && (
           <span className="text-sm text-gray-500">
-            {data.count} dossier{data.count > 1 ? 's' : ''}
+            {data.total.toLocaleString('fr-FR')} dossier
+            {data.total > 1 ? 's' : ''}, du plus récent au plus ancien
           </span>
         )}
-        <button
-          onClick={() => refresh.mutate()}
-          disabled={refresh.isPending}
-          className="ml-auto px-3 py-1 rounded text-sm bg-gray-800 text-gray-400 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {refresh.isPending ? (
-            <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Synchronisation…
-            </>
-          ) : (
-            'Rafraîchir'
-          )}
-        </button>
       </div>
-
-      {refresh.isSuccess && (
-        <div className="mb-4 bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
-          <p className="text-emerald-400 text-sm">
-            {refresh.data.count} dossier{refresh.data.count > 1 ? 's' : ''} synchronisé{refresh.data.count > 1 ? 's' : ''}
-          </p>
-        </div>
-      )}
-
-      {refresh.isError && (
-        <div className="mb-4 bg-red-900/20 border border-red-800 rounded-lg p-3">
-          <p className="text-red-400 text-sm">
-            Erreur de synchronisation : {refresh.error instanceof Error ? refresh.error.message : 'inconnue'}
-          </p>
-        </div>
-      )}
-
-      {suggestions.data && suggestions.data.suggestions.length > 0 && (
-        <section className="mb-8">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Suggestions Instagram
-          </h3>
-          <div className="space-y-2">
-            {suggestions.data.suggestions.map((d) => (
-              <div
-                key={d.uid}
-                className="bg-gray-900 border border-amber-900/50 rounded-lg p-4 flex items-center gap-4"
-              >
-                <Link
-                  to={`/dossiers/${d.uid}`}
-                  className="flex-1 min-w-0 hover:opacity-80"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white ${scoreBadgeColor(d.score_total)}`}
-                    >
-                      {d.score_total}
-                    </span>
-                    <p className="text-white font-medium leading-snug truncate">
-                      {d.title}
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">{d.procedure}</p>
-                </Link>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() =>
-                      curate.mutate({ uid: d.uid, status: 'selected' })
-                    }
-                    disabled={curate.isPending}
-                    className="px-3 py-1.5 rounded text-xs font-medium bg-emerald-900/30 border border-emerald-800 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-50"
-                  >
-                    Sélectionner
-                  </button>
-                  <button
-                    onClick={() =>
-                      curate.mutate({ uid: d.uid, status: 'dismissed' })
-                    }
-                    disabled={curate.isPending}
-                    className="px-3 py-1.5 rounded text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    Écarter
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {isLoading && (
         <div className="text-center py-20">
@@ -215,7 +75,9 @@ export default function DossierListPage() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div
+        className={`space-y-3 ${isPlaceholderData ? 'opacity-50' : ''}`}
+      >
         {data?.dossiers.map((d) => (
           <Link
             key={d.uid}
@@ -224,16 +86,7 @@ export default function DossierListPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white ${scoreBadgeColor(d.score_total)}`}
-                  >
-                    {d.score_total}
-                  </span>
-                  <p className="text-white font-medium leading-snug truncate">
-                    {d.title}
-                  </p>
-                </div>
+                <p className="text-white font-medium leading-snug">{d.title}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <p className="text-xs text-gray-500">{d.procedure}</p>
                   {d.current_stage && (
@@ -251,6 +104,7 @@ export default function DossierListPage() {
                   ).toLocaleDateString('fr-FR', {
                     day: 'numeric',
                     month: 'short',
+                    year: 'numeric',
                   })}
                 </span>
                 <span className="text-xs text-blue-400 mt-0.5">
@@ -261,6 +115,28 @@ export default function DossierListPage() {
           </Link>
         ))}
       </div>
+
+      {data && data.total_pages > 1 && (
+        <nav className="flex items-center justify-between gap-4 mt-8">
+          <button
+            onClick={() => goTo(page - 1)}
+            disabled={page <= 1}
+            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ← Précédent
+          </button>
+          <span className="text-sm text-gray-500">
+            Page {data.page} sur {data.total_pages}
+          </span>
+          <button
+            onClick={() => goTo(page + 1)}
+            disabled={page >= data.total_pages}
+            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Suivant →
+          </button>
+        </nav>
+      )}
     </>
   )
 }

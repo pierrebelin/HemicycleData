@@ -1,3 +1,4 @@
 pub mod dossier_handlers;
+pub mod final_vote_handlers;
 pub mod scrutin_handlers;
 pub mod theme_handlers;

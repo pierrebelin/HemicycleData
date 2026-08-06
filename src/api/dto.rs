@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
+use crate::application::use_cases::browse_dossiers::DEFAULT_PER_PAGE;
 use crate::domain::dossier::{CurationStatus, LegislativeDossier};
 
 #[derive(Deserialize)]
@@ -51,6 +52,32 @@ impl From<LegislativeDossier> for DossierDto {
 #[derive(Serialize)]
 pub struct RecentDossiersResponse {
     pub count: usize,
+    pub dossiers: Vec<DossierDto>,
+}
+
+#[derive(Deserialize)]
+pub struct DossierPageQuery {
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_per_page")]
+    pub per_page: i64,
+}
+
+fn default_page() -> i64 {
+    1
+}
+
+fn default_per_page() -> i64 {
+    DEFAULT_PER_PAGE
+}
+
+#[derive(Serialize)]
+pub struct DossierPageResponse {
+    /// Page réellement servie, après remise dans les bornes.
+    pub page: i64,
+    pub per_page: i64,
+    pub total: i64,
+    pub total_pages: i64,
     pub dossiers: Vec<DossierDto>,
 }
 
