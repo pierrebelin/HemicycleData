@@ -7,6 +7,17 @@ export interface TallyDto {
   voluntary_not_voting: number
 }
 
+/** Nombre de positions portées par un décompte, non-votants compris. */
+export function tallySize(tally: TallyDto) {
+  return (
+    tally.votes_for +
+    tally.votes_against +
+    tally.abstentions +
+    tally.not_voting +
+    tally.voluntary_not_voting
+  )
+}
+
 export interface ScrutinSummaryDto {
   uid: string
   number: string
@@ -110,17 +121,27 @@ export const positionLabels: Record<VoteDto['position'], string> = {
   not_voting: 'Non-votant',
 }
 
+/** Fond, texte et anneau d'une pastille de position. Voir `Pill` dans `ui.tsx`. */
 export const positionClasses: Record<VoteDto['position'], string> = {
-  for: 'bg-emerald-900/30 border-emerald-800 text-emerald-300',
-  against: 'bg-red-900/30 border-red-800 text-red-300',
-  abstention: 'bg-amber-900/30 border-amber-800 text-amber-300',
-  not_voting: 'bg-gray-800 border-gray-700 text-gray-400',
+  for: 'bg-yes-soft text-yes ring-yes/15',
+  against: 'bg-no-soft text-no ring-no/15',
+  abstention: 'bg-abstain-soft text-abstain ring-abstain/15',
+  not_voting: 'bg-surface-soft text-ink-soft ring-line',
 }
 
 export function formatDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
+    year: 'numeric',
+  })
+}
+
+/** Forme courte, pour les listes où la date est une métadonnée et non un fait. */
+export function formatDateShort(iso: string) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
     year: 'numeric',
   })
 }
