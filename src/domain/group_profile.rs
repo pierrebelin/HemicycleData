@@ -1,0 +1,282 @@
+//! Fiche d'un groupe parlementaire: identite, effectif, participation.
+//!
+//! Ce module produit des taux, ce que le reste du site evite soigneusement. La
+//! precaution n'etait pas une pudeur: PROJECT.md §6 interdit « l'agregat qui se
+//! lit comme un classement », et SPEC-PAGES-THEME-GROUPE RM-01 refuse tout taux
+//! sur une page filtree par groupe. Trois garde-fous rendent la fiche tenable,
+//! et ils sont dans le code plutot que dans une note de bas de page:
+//!
+//! 1. **Aucun cumul du sens du vote.** Les « pour » et les « contre » sont
+//!    additionnes ensemble sous un seul libelle — les voix exprimees — et jamais
+//!    separement. Un groupe qui vote contre quarante amendements puis pour le
+//!    texte ne ressort d'ici ni « pour » ni « contre ».
+//! 2. **Un denominateur nomme.** Le taux porte les positions publiees qui l'ont
+//!    produit; sans elles, 12 % sur 25 lignes et 12 % sur 8 000 se lisent pareil.
+//! 3. **Aucune comparabilite implicite.** Les groupes ne siegent pas sur les
+//!    memes scrutins ni sur les memes periodes (H3), et leur effectif varie en
+//!    cours de legislature (H4). La fiche porte donc sa fenetre et son effectif
+//!    a cote de ses taux, et le site ne classe jamais deux groupes l'un contre
+//!    l'autre.
+
+use chrono::NaiveDate;
+use serde::Serialize;
+
+/// Positions publiees par l'Assemblee pour un groupe, cumulees sur les scrutins
+/// ou elle publie une ligne pour lui.
+///
+/// Les cinq comptes sont ceux de la source, additionnes tels quels (RM-08).
+/// `votes_for` et `votes_against` ne sortent jamais d'ici separement: ils
+/// n'existent que dans `expressed()`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ParticipationCounts {
+    pub votes_for: u64,
+    pub votes_against: u64,
+    pub abstentions: u64,
+    pub not_voting: u64,
+    pub voluntary_not_voting: u64,
+}
+
+impl ParticipationCounts {
+    /// Voix exprimees: pour et contre confondus. Le sens du vote ne sort pas de
+    /// cette addition, et c'est deliberé.
+    pub fn expressed(&self) -> u64 {
+        self.votes_for + self.votes_against
+    }
+
+    /// Membres n'ayant pas pris part au vote, volontairement ou non. La source
+    /// publie les deux comptes separement et ne nomme pas les seconds.
+    pub fn absent(&self) -> u64 {
+        self.not_voting + self.voluntary_not_voting
+    }
+
+    /// Denominateur de tous les taux de la fiche: chaque position que la source
+    /// publie pour le groupe. Ce n'est pas son effectif — la source ne fait pas
+    /// toujours coincider les deux, et supposer l'egalite serait produire un
+    /// chiffre qu'elle ne publie pas.
+    pub fn published_positions(&self) -> u64 {
+        self.expressed() + self.abstentions + self.absent()
+    }
+
+    pub fn add(&mut self, other: &Self) {
+        self.votes_for += other.votes_for;
+        self.votes_against += other.votes_against;
+        self.abstentions += other.abstentions;
+        self.not_voting += other.not_voting;
+        self.voluntary_not_voting += other.voluntary_not_voting;
+    }
+}
+
+/// Repartition de la participation, en pour mille.
+///
+/// Le pour mille plutot que le pourcentage entier: sur 100 000 positions, une
+/// abstention a 0,4 % s'afficherait « 0 % », et un chiffre publie arrondi a zero
+/// se lit comme une absence de donnee.
+///
+/// Les trois parts sont arrondies a la plus forte moyenne pour totaliser 1 000:
+/// trois arrondis independants laisseraient un reste visible a l'ecran.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ParticipationRates {
+    /// Positions publiees ayant servi de denominateur. Affichee avec les taux:
+    /// un taux sans sa base n'est pas verifiable (PROJECT.md §9).
+    pub base: u64,
+    /// Part des voix exprimees, pour et contre confondus.
+    pub expressed_per_mille: u16,
+    pub abstention_per_mille: u16,
+    /// Part des non-votants, volontaires compris.
+    pub absence_per_mille: u16,
+}
+
+impl ParticipationRates {
+    /// `None` quand la source ne publie aucune position pour ce groupe: il n'y
+    /// a rien a rapporter, et afficher 0 % laisserait croire a une abstention
+    /// nulle mesuree.
+    pub fn from_counts(counts: &ParticipationCounts) -> Option<Self> {
+        let base = counts.published_positions();
+        if base == 0 {
+            return None;
+        }
+
+        let parts = [counts.expressed(), counts.abstentions, counts.absent()];
+        let mut shares = [0u64; 3];
+        let mut remainders = [(0u64, 0usize); 3];
+        for (index, part) in parts.iter().enumerate() {
+            shares[index] = part * 1_000 / base;
+            remainders[index] = (part * 1_000 % base, index);
+        }
+
+        // Plus forte moyenne: les unites restantes vont aux plus grands restes.
+        // A egalite, l'ordre exprime / abstention / non-participation tranche,
+        // ce qui garde le calcul rejouable a l'identique.
+        let mut left = 1_000 - shares.iter().sum::<u64>();
+        remainders.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        for (_, index) in remainders {
+            if left == 0 {
+                break;
+            }
+            shares[index] += 1;
+            left -= 1;
+        }
+
+        Some(Self {
+            base,
+            expressed_per_mille: shares[0] as u16,
+            abstention_per_mille: shares[1] as u16,
+            absence_per_mille: shares[2] as u16,
+        })
+    }
+}
+
+/// Effectif publie par la source sur les scrutins du groupe.
+///
+/// H4: l'effectif bouge en cours de legislature — RN de 121 a 125, EPR de 91 a
+/// 95. Publier une seule valeur obligerait a choisir laquelle, et ce choix
+/// serait un chiffre invente. Les deux bornes sont donc gardees.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct MemberCountRange {
+    pub min: u16,
+    pub max: u16,
+}
+
+impl MemberCountRange {
+    /// `None` quand la source ne publie pas d'effectif, ou quand les bornes
+    /// sont incoherentes: mieux vaut ne rien afficher qu'un intervalle inverse.
+    pub fn new(min: u16, max: u16) -> Option<Self> {
+        (min <= max).then_some(Self { min, max })
+    }
+
+    pub fn is_stable(&self) -> bool {
+        self.min == self.max
+    }
+}
+
+/// Fenetre pendant laquelle la source publie des lignes de vote pour le groupe.
+///
+/// Distincte des dates de creation et de dissolution du referentiel: un groupe
+/// peut exister sans qu'aucun scrutin ne le nomme. H3 en fait un fait
+/// structurant — UDR et UDDPLR partitionnent exactement la legislature — et
+/// c'est cette fenetre, pas les dates du referentiel, qui explique pourquoi
+/// deux taux ne se comparent pas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct VotingWindow {
+    pub first: NaiveDate,
+    pub last: NaiveDate,
+}
+
+impl VotingWindow {
+    pub fn new(first: Option<NaiveDate>, last: Option<NaiveDate>) -> Option<Self> {
+        match (first, last) {
+            (Some(first), Some(last)) if first <= last => Some(Self { first, last }),
+            _ => None,
+        }
+    }
+}
+
+/// Nombre de deputes portant une qualite d'appartenance donnee.
+///
+/// La qualite est le libelle de la source — « Membre », « Membre apparente »,
+/// « President » — conserve tel quel (SPEC-acteurs RM-02).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct QualityCount {
+    pub quality: String,
+    pub members: i64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn counts(
+        votes_for: u64,
+        votes_against: u64,
+        abstentions: u64,
+        not_voting: u64,
+        voluntary_not_voting: u64,
+    ) -> ParticipationCounts {
+        ParticipationCounts {
+            votes_for,
+            votes_against,
+            abstentions,
+            not_voting,
+            voluntary_not_voting,
+        }
+    }
+
+    #[test]
+    fn the_denominator_holds_every_published_position() {
+        let counts = counts(10, 5, 3, 2, 1);
+        assert_eq!(counts.expressed(), 15);
+        assert_eq!(counts.absent(), 3);
+        assert_eq!(counts.published_positions(), 21);
+    }
+
+    #[test]
+    fn the_three_shares_always_total_a_thousand() {
+        // Un tiers chacun: trois arrondis independants donneraient 999.
+        let rates = ParticipationRates::from_counts(&counts(1, 0, 1, 1, 0)).unwrap();
+        let total = rates.expressed_per_mille + rates.abstention_per_mille + rates.absence_per_mille;
+        assert_eq!(total, 1_000);
+    }
+
+    #[test]
+    fn a_group_without_a_single_published_position_has_no_rate() {
+        assert!(ParticipationRates::from_counts(&ParticipationCounts::default()).is_none());
+    }
+
+    #[test]
+    fn a_rare_abstention_survives_the_rounding() {
+        // 4 abstentions sur 1 000 positions: en pourcentage entier, le chiffre
+        // s'afficherait « 0 % » et se lirait comme une absence de mesure.
+        let rates = ParticipationRates::from_counts(&counts(996, 0, 4, 0, 0)).unwrap();
+        assert_eq!(rates.abstention_per_mille, 4);
+        assert_eq!(rates.base, 1_000);
+    }
+
+    #[test]
+    fn the_direction_of_the_vote_never_leaves_the_expressed_share() {
+        // Deux groupes opposes sur tout, memes taux: la fiche ne dit rien du
+        // sens du vote, et c'est ce que PROJECT.md §6 exige d'elle.
+        let one = ParticipationRates::from_counts(&counts(80, 10, 6, 4, 0)).unwrap();
+        let other = ParticipationRates::from_counts(&counts(10, 80, 6, 4, 0)).unwrap();
+        assert_eq!(one, other);
+    }
+
+    #[test]
+    fn voluntary_non_voters_count_as_non_participation() {
+        let rates = ParticipationRates::from_counts(&counts(50, 30, 10, 6, 4)).unwrap();
+        assert_eq!(rates.absence_per_mille, 100);
+        assert_eq!(rates.abstention_per_mille, 100);
+        assert_eq!(rates.expressed_per_mille, 800);
+    }
+
+    #[test]
+    fn counts_add_up_across_the_identifiers_of_a_renamed_group() {
+        let mut total = counts(10, 5, 3, 2, 1);
+        total.add(&counts(1, 2, 3, 4, 5));
+        assert_eq!(total, counts(11, 7, 6, 6, 6));
+    }
+
+    #[test]
+    fn a_stable_headcount_is_told_apart_from_a_moving_one() {
+        assert!(MemberCountRange::new(66, 66).unwrap().is_stable());
+        assert!(!MemberCountRange::new(121, 125).unwrap().is_stable());
+    }
+
+    #[test]
+    fn a_reversed_headcount_range_is_refused() {
+        assert!(MemberCountRange::new(125, 121).is_none());
+    }
+
+    #[test]
+    fn a_group_that_never_appears_in_a_scrutin_has_no_window() {
+        let date = NaiveDate::from_ymd_opt(2025, 3, 27).unwrap();
+        assert!(VotingWindow::new(None, None).is_none());
+        assert!(VotingWindow::new(Some(date), None).is_none());
+        assert_eq!(
+            VotingWindow::new(Some(date), Some(date)),
+            Some(VotingWindow {
+                first: date,
+                last: date
+            })
+        );
+    }
+}
