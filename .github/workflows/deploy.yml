@@ -1,0 +1,108 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deux merges rapproches se deploient l'un apres l'autre, jamais en parallele
+# sur le meme dossier du VPS.
+concurrency:
+  group: hemicycle-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # Aucun DATABASE_URL n'est necessaire : le code n'utilise aucune macro
+      # sqlx::query! verifiee a la compilation, et les tests de use case
+      # reposent sur des fakes in-memory.
+      #
+      # `cargo fmt --check` et `cargo clippy -D warnings` ne sont pas dans le
+      # verrou : le code actuel ne les passe pas (13 erreurs clippy). Les
+      # ajouter le jour ou la dette est resorbee.
+      - name: cargo test
+        run: cargo test --locked
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: oxlint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  deploy:
+    name: Deploiement VPS
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Preparation SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Empreinte epinglee : sans elle, le runner accepterait n'importe
+          # quelle cle d'hote et livrerait la cle privee au premier
+          # intercepteur. Generer avec : ssh-keyscan <IP_DU_VPS>
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploiement
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              "hemicycle@${VPS_HOST}" \
+              "~/app/deploy/deploy.sh ${{ github.sha }}"
+
+      - name: Verification publique
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+                 --max-time 15 https://<DOMAINE_PUBLIC>/api/health)
+          echo "GET /api/health -> $code"
+          [ "$code" = "200" ]
+
+          # Le filtre d'ecriture du vhost public doit tenir a chaque
+          # deploiement : une reponse autre que 403 signifie que l'API
+          # d'ingestion est ouverte a Internet.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+                 --max-time 15 -X POST https://<DOMAINE_PUBLIC>/api/refresh)
+          echo "POST /api/refresh -> $code (403 attendu)"
+          [ "$code" = "403" ]
+
+      - name: Nettoyage
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

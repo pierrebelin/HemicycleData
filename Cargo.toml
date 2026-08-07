@@ -16,7 +16,16 @@ tower-http = { version = "0.6", features = ["cors"] }
 dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-reqwest = { version = "0.12", features = ["rustls-tls", "json"] }
+# `default-features = false` coupe `default-tls`, qui tirait native-tls puis
+# openssl-sys : compiler exigeait alors pkg-config et libssl-dev sur la machine
+# de build. Tout le projet est deja sur rustls (voir sqlx ci-dessus).
+# `charset` et `http2` sont des defauts de reqwest, remis a la main.
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json",
+    "charset",
+    "http2",
+] }
 zip = "2"
 chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"

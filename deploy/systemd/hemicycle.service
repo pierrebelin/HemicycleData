@@ -1,0 +1,43 @@
+[Unit]
+Description=hemicycle.data — API Axum
+Documentation=https://github.com/pierrebelin/HemicycleData
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hemicycle
+Group=hemicycle
+WorkingDirectory=/home/hemicycle/app
+# Les secrets (DATABASE_URL, ANTHROPIC_API_KEY, ADMIN_TOKEN, PORT) sont posés
+# a la main dans ce fichier, mode 600. Voir todo/SPEC-DEPLOIEMENT.md §4.5.
+EnvironmentFile=/home/hemicycle/shared/.env
+ExecStart=/home/hemicycle/app/target/release/hemicycle-data
+
+Restart=on-failure
+RestartSec=5s
+# Le binaire joue les migrations sqlx au demarrage : laisser le temps a Neon
+# (base serverless, reveil a froid possible) avant de considerer l'echec.
+TimeoutStartSec=90s
+
+# Durcissement. Le service n'ecrit rien sur disque : tout est en base.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hemicycle
+
+[Install]
+WantedBy=multi-user.target
