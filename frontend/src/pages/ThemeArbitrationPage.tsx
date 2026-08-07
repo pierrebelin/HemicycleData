@@ -10,6 +10,9 @@ import type {
 const TOKEN_KEY = 'hemicycle.adminToken'
 const PAGE_SIZE = 50
 
+const FIELD =
+  'mt-0.5 w-full rounded border border-line bg-canvas px-2 py-1 text-sm focus:border-accent focus:outline-none'
+
 /**
  * CU-03 — Écran d'arbitrage. Accès par jeton partagé : ce n'est pas une page
  * publique, mais elle ne cache rien que le site n'affiche déjà.
@@ -83,47 +86,49 @@ export default function ThemeArbitrationPage() {
   const motiveRequired = families.length === 0 && motive.trim() === ''
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div>
-        <Link to="/themes" className="text-sm text-gray-500 hover:text-gray-300">
+        <Link to="/themes" className="text-sm text-accent hover:underline">
           ← Tous les thèmes
         </Link>
-        <h2 className="mt-2 text-xl font-bold">Arbitrage des rattachements</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+          Arbitrage des rattachements
+        </h2>
+        <p className="mt-0.5 text-sm text-ink-soft">
           Retenir, corriger ou écarter les familles proposées. Chaque décision
           clôt le rattachement précédent et en ouvre un nouveau : l'historique
           est conservé.
         </p>
       </div>
 
-      <div className="space-y-3 rounded border border-gray-800 bg-gray-900/40 p-4">
+      <div className="grid gap-3 rounded-lg border border-line bg-surface px-4 py-3 sm:grid-cols-3">
         <label className="block text-sm">
-          <span className="text-gray-400">Jeton d'accès</span>
+          <span className="text-xs text-ink-faint">Jeton d'accès</span>
           <input
             type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+            className={FIELD}
           />
         </label>
         <label className="block text-sm">
-          <span className="text-gray-400">Auteur de la décision</span>
+          <span className="text-xs text-ink-faint">Auteur de la décision</span>
           <input
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
             placeholder="votre nom"
-            className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+            className={FIELD}
           />
         </label>
         <label className="block text-sm">
-          <span className="text-gray-400">Liste</span>
+          <span className="text-xs text-ink-faint">Liste</span>
           <select
             value={source}
             onChange={(e) => {
               setSource(e.target.value)
               setSelected(null)
             }}
-            className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+            className={FIELD}
           >
             <option value="unassigned">Textes non rattachés</option>
             {referential.data?.families.map((family) => (
@@ -136,23 +141,25 @@ export default function ThemeArbitrationPage() {
       </div>
 
       {selected && (
-        <div className="space-y-3 rounded border border-gray-700 bg-gray-900 p-4">
-          <p className="text-sm font-medium">{selected.label}</p>
-          <p className="text-xs text-gray-500">
-            {selected.scrutin_count} scrutin
-            {selected.scrutin_count > 1 ? 's' : ''}
-          </p>
+        <div className="space-y-2 rounded-lg border border-accent/30 bg-accent-soft px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">{selected.label}</p>
+            <p className="text-xs text-ink-faint">
+              {selected.scrutin_count} scrutin
+              {selected.scrutin_count > 1 ? 's' : ''}
+            </p>
+          </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {referential.data?.families.map((family) => {
               const checked = families.includes(family.code)
               return (
                 <label
                   key={family.code}
-                  className={`cursor-pointer rounded border px-2 py-1 text-xs ${
+                  className={`cursor-pointer rounded border px-2 py-0.5 text-xs ${
                     checked
-                      ? 'border-gray-400 bg-gray-800 text-white'
-                      : 'border-gray-700 text-gray-400'
+                      ? 'border-accent bg-surface text-accent font-medium'
+                      : 'border-line bg-surface text-ink-soft'
                   }`}
                 >
                   <input
@@ -174,20 +181,18 @@ export default function ThemeArbitrationPage() {
           </div>
 
           {tooMany && (
-            <p className="text-xs text-amber-400">
-              {maxFamilies} familles au plus.
-            </p>
+            <p className="text-xs text-abstain">{maxFamilies} familles au plus.</p>
           )}
 
           <label className="block text-sm">
-            <span className="text-gray-400">
+            <span className="text-xs text-ink-faint">
               Motif {families.length === 0 ? '(obligatoire)' : '(facultatif)'}
             </span>
             <textarea
               value={motive}
               onChange={(e) => setMotive(e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+              className={`${FIELD} bg-surface`}
             />
           </label>
 
@@ -202,21 +207,21 @@ export default function ThemeArbitrationPage() {
                 token.trim() === ''
               }
               onClick={() => arbitrate.mutate()}
-              className="rounded bg-gray-100 px-3 py-1 text-sm font-medium text-gray-900 disabled:opacity-40"
+              className="rounded bg-accent px-3 py-1 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-40"
             >
               {arbitrate.isPending ? 'Enregistrement…' : 'Enregistrer'}
             </button>
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="text-sm text-gray-400 hover:text-gray-200"
+              className="text-sm text-ink-soft hover:text-ink"
             >
               Annuler
             </button>
           </div>
 
           {arbitrate.error && (
-            <p className="text-xs text-red-400">
+            <p className="text-xs text-no">
               {(arbitrate.error as Error).message}
             </p>
           )}
@@ -224,17 +229,17 @@ export default function ThemeArbitrationPage() {
       )}
 
       {texts.isLoading ? (
-        <p className="text-gray-500">Chargement…</p>
+        <p className="animate-pulse text-ink-faint">Chargement…</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
           {texts.data?.items.map((text) => (
             <li
               key={text.key}
-              className="flex items-start justify-between gap-3 rounded border border-gray-800 bg-gray-900/40 p-3"
+              className="flex items-start justify-between gap-4 px-4 py-2"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm">{text.label}</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-0.5 text-xs text-ink-faint">
                   {text.scrutin_count} scrutin
                   {text.scrutin_count > 1 ? 's' : ''}
                   {text.families.length > 0
@@ -245,7 +250,7 @@ export default function ThemeArbitrationPage() {
               <button
                 type="button"
                 onClick={() => select(text)}
-                className="shrink-0 rounded border border-gray-700 px-2 py-1 text-xs hover:border-gray-500"
+                className="shrink-0 rounded border border-line px-2 py-0.5 text-xs text-ink-soft hover:border-accent hover:text-accent"
               >
                 Arbitrer
               </button>
