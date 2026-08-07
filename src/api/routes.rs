@@ -14,7 +14,7 @@ use super::handlers::{
 pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
-        // Liste principale : tous les dossiers, paginés (PROJECT.md §2).
+        // Liste principale : tous les dossiers, paginés (README.md §2).
         .route("/api/dossiers", get(dossier_handlers::browse_dossiers))
         // Activité récente, utilisée par la sélection éditoriale.
         .route(
@@ -48,7 +48,7 @@ pub fn create_router(state: AppState) -> Router {
             get(final_vote_handlers::list_final_votes),
         )
         // Groupes parlementaires: liste et fiche. Un groupe repond a son
-        // identifiant comme a son sigle, ancien ou courant (PROJECT.md §8.1).
+        // identifiant comme a son sigle, ancien ou courant (README.md §8.1).
         .route("/api/groupes", get(group_handlers::list_groups))
         .route("/api/groupes/{group}", get(group_handlers::get_group_detail))
         .route(

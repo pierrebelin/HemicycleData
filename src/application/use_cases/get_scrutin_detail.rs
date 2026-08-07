@@ -120,7 +120,7 @@ impl<'a> GetScrutinDetail<'a> {
             .collect();
 
         // Positions qu'aucune ligne de groupe ne porte: affichees a part plutot
-        // que rattachees d'office (PROJECT.md §2).
+        // que rattachees d'office (README.md §2).
         let mut orphans: Vec<(Option<String>, Vec<VoteView>)> =
             votes_by_group.into_iter().collect();
         orphans.sort_by(|a, b| a.0.cmp(&b.0));

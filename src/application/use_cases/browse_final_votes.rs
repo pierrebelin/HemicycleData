@@ -12,7 +12,7 @@ use crate::domain::theme::FamilyCode;
 /// Quatre groupes au plus. La comparaison reste une lecture cote a cote, ou
 /// chaque groupe garde ses chiffres bruts; au-dela, les colonnes se resserrent
 /// au point qu'il ne reste que les pourcentages, et la page se lit comme un
-/// classement — interdit par PROJECT.md §6.
+/// classement — interdit par README.md §6.
 pub const MAX_COMPARED_GROUPS: usize = 4;
 pub const DEFAULT_PAGE_SIZE: i64 = 20;
 pub const MAX_PAGE_SIZE: i64 = 100;
@@ -54,7 +54,7 @@ pub struct FinalVoteView {
     /// Votes correspondant au filtre.
     pub total: i64,
     /// Votes sur l'ensemble, filtre thematique exclu. Rend visible ce que le
-    /// filtre laisse de cote (PROJECT.md §2).
+    /// filtre laisse de cote (README.md §2).
     pub total_unfiltered: i64,
     /// Votes sur l'ensemble deja rattaches a une famille. Un filtre par theme
     /// ne peut rien trouver au-dela: l'avancement de la thematisation est
@@ -99,7 +99,7 @@ impl<'a> BrowseFinalVotes<'a> {
             family,
             // Un groupe renomme repond a plusieurs identifiants: les demander
             // tous evite que ses votes d'avant le changement de nom
-            // disparaissent de la comparaison (PROJECT.md §2).
+            // disparaissent de la comparaison (README.md §2).
             group_uids: selected.iter().flat_map(uids_of).collect(),
             limit: command
                 .limit
@@ -182,7 +182,7 @@ fn uids_of(group: &GroupOption) -> Vec<String> {
 
 /// Un groupe est designe par son identifiant ou par son sigle. Le sigle rend
 /// l'adresse partageable (`?groupes=RN,SOC`), l'identifiant la rend stable
-/// (PROJECT.md §8.1). Un groupe renomme repond aussi a son ancien sigle.
+/// (README.md §8.1). Un groupe renomme repond aussi a son ancien sigle.
 fn resolve_groups(
     known: &[GroupOption],
     requested: &[String],

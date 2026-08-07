@@ -4,7 +4,7 @@
 //! absente, les familles sont produites par un modele dans une session d'outil,
 //! puis recopiees ici. L'origine reste `proposal` et le modele est nomme tel
 //! qu'il est: enregistrer cela en `human_arbitration` ferait mentir le site sur
-//! sa propre methode (PROJECT.md §5, §9).
+//! sa propre methode (README.md §5, §9).
 //!
 //! Meme sequence de persistance que ProposeThemeFamilies: save_proposal,
 //! replace_assignments, record_attempt.
