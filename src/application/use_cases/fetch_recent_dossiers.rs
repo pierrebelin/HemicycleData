@@ -27,7 +27,7 @@ mod tests {
     use std::sync::Mutex;
 
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{CurationStatus, DossierUid, LegislativeDossier};
+    use crate::domain::dossier::{CurationStatus, DossierOutcome, DossierUid, LegislativeDossier};
     use crate::domain::scoring::compute_score;
 
     struct InMemoryDossierRepository {
@@ -36,6 +36,17 @@ mod tests {
 
     #[async_trait]
     impl DossierRepository for InMemoryDossierRepository {
+        async fn load_states(
+            &self,
+        ) -> Result<
+            std::collections::HashMap<
+                String,
+                crate::application::ports::dossier_repository::StoredDossierState,
+            >,
+            RepositoryError,
+        > {
+            unreachable!()
+        }
         async fn save_all(
             &self,
             _dossiers: &[LegislativeDossier],
@@ -108,6 +119,7 @@ mod tests {
             initiators: vec![],
             committee: None,
             curation_status: CurationStatus::New,
+            outcome: DossierOutcome::NoRecordedConclusion,
         }
     }
 

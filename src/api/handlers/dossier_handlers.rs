@@ -4,7 +4,7 @@ use axum::Json;
 
 use crate::api::dto::{
     CurateBody, DossierDetailDto, DossierDto, DossierPageQuery, DossierPageResponse,
-    RecentActivityQuery, RecentDossiersResponse, RefreshResponse, RegistryResponse,
+    RecentActivityQuery, RecentDossiersResponse, RefreshQuery, RefreshResponse, RegistryResponse,
     SuggestionsQuery, SuggestionsResponse,
 };
 use crate::application::use_cases::browse_dossiers::{BrowseDossiers, PageRequest};
@@ -13,6 +13,7 @@ use crate::application::use_cases::fetch_recent_dossiers::FetchRecentDossiers;
 use crate::application::use_cases::get_dossier_detail::GetDossierDetail;
 use crate::application::use_cases::refresh_actor_registry::RefreshActorRegistry;
 use crate::application::use_cases::refresh_all::RefreshAll;
+use crate::application::use_cases::refresh_dossiers::RefreshScope;
 use crate::application::use_cases::save_dossier::SaveDossier;
 use crate::application::use_cases::suggest_dossiers::SuggestDossiers;
 use crate::domain::dossier::DossierUid;
@@ -144,9 +145,20 @@ pub async fn curate_dossier(
 }
 
 /// Rafraichit le referentiel puis les dossiers, dans cet ordre.
+///
+/// Par defaut seuls les dossiers dont la source a bouge sont reecrits.
+/// `?full=true` force la reecriture complete, necessaire apres un changement
+/// de regle de derivation (score, sort, rattachement).
 pub async fn refresh_dossiers(
     State(state): State<AppState>,
+    Query(query): Query<RefreshQuery>,
 ) -> Result<Json<RefreshResponse>, (StatusCode, String)> {
+    let scope = if query.full {
+        RefreshScope::Full
+    } else {
+        RefreshScope::Incremental
+    };
+
     let uc = RefreshAll::new(
         state.actor_source.as_ref(),
         state.actor_repository.as_ref(),
@@ -157,7 +169,7 @@ pub async fn refresh_dossiers(
     );
 
     let outcome = uc
-        .execute()
+        .execute_with(scope)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
