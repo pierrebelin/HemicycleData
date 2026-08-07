@@ -1,4 +1,5 @@
 import { Outlet, Link, NavLink } from 'react-router'
+import Logo from './components/Logo'
 
 const NAV = [
   { to: '/', label: 'Dossiers', end: true },
@@ -22,8 +23,9 @@ export default function App() {
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
           <Link
             to="/"
-            className="flex items-baseline gap-1.5 transition-opacity hover:opacity-70"
+            className="flex items-center gap-2 transition-opacity hover:opacity-70"
           >
+            <Logo className="h-9 w-auto shrink-0" />
             <h1 className="text-[15px] font-semibold tracking-tight">
               hémicycle
               <span className="text-accent">.data</span>
