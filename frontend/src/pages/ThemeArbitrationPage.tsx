@@ -6,8 +6,9 @@ import type {
   TextListResponse,
   TextSummaryDto,
 } from '../types/themes'
+import { AdminTokenField } from '../components/AdminTokenField'
+import { adminFetch } from '../lib/adminToken'
 
-const TOKEN_KEY = 'hemicycle.adminToken'
 const PAGE_SIZE = 50
 
 const FIELD =
@@ -19,9 +20,6 @@ const FIELD =
  */
 export default function ThemeArbitrationPage() {
   const queryClient = useQueryClient()
-  const [token, setToken] = useState(
-    () => localStorage.getItem(TOKEN_KEY) ?? '',
-  )
   const [source, setSource] = useState('unassigned')
   const [selected, setSelected] = useState<TextSummaryDto | null>(null)
   const [families, setFamilies] = useState<string[]>([])
@@ -47,12 +45,9 @@ export default function ThemeArbitrationPage() {
 
   const arbitrate = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/themes/arbitrate', {
+      const response = await adminFetch('/api/themes/arbitrate', {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-admin-token': token,
-        },
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           subject_kind: 'text',
           subject_id: selected!.key,
@@ -61,11 +56,9 @@ export default function ThemeArbitrationPage() {
           motive: motive.trim() === '' ? null : motive,
         }),
       })
-      if (!response.ok) throw new Error(await response.text())
       return response.json()
     },
     onSuccess: () => {
-      localStorage.setItem(TOKEN_KEY, token)
       queryClient.invalidateQueries({ queryKey: ['arbitration'] })
       queryClient.invalidateQueries({ queryKey: ['themes'] })
       setSelected(null)
@@ -102,15 +95,7 @@ export default function ThemeArbitrationPage() {
       </div>
 
       <div className="grid gap-3 rounded-lg border border-line bg-surface px-4 py-3 sm:grid-cols-3">
-        <label className="block text-sm">
-          <span className="text-xs text-ink-faint">Jeton d'accès</span>
-          <input
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            className={FIELD}
-          />
-        </label>
+        <AdminTokenField />
         <label className="block text-sm">
           <span className="text-xs text-ink-faint">Auteur de la décision</span>
           <input
@@ -203,8 +188,7 @@ export default function ThemeArbitrationPage() {
                 arbitrate.isPending ||
                 tooMany ||
                 motiveRequired ||
-                author.trim() === '' ||
-                token.trim() === ''
+                author.trim() === ''
               }
               onClick={() => arbitrate.mutate()}
               className="rounded bg-accent px-3 py-1 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-40"
