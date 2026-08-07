@@ -7,7 +7,7 @@ use crate::application::ports::theme_repository::ThemeRepository;
 ///
 /// Les grandeurs dérivées sont calculées ici, pas dans la page : un rapport
 /// affiché doit être reproductible et testable, et il ne doit exister qu'une
-/// seule formule par chiffre (PROJECT.md §6).
+/// seule formule par chiffre (README.md §6).
 #[derive(Debug, Clone, PartialEq)]
 pub struct DatasetOverview {
     pub shape: DatasetShape,

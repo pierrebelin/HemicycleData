@@ -46,7 +46,7 @@ impl Default for PageRequest {
 /// Parcourir tous les dossiers, du plus récent au plus ancien.
 ///
 /// Aucun filtre, aucun seuil de score : la liste est le point d'entrée du site
-/// et doit rester exhaustive (PROJECT.md §2). Le tri porte sur la dernière
+/// et doit rester exhaustive (README.md §2). Le tri porte sur la dernière
 /// activité — c'est la date qui dit où en est un texte.
 pub struct BrowseDossiers<'a> {
     repository: &'a dyn DossierRepository,

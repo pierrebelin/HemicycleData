@@ -62,7 +62,7 @@ Scrutins à venir désignent députés et groupes par identifiants. Sans référ
 ## 4. Règles métier
 
 ### RM-01 — Appartenance à la date de l'acte
-- **Énoncé** : groupe affiché à côté d'un acte = groupe du député à la date de cet acte. Jamais le groupe courant. · **Origine** : PROJECT.md §3.2 · **Sévérité** : bloquant
+- **Énoncé** : groupe affiché à côté d'un acte = groupe du député à la date de cet acte. Jamais le groupe courant. · **Origine** : README.md §3.2 · **Sévérité** : bloquant
 - **Applies to** : transverse
 - **Conforme** : « déposé en 2024 — groupe X (au 12/09/2024) ». **Non conforme** : « groupe X » sans date, lu sur l'appartenance actuelle.
 
@@ -71,17 +71,17 @@ Scrutins à venir désignent députés et groupes par identifiants. Sans référ
 - **Non conforme** : ne retenir que la qualité « membre » — les présidents de groupe disparaîtraient de leur propre groupe.
 
 ### RM-03 — Non-inscrits traités comme un groupe
-- **Énoncé** : les non-inscrits forment un groupe à part entière, nommé par son libellé officiel. Jamais masqués, jamais rattachés d'office à un autre groupe. · **Origine** : PROJECT.md §2 (exhaustivité) · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
+- **Énoncé** : les non-inscrits forment un groupe à part entière, nommé par son libellé officiel. Jamais masqués, jamais rattachés d'office à un autre groupe. · **Origine** : README.md §2 (exhaustivité) · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
 
 ### RM-04 — Aucune identité déduite
-- **Énoncé** : acteur absent du référentiel → nom brut conservé, groupe non affiché. Aucun groupe deviné par homonymie ou proximité. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
+- **Énoncé** : acteur absent du référentiel → nom brut conservé, groupe non affiché. Aucun groupe deviné par homonymie ou proximité. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
 
 ### RM-05 — Source officielle historique
-- **Énoncé** : référentiel provient du jeu officiel **historique** de l'Assemblée nationale (tous acteurs, tous mandats), pas du jeu limité aux députés en exercice. Aucune source tierce. · **Origine** : PROJECT.md §9 (traçabilité) + vérification données · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : référentiel provient du jeu officiel **historique** de l'Assemblée nationale (tous acteurs, tous mandats), pas du jeu limité aux députés en exercice. Aucune source tierce. · **Origine** : README.md §9 (traçabilité) + vérification données · **Sévérité** : bloquant · **Applies to** : CU-01
 - **Justification mesurée** : 645 députés ont voté sous la législature en cours pour 577 sièges. Le jeu « en exercice » laisse 69 votants et 97 mandats non résolus ; le jeu historique en laisse zéro.
 
 ### RM-06 — Groupe nommé tel quel
-- **Énoncé** : libellé affiché = libellé officiel du groupe. Aucune traduction en parti politique. · **Origine** : PROJECT.md §3.1 · **Sévérité** : bloquant · **Applies to** : CU-03
+- **Énoncé** : libellé affiché = libellé officiel du groupe. Aucune traduction en parti politique. · **Origine** : README.md §3.1 · **Sévérité** : bloquant · **Applies to** : CU-03
 
 ### RM-07 — Législature en cours
 - **Énoncé** : seuls acteurs et appartenances de la législature en cours entrent dans le référentiel. · **Origine** : choix produit · **Sévérité** : bloquant · **Applies to** : CU-01
@@ -119,7 +119,7 @@ Appartenance close reste consultable : elle porte les actes de sa période.
 | Jeu officiel acteurs et organes AN | Référentiel députés et groupes |
 | Référentiel | Initiateurs datés des dossiers |
 | Référentiel | Noms et libellés affichés dans les scrutins (spec SCRUTINS) |
-| Référentiel | Pages par groupe (PROJECT.md §8.1) |
+| Référentiel | Pages par groupe (README.md §8.1) |
 
 ## 9. Hors périmètre
 
@@ -128,7 +128,7 @@ Appartenance close reste consultable : elle porte les actes de sa période.
 | Fiche par député | Choix produit : position nominale visible au détail du scrutin seulement |
 | Composition historique complète des groupes | Besoin non établi |
 | Législatures antérieures | Choix produit (RM-07) |
-| Sénateurs | Sénat hors périmètre (PROJECT.md §10) |
+| Sénateurs | Sénat hors périmètre (README.md §10) |
 | Mandats locaux, fonctions exécutives | Sans usage produit |
 | Correspondance groupe → parti | Interdite (RM-06) |
 
@@ -189,7 +189,7 @@ elle ne l'est pas.
 
 L'affichage porte une mention du type « répartition reconstituée à partir du décompte nominatif —
 la source ne publie pas les groupes sur ce scrutin », plus le lien source. Le chiffre est produit
-par le site, pas par l'Assemblée : le dire relève de PROJECT.md §2 (lacune affichée, jamais
+par le site, pas par l'Assemblée : le dire relève de README.md §2 (lacune affichée, jamais
 silencieuse) et §9 (méthode publiée).
 
 **Re-vérifié le 3 août 2026** sur les 14 scrutins : totaux reconstruits identiques à la synthèse

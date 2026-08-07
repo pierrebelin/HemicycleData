@@ -61,7 +61,7 @@ function GroupRow({ group }: { group: GroupSummaryDto }) {
  * Liste des groupes parlementaires de la législature.
  *
  * Aucun taux ici, volontairement. Treize taux d'abstention alignés en colonnes
- * forment un tableau qui se lit comme un classement — ce que PROJECT.md §6
+ * forment un tableau qui se lit comme un classement — ce que README.md §6
  * interdit — alors que les mêmes chiffres sur la fiche d'un seul groupe restent
  * une description. Les taux sont donc sur la fiche, une page par groupe.
  */

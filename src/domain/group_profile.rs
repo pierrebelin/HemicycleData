@@ -1,7 +1,7 @@
 //! Fiche d'un groupe parlementaire: identite, effectif, participation.
 //!
 //! Ce module produit des taux, ce que le reste du site evite soigneusement. La
-//! precaution n'etait pas une pudeur: PROJECT.md §6 interdit « l'agregat qui se
+//! precaution n'etait pas une pudeur: README.md §6 interdit « l'agregat qui se
 //! lit comme un classement », et SPEC-PAGES-THEME-GROUPE RM-01 refuse tout taux
 //! sur une page filtree par groupe. Trois garde-fous rendent la fiche tenable,
 //! et ils sont dans le code plutot que dans une note de bas de page:
@@ -77,7 +77,7 @@ impl ParticipationCounts {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ParticipationRates {
     /// Positions publiees ayant servi de denominateur. Affichee avec les taux:
-    /// un taux sans sa base n'est pas verifiable (PROJECT.md §9).
+    /// un taux sans sa base n'est pas verifiable (README.md §9).
     pub base: u64,
     /// Part des voix exprimees, pour et contre confondus.
     pub expressed_per_mille: u16,
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn the_direction_of_the_vote_never_leaves_the_expressed_share() {
         // Deux groupes opposes sur tout, memes taux: la fiche ne dit rien du
-        // sens du vote, et c'est ce que PROJECT.md §6 exige d'elle.
+        // sens du vote, et c'est ce que README.md §6 exige d'elle.
         let one = ParticipationRates::from_counts(&counts(80, 10, 6, 4, 0)).unwrap();
         let other = ParticipationRates::from_counts(&counts(10, 80, 6, 4, 0)).unwrap();
         assert_eq!(one, other);

@@ -36,7 +36,7 @@ function scoreBadgeColor(score: number) {
 
 /// Écran de travail éditorial, hérité de l'ancienne cible « posts Instagram ».
 /// Il reste hors du menu principal : le site public, lui, expose tous les
-/// dossiers sans classement (PROJECT.md §2, §6).
+/// dossiers sans classement (README.md §2, §6).
 export default function DossierSelectionPage() {
   const [days, setDays] = useState(7)
   const queryClient = useQueryClient()

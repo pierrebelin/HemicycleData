@@ -34,7 +34,7 @@ pub struct DossierDto {
 /// Sort du dossier tel qu'il s'affiche.
 ///
 /// `label` est libelle pour etre lu tel quel: quand la source ne conclut rien,
-/// il le dit, il ne comble pas (PROJECT.md §6). Le dernier acte du dossier
+/// il le dit, il ne comble pas (README.md §6). Le dernier acte du dossier
 /// reste la seule information disponible dans ce cas.
 #[derive(Serialize)]
 pub struct OutcomeDto {

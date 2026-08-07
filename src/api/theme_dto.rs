@@ -9,7 +9,7 @@ use crate::application::use_cases::extract_debated_texts::ExtractionReport;
 use crate::application::use_cases::propose_theme_families::ProposalRun;
 use crate::domain::theme::{ThemeAssignment, ThemeProposal, MAX_FAMILIES};
 
-/// Mention portee par les pages de theme (RM-09, PROJECT.md §2).
+/// Mention portee par les pages de theme (RM-09, README.md §2).
 pub const METHOD_NOTE: &str = "Le rattachement d'un texte à une famille est le seul jugement du \
      site. Un modèle de langage propose, un humain peut corriger, et l'origine de chaque \
      rattachement est affichée. Les textes non rattachés restent consultables.";
