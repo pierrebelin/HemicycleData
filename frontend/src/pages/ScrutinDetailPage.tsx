@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import GuideLink from '../components/GuideLink'
+import Hemicycle from '../components/Hemicycle'
+import { siegesDesGroupes, tallyDesVotes } from '../components/sieges'
 import { CoverageNote } from '../components/ScrutinList'
 import {
   Card,
@@ -173,6 +175,7 @@ export default function ScrutinDetailPage() {
   const s = data.synthesis
   const methodNote = data.groups.find((g) => g.method_note)?.method_note
   const largestGroup = Math.max(...data.groups.map((g) => tallySize(g.tally)), 1)
+  const votesNominaux = siegesDesGroupes(data.groups)
 
   return (
     <div>
@@ -298,6 +301,54 @@ export default function ScrutinDetailPage() {
           </GuideLink>
         </p>
       </Card>
+
+      {/*
+        La synthèse dit combien, l'hémicycle dit qui et où. Les deux ensemble
+        montrent ce qu'aucun total ne montre : les fractures à l'intérieur des
+        groupes, un non-votant isolé au milieu d'un bloc, une abstention unique.
+      */}
+      {votesNominaux.length > 0 && (
+        <Card className="mb-5 px-5 py-4">
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+            <h3
+              id="hemicycle-scrutin"
+              className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-faint"
+            >
+              Chaque député à sa place
+            </h3>
+            <span className="text-xs text-ink-faint">
+              Survolez un siège pour lire le nom, le groupe et la position.
+            </span>
+          </div>
+
+          {/* Borné : en pleine largeur, l'arc mesure sept cents pixels de haut
+              et repousse la répartition par groupe hors de l'écran. */}
+          <div className="mx-auto max-w-3xl">
+            <Hemicycle votes={votesNominaux} labelledBy="hemicycle-scrutin" />
+          </div>
+
+          <div className="flex justify-center">
+            <TallyLine tally={tallyDesVotes(votesNominaux)} />
+          </div>
+
+          <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
+            Chaque député est à sa place réelle : la source publie le numéro de
+            siège avec chaque position, et le{' '}
+            <a
+              href="https://www.assemblee-nationale.fr/dyn/vos-deputes/hemicycle"
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent hover:underline"
+            >
+              plan de l'hémicycle
+            </a>{' '}
+            donne l'emplacement de ce numéro. En gris, les sièges dont aucune
+            position n'a été enregistrée sur ce scrutin. Le décompte ci-dessus
+            est celui des positions nominales — la synthèse officielle compte les
+            non-votants volontaires à part.
+          </p>
+        </Card>
+      )}
 
       <section className="mb-5">
         <SectionTitle>Répartition par groupe</SectionTitle>
