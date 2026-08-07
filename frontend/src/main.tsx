@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
+import HomePage from './pages/HomePage.tsx'
 import DossierListPage from './pages/DossierListPage.tsx'
 import DossierDetailPage from './pages/DossierDetailPage.tsx'
 import DossierSelectionPage from './pages/DossierSelectionPage.tsx'
@@ -28,7 +29,8 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <Routes>
           <Route element={<App />}>
-            <Route index element={<DossierListPage />} />
+            <Route index element={<HomePage />} />
+            <Route path="dossiers" element={<DossierListPage />} />
             <Route path="dossiers/:uid" element={<DossierDetailPage />} />
             <Route path="selection" element={<DossierSelectionPage />} />
             <Route path="groupes" element={<GroupListPage />} />
