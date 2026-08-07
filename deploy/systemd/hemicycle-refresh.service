@@ -1,0 +1,42 @@
+[Unit]
+Description=hemicycle.data — rafraichissement des donnees (referentiel, dossiers, scrutins)
+Documentation=https://github.com/pierrebelin/HemicycleData
+# Le job appelle l'API sur la boucle locale : sans le service, rien a appeler.
+Requires=hemicycle.service
+After=hemicycle.service
+
+[Service]
+Type=oneshot
+User=hemicycle
+Group=hemicycle
+WorkingDirectory=/home/hemicycle/app
+# Meme fichier que hemicycle.service : le PORT a interroger est celui sur lequel
+# le binaire ecoute, une seule source. `-` : fichier absent, le script retombe
+# sur 8085 plutot que de faire echouer l'unite.
+EnvironmentFile=-/home/hemicycle/shared/.env
+ExecStart=/home/hemicycle/app/deploy/refresh.sh
+
+# Au-dela, l'ingestion est bloquee, pas lente : tuer et laisser le declenchement
+# suivant repartir proprement. Superieur au `--max-time` du curl (1800s) pour
+# que le script rende la main et journalise son echec de lui-meme.
+TimeoutStartSec=2100
+
+# Durcissement, aligne sur hemicycle.service. Le job n'ecrit rien sur disque :
+# un curl, et la base est a l'autre bout.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hemicycle-refresh
