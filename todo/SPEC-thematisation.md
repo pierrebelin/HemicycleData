@@ -1,12 +1,12 @@
 # THÉMATISATION — Rattachement aux familles thématiques
 
-> Rattacher chaque texte débattu à une à trois familles thématiques, pour qu'un visiteur parcoure les votes par sujet. Le modèle de langage propose, un humain corrige, la méthode est publiée. Seul endroit du produit où un jugement entre (PROJECT.md §5).
+> Rattacher chaque texte débattu à une à trois familles thématiques, pour qu'un visiteur parcoure les votes par sujet. Le modèle de langage propose, un humain corrige, la méthode est publiée. Seul endroit du produit où un jugement entre (README.md §5).
 
 ## 1. Contexte
 
 Le site expose 8 434 scrutins. Aucun n'est parcourable par sujet. La promesse — « voici les textes sur le logement, voici comment chaque groupe a voté » — n'a pas de porteur.
 
-PROJECT.md §5 fait porter la thématisation sur le dossier. Mesuré le 3 août 2026 : 5 826 scrutins sur 8 434 (69 %) n'ont aucun dossier, et les 2 608 restants ne renvoient qu'à 75 dossiers. Pire, la source publie le lien dossier de façon irrégulière **à l'intérieur d'un même texte** : la proposition de loi relative au droit à l'aide à mourir porte 297 scrutins avec dossier et 541 sans. Thématiser le dossier laisserait 541 votes du même texte hors thème — sélection éditoriale involontaire, interdite par PROJECT.md §2.
+README.md §5 fait porter la thématisation sur le dossier. Mesuré le 3 août 2026 : 5 826 scrutins sur 8 434 (69 %) n'ont aucun dossier, et les 2 608 restants ne renvoient qu'à 75 dossiers. Pire, la source publie le lien dossier de façon irrégulière **à l'intérieur d'un même texte** : la proposition de loi relative au droit à l'aide à mourir porte 297 scrutins avec dossier et 541 sans. Thématiser le dossier laisserait 541 votes du même texte hors thème — sélection éditoriale involontaire, interdite par README.md §2.
 
 Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque scrutin.
 
@@ -14,7 +14,7 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 
 | Terme | Définition |
 |---|---|
-| Famille thématique | Une des 8 familles de PROJECT.md §5. Référentiel fermé |
+| Famille thématique | Une des 8 familles de README.md §5. Référentiel fermé |
 | Texte débattu | Texte que l'objet du scrutin nomme : « projet de loi de finances pour 2026 ». Porteur du rattachement |
 | Clé de texte | Forme normalisée du libellé du texte. Deux objets qui nomment le même texte donnent la même clé |
 | Rattachement | Lien daté entre un objet et une famille |
@@ -92,42 +92,42 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 ## 4. Règles métier
 
 ### RM-01 — Non rattaché reste consultable
-- **Énoncé** : un objet sans famille reste accessible, listé, et compté dans la page méthode. Jamais retiré, jamais masqué. · **Origine** : PROJECT.md §2 · **Sévérité** : bloquant · **Applies to** : transverse
+- **Énoncé** : un objet sans famille reste accessible, listé, et compté dans la page méthode. Jamais retiré, jamais masqué. · **Origine** : README.md §2 · **Sévérité** : bloquant · **Applies to** : transverse
 
 ### RM-02 — Extraction déterministe du texte
-- **Énoncé** : le texte débattu est extrait de l'objet du scrutin par une règle publiée, sans modèle de langage. Deux objets nommant le même texte donnent la même clé, quelle que soit la mention de lecture, la casse, l'espacement ou la forme de l'apostrophe. · **Origine** : PROJECT.md §8 · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : le texte débattu est extrait de l'objet du scrutin par une règle publiée, sans modèle de langage. Deux objets nommant le même texte donnent la même clé, quelle que soit la mention de lecture, la casse, l'espacement ou la forme de l'apostrophe. · **Origine** : README.md §8 · **Sévérité** : bloquant · **Applies to** : CU-01
 - **Conforme** : « l'amendement n° 234 après l'article 7 du projet de loi de financement de la sécurité sociale pour 2026 (première lecture) » et « l'article 12 du projet de loi de financement de la sécurité sociale pour 2026 (nouvelle lecture) » donnent la même clé.
 
 ### RM-03 — Trois familles au plus
 - **Énoncé** : un objet porte une à trois familles. Au-delà, seules les trois premières de l'ordre proposé sont retenues. La limite est publiée. · **Origine** : choix produit · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
 
 ### RM-04 — Le modèle ne voit que le libellé
-- **Énoncé** : le modèle reçoit le libellé du texte, rien d'autre. Ni décomptes, ni positions, ni groupes, ni sort du vote. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02
+- **Énoncé** : le modèle reçoit le libellé du texte, rien d'autre. Ni décomptes, ni positions, ni groupes, ni sort du vote. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02
 
 ### RM-05 — Justification obligatoire
-- **Énoncé** : toute famille proposée porte une justification d'une à deux phrases, conservée et affichable. Famille sans justification = proposition invalide, rejetée. · **Origine** : PROJECT.md §5, §9 · **Sévérité** : bloquant · **Applies to** : CU-02
+- **Énoncé** : toute famille proposée porte une justification d'une à deux phrases, conservée et affichable. Famille sans justification = proposition invalide, rejetée. · **Origine** : README.md §5, §9 · **Sévérité** : bloquant · **Applies to** : CU-02
 
 ### RM-06 — Héritage descendant
 - **Énoncé** : un scrutin porte les familles de son texte. Un dossier porte les familles du texte que ses scrutins nomment ; sans scrutin, il est classé sur son titre comme un texte. Aucun rattachement direct sur un scrutin. · **Origine** : choix produit, mesure du 3 août 2026 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-04
 - **Non conforme** : thématiser le dossier « Fin de vie » et laisser hors thème les 541 scrutins du même texte.
 
 ### RM-07 — Historique conservé
-- **Énoncé** : réviser un rattachement clôt l'ancien à la date de la révision et en ouvre un nouveau. Aucune suppression. L'état d'un objet à une date passée reste reconstituable. · **Origine** : PROJECT.md §5, §9 · **Sévérité** : bloquant · **Applies to** : CU-03
+- **Énoncé** : réviser un rattachement clôt l'ancien à la date de la révision et en ouvre un nouveau. Aucune suppression. L'état d'un objet à une date passée reste reconstituable. · **Origine** : README.md §5, §9 · **Sévérité** : bloquant · **Applies to** : CU-03
 
 ### RM-08 — Référentiel de familles fermé
-- **Énoncé** : les 8 familles de PROJECT.md §5 sont le seul jeu de valeurs. Toute famille rendue hors référentiel est écartée et journalisée. Aucune famille créée par le modèle. · **Origine** : PROJECT.md §5 · **Sévérité** : bloquant · **Applies to** : CU-02
+- **Énoncé** : les 8 familles de README.md §5 sont le seul jeu de valeurs. Toute famille rendue hors référentiel est écartée et journalisée. Aucune famille créée par le modèle. · **Origine** : README.md §5 · **Sévérité** : bloquant · **Applies to** : CU-02
 
 ### RM-09 — Origine affichée
-- **Énoncé** : chaque rattachement affiché porte son origine — proposition automatique non arbitrée, arbitrage humain, ou héritage. · **Origine** : PROJECT.md §2, §9 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
+- **Énoncé** : chaque rattachement affiché porte son origine — proposition automatique non arbitrée, arbitrage humain, ou héritage. · **Origine** : README.md §2, §9 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
 
 ### RM-10 — Le modèle ne produit aucun chiffre
-- **Énoncé** : le modèle rend des familles et du texte de justification. Aucune note, aucun score, aucun rang, aucun décompte. Tout nombre affiché vient de la base. · **Origine** : PROJECT.md §6, §8 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
+- **Énoncé** : le modèle rend des familles et du texte de justification. Aucune note, aucun score, aucun rang, aucun décompte. Tout nombre affiché vient de la base. · **Origine** : README.md §6, §8 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
 
 ### RM-11 — Famille sensible, factuel seul
-- **Énoncé** : la famille « société / libertés » rattache sur l'objet du texte, jamais sur son orientation. Une justification qui qualifie le texte est une proposition invalide. · **Origine** : PROJECT.md §5, §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
+- **Énoncé** : la famille « société / libertés » rattache sur l'objet du texte, jamais sur son orientation. Une justification qui qualifie le texte est une proposition invalide. · **Origine** : README.md §5, §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
 
 ### RM-12 — Aucun agrégat comparatif par thème
-- **Énoncé** : une page de thème n'affiche aucun cumul, taux ou classement comparant les groupes entre eux. Les chiffres restent attachés à un scrutin. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-04
+- **Énoncé** : une page de thème n'affiche aucun cumul, taux ou classement comparant les groupes entre eux. Les chiffres restent attachés à un scrutin. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-04
 
 ## 5. Données
 
@@ -168,7 +168,7 @@ Proposé et arbitré sont publiés, avec leur origine (RM-09). Non rattaché est
 | Objets des scrutins (spec SCRUTINS) | Textes débattus, clés |
 | Dossiers ingérés | Rattachement des dossiers sans scrutin |
 | Textes débattus rattachés | Pages thème × groupe × période (Phase 5) |
-| Rattachements et propositions | Page méthode (PROJECT.md §9, Phase 7) |
+| Rattachements et propositions | Page méthode (README.md §9, Phase 7) |
 
 ## 9. Hors périmètre
 
@@ -177,8 +177,8 @@ Proposé et arbitré sont publiés, avec leur origine (RM-09). Non rattaché est
 | Rattachement des ~2 758 dossiers sans scrutin | Livré ensuite, même mécanique. Ils restent non rattachés et consultables (RM-01) |
 | Sous-familles, mots-clés libres | Référentiel fermé (RM-08) |
 | Rattachement thématique d'un amendement pris isolément | Le porteur est le texte (RM-06) |
-| Agrégats thématiques par groupe | RM-12, PROJECT.md §6 |
-| Traduction des familles en axes politiques | PROJECT.md §3.1 |
+| Agrégats thématiques par groupe | RM-12, README.md §6 |
+| Traduction des familles en axes politiques | README.md §3.1 |
 
 ## 10. Hypothèses
 
@@ -200,6 +200,6 @@ Mesurées sur les données réelles le 3 août 2026, législature 17, par la rè
 | Q1 | 6 objets ne nomment aucun texte (déclarations de politique générale, motions hors texte). Aucun porteur de thème. | 6 scrutins sur 8 434, non rattachés | Laisser non rattachés (retenu) · rattacher à « institutions / procédure » par règle publiée |
 | Q2 | Le libellé du texte change entre deux lectures (« garantir l'égal accès … » puis « accompagnement et soins palliatifs »). La clé les sépare. | Un texte suivi sur deux lectures s'affiche en deux entrées | Laisser tel quel · rapprocher par arbitrage humain · rapprocher par le dossier quand il existe |
 | Q3 | La justification produite par le modèle est-elle affichée au visiteur, ou réservée à l'écran d'arbitrage ? | Transparence contre bruit sur la page de thème | Affichée sur la fiche du texte · réservée à la page méthode · réservée à l'arbitrage |
-| Q4 | Une proposition non arbitrée reste publiée sans limite de temps. Rien ne force l'arbitrage. | Le contrôle humain de PROJECT.md §4 peut ne jamais avoir lieu | Compteur d'attente sur la page méthode · priorisation des textes par nombre de votes portés · aucune contrainte |
+| Q4 | Une proposition non arbitrée reste publiée sans limite de temps. Rien ne force l'arbitrage. | Le contrôle humain de README.md §4 peut ne jamais avoir lieu | Compteur d'attente sur la page méthode · priorisation des textes par nombre de votes portés · aucune contrainte |
 
 → Étape suivante : /plan-implementation

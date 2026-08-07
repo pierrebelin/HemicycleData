@@ -1,4 +1,4 @@
-//! Thematisation: rattachement des textes debattus aux familles de PROJECT.md §5.
+//! Thematisation: rattachement des textes debattus aux familles de README.md §5.
 //!
 //! Voir `todo/SPEC-thematisation.md`. Trois invariants portent le reste:
 //! - RM-02: le texte debattu s'extrait de l'objet du scrutin par regle, sans modele;
@@ -71,7 +71,7 @@ impl FamilyCode {
         }
     }
 
-    /// Libelle public, repris mot pour mot de PROJECT.md §5.
+    /// Libelle public, repris mot pour mot de README.md §5.
     pub fn label(&self) -> &'static str {
         match self {
             Self::PouvoirAchatFiscalite => "Pouvoir d'achat / fiscalité",

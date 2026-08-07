@@ -78,7 +78,7 @@ pub struct CodeCount {
 ///
 /// Ce sont des faits de couverture, pas une mesure d'activité parlementaire :
 /// ils disent ce que le site contient et, par différence, ce qu'il ne contient
-/// pas (PROJECT.md §2, §7).
+/// pas (README.md §2, §7).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DatasetShape {
     pub scrutins_total: i64,

@@ -24,7 +24,7 @@ pub struct StoredDossierState {
 ///
 /// `total` est le nombre de dossiers en base, pagination exclue : le visiteur
 /// doit voir combien de dossiers existent, pas seulement ceux de sa page
-/// (PROJECT.md §2).
+/// (README.md §2).
 #[derive(Debug, Clone)]
 pub struct DossierPage {
     pub items: Vec<LegislativeDossier>,

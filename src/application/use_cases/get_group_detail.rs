@@ -27,7 +27,7 @@ pub enum GetGroupDetailError {
 /// non-participation — et jamais du sens du vote. Le detail « pour » et
 /// « contre » n'apparait nulle part ici: cumule sur 8 000 scrutins dont 86 %
 /// d'amendements, il ne voudrait rien dire et se lirait comme une position
-/// (PROJECT.md §6, SPEC-PAGES-THEME-GROUPE RM-02).
+/// (README.md §6, SPEC-PAGES-THEME-GROUPE RM-02).
 #[derive(Debug, Clone)]
 pub struct GroupProfileView {
     pub summary: GroupSummary,
@@ -68,7 +68,7 @@ impl<'a> GetGroupDetail<'a> {
         let records = self.repository.list_groups(command.today).await?;
         // Un groupe inconnu est refuse, jamais remplace par un groupe
         // approchant: servir la fiche d'un autre groupe sous l'adresse demandee
-        // serait une fausse information (PROJECT.md §3.1).
+        // serait une fausse information (README.md §3.1).
         let summary = merge_lineages(records)
             .into_iter()
             .find(|group| group.designated_by(token))

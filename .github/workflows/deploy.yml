@@ -87,11 +87,15 @@ jobs:
               "hemicycle@${VPS_HOST}" \
               "~/app/deploy/deploy.sh ${{ github.sha }}"
 
+      # L'URL publique vit dans un secret, pas dans le depot : le code est
+      # public, l'adresse de l'instance n'a pas a l'etre.
       - name: Verification publique
+        env:
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
         run: |
           set -euo pipefail
           code=$(curl -s -o /dev/null -w '%{http_code}' \
-                 --max-time 15 https://hemicycle.pierrebelin.fr/api/health)
+                 --max-time 15 "${PUBLIC_BASE_URL}/api/health")
           echo "GET /api/health -> $code"
           [ "$code" = "200" ]
 
@@ -99,7 +103,7 @@ jobs:
           # deploiement : une reponse autre que 403 signifie que l'API
           # d'ingestion est ouverte a Internet.
           code=$(curl -s -o /dev/null -w '%{http_code}' \
-                 --max-time 15 -X POST https://hemicycle.pierrebelin.fr/api/refresh)
+                 --max-time 15 -X POST "${PUBLIC_BASE_URL}/api/refresh")
           echo "POST /api/refresh -> $code (403 attendu)"
           [ "$code" = "403" ]
 

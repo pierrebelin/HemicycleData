@@ -8,7 +8,7 @@
 //! Rapprocher les deux identifiants est une decision editoriale, pas une
 //! deduction: elle est ecrite ici en toutes lettres, verifiable ligne a ligne,
 //! plutot que devinee a l'execution sur une ressemblance de sigle ou de
-//! couleur (PROJECT.md §8).
+//! couleur (README.md §8).
 //!
 //! La lignee vaut pour l'affichage — un groupe, une colonne, sur toute la
 //! legislature. Elle ne modifie rien en base: les ventilations restent portees
@@ -25,7 +25,7 @@ pub struct GroupLineage {
     pub abbrev: &'static str,
     pub label: &'static str,
     /// Sigles anterieurs. Une adresse partagee avec l'ancien sigle continue de
-    /// designer le groupe (PROJECT.md §8.1).
+    /// designer le groupe (README.md §8.1).
     pub former_abbrevs: &'static [&'static str],
 }
 
