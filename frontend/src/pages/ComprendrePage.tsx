@@ -46,7 +46,7 @@ function RichText({ texte }: { texte: string }) {
     <>
       {morceaux.map((morceau, index) =>
         index % 2 === 1 ? (
-          <strong key={index} className="font-semibold text-gray-200">
+          <strong key={index} className="font-semibold text-ink">
             {morceau}
           </strong>
         ) : (
@@ -60,7 +60,7 @@ function RichText({ texte }: { texte: string }) {
 function BlocView({ bloc }: { bloc: Bloc }) {
   if (bloc.kind === 'p') {
     return (
-      <p className="text-sm leading-relaxed text-gray-400">
+      <p className="text-sm leading-relaxed text-ink-soft">
         <RichText texte={bloc.texte} />
       </p>
     )
@@ -69,12 +69,12 @@ function BlocView({ bloc }: { bloc: Bloc }) {
   if (bloc.kind === 'ul') {
     return (
       <div>
-        {bloc.intro && <p className="text-sm text-gray-400">{bloc.intro}</p>}
+        {bloc.intro && <p className="text-sm text-ink-soft">{bloc.intro}</p>}
         <ul className="mt-2 space-y-2">
           {bloc.items.map((item, index) => (
             <li
               key={index}
-              className="border-l-2 border-gray-800 pl-3 text-sm leading-relaxed text-gray-400"
+              className="border-l-2 border-line pl-3 text-sm leading-relaxed text-ink-soft"
             >
               <RichText texte={item} />
             </li>
@@ -85,12 +85,12 @@ function BlocView({ bloc }: { bloc: Bloc }) {
   }
 
   return (
-    <p className="text-sm leading-relaxed text-gray-400">
+    <p className="text-sm leading-relaxed text-ink-soft">
       <a
         href={bloc.lien}
         target="_blank"
         rel="noreferrer"
-        className="text-gray-200 underline decoration-gray-600 underline-offset-2 hover:decoration-gray-300"
+        className="text-accent underline underline-offset-2"
       >
         {bloc.libelle}
       </a>
@@ -113,15 +113,15 @@ function QuestionView({
       id={question.id}
       open={ouverte}
       onToggle={(event) => onBascule(event.currentTarget.open)}
-      className="scroll-mt-6 border-b border-gray-800"
+      className="scroll-mt-6 border-b border-line"
     >
-      <summary className="cursor-pointer list-none py-3 text-sm text-gray-200 marker:content-none hover:text-white">
-        <span className="mr-2 inline-block w-3 text-gray-600">
+      <summary className="cursor-pointer list-none py-2 text-sm marker:content-none hover:text-accent">
+        <span className="mr-2 inline-block w-3 text-ink-faint">
           {ouverte ? '−' : '+'}
         </span>
         {question.question}
       </summary>
-      <div className="space-y-3 pb-4 pl-5">
+      <div className="space-y-2 pb-3 pl-5">
         {question.reponse.map((bloc, index) => (
           <BlocView key={index} bloc={bloc} />
         ))}
@@ -145,10 +145,10 @@ function SectionView({
   if (questions.length === 0) return null
   return (
     <section id={section.id} className="scroll-mt-6">
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
         {section.titre}
       </h3>
-      <div className="border-t border-gray-800">
+      <div className="border-t border-line">
         {questions.map((question) => (
           <QuestionView
             key={question.id}
@@ -163,10 +163,13 @@ function SectionView({
 }
 
 /**
- * Guide de lecture, en questions — PROJECT.md §2, §3, §7, §9.
+ * Guide de lecture, en questions — README.md §2, §3, §7, §9.
  *
  * Page entièrement statique : aucun chiffre n'y est affiché, donc aucune
  * requête. Les volumétries vivent sur les pages qui les servent depuis la base.
+ *
+ * La prose reste bornée en largeur même quand le site s'élargit : une ligne de
+ * mille deux cents pixels ne se lit pas.
  */
 export default function ComprendrePage() {
   const [params] = useSearchParams()
@@ -233,17 +236,21 @@ export default function ComprendrePage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-3xl space-y-6">
       <div>
-        <h2 className="text-xl font-bold">Comprendre</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-400">
+        <h2 className="text-2xl font-semibold tracking-tight">Comprendre</h2>
+        <p className="mt-1 text-sm leading-relaxed text-ink-soft">
           Ce que ce site affiche, ce que les mots recouvrent, et ce que les
           données ne permettent pas de dire.
         </p>
       </div>
 
       <div>
-        <div role="tablist" aria-label="Niveau de lecture" className="flex gap-1">
+        <div
+          role="tablist"
+          aria-label="Niveau de lecture"
+          className="inline-flex gap-0.5 rounded-lg bg-surface-soft p-0.5"
+        >
           {NIVEAUX.map((item) => (
             <button
               key={item.valeur}
@@ -251,22 +258,22 @@ export default function ComprendrePage() {
               role="tab"
               aria-selected={niveau === item.valeur}
               onClick={() => appliquerNiveau(item.valeur)}
-              className={`rounded px-3 py-1 text-sm ${
+              className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                 niveau === item.valeur
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'bg-surface text-ink shadow-card'
+                  : 'text-ink-soft hover:text-ink'
               }`}
             >
               {item.label}
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-1.5 text-xs text-ink-faint">
           {NIVEAUX.find((item) => item.valeur === niveau)!.aide}
         </p>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
         {SECTIONS.map((section) => (
           <SectionView
             key={section.id}
@@ -279,12 +286,12 @@ export default function ComprendrePage() {
       </div>
 
       {niveau === 'debutant' && (
-        <p className="border-t border-gray-800 pt-4 text-sm text-gray-500">
+        <p className="border-t border-line pt-3 text-sm text-ink-soft">
           Ces réponses vous paraissent acquises ?{' '}
           <button
             type="button"
             onClick={() => appliquerNiveau('detaille')}
-            className="text-gray-300 underline decoration-gray-600 underline-offset-2 hover:decoration-gray-300"
+            className="text-accent underline underline-offset-2"
           >
             Passer au niveau détaillé
           </button>{' '}
@@ -292,11 +299,11 @@ export default function ComprendrePage() {
         </p>
       )}
 
-      <p className="border-t border-gray-800 pt-4 text-sm text-gray-500">
+      <p className="border-t border-line pt-3 text-sm text-ink-soft">
         La méthode de rattachement aux thèmes est publiée à part :{' '}
         <Link
           to="/themes/methode"
-          className="text-gray-300 underline decoration-gray-600 underline-offset-2 hover:decoration-gray-300"
+          className="text-accent underline underline-offset-2"
         >
           méthode de thématisation
         </Link>

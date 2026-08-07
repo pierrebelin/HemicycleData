@@ -385,7 +385,7 @@ fn for_each_act(acts: &Option<RawActsContainer>, visit: &mut impl FnMut(&RawAct)
 ///
 /// La source ne porte pas de champ de statut: seuls quelques actes concluent
 /// un dossier. Tout le reste reste `NoRecordedConclusion`, y compris un
-/// dossier sans acte depuis des annees (PROJECT.md §6).
+/// dossier sans acte depuis des annees (README.md §6).
 ///
 /// Precedence: promulgation, puis retrait, puis fusion. Un dossier a la fois
 /// retire et absorbe existe (2 cas en legislature 17): le retrait est un acte

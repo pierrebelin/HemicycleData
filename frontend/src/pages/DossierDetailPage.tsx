@@ -3,6 +3,14 @@ import { useParams, Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DossierScrutins from '../components/DossierScrutins'
 import { OutcomePanel } from '../components/OutcomeBadge'
+import {
+  Card,
+  ErrorPanel,
+  Loading,
+  Pill,
+  SectionTitle,
+  type PillTone,
+} from '../components/ui'
 import type { OutcomeDto } from '../types/dossiers'
 
 /** Actes visibles avant dépliage. Un dossier peut en porter des dizaines. */
@@ -58,11 +66,11 @@ interface DossierDetailDto {
   outcome: OutcomeDto
 }
 
-const curationLabels: Record<string, { label: string; classes: string }> = {
-  new: { label: 'Nouveau', classes: 'bg-gray-800 border-gray-700 text-gray-400' },
-  selected: { label: 'Sélectionné', classes: 'bg-emerald-900/30 border-emerald-800 text-emerald-400' },
-  dismissed: { label: 'Écarté', classes: 'bg-gray-800 border-gray-700 text-gray-500' },
-  published: { label: 'Publié', classes: 'bg-blue-900/30 border-blue-800 text-blue-400' },
+const curationLabels: Record<string, { label: string; tone: PillTone }> = {
+  new: { label: 'Nouveau', tone: 'neutral' },
+  selected: { label: 'Sélectionné', tone: 'yes' },
+  dismissed: { label: 'Écarté', tone: 'neutral' },
+  published: { label: 'Publié', tone: 'info' },
 }
 
 function ScoreBar({
@@ -79,14 +87,13 @@ function ScoreBar({
   const pct = (value / 10) * 100
   return (
     <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-300">
-          {label}{' '}
-          <span className="text-gray-500 text-xs">&times;{weight}</span>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-ink-soft">
+          {label} <span className="text-ink-faint">&times;{weight}</span>
         </span>
-        <span className="text-gray-400">{value}/10</span>
+        <span className="text-ink-soft">{value}/10</span>
       </div>
-      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-surface-soft rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${color}`}
           style={{ width: `${pct}%` }}
@@ -97,9 +104,9 @@ function ScoreBar({
 }
 
 function scoreTotalColor(score: number) {
-  if (score >= 60) return 'text-emerald-400'
-  if (score >= 30) return 'text-amber-400'
-  return 'text-gray-400'
+  if (score >= 60) return 'text-yes'
+  if (score >= 30) return 'text-abstain'
+  return 'text-ink-soft'
 }
 
 export default function DossierDetailPage() {
@@ -142,28 +149,18 @@ export default function DossierDetailPage() {
     },
   })
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-20">
-        <p className="text-gray-400 animate-pulse">Chargement du dossier…</p>
-      </div>
-    )
-  }
+  if (isLoading) return <Loading>Chargement du dossier…</Loading>
 
   if (isError) {
     return (
       <div>
         <Link
           to="/"
-          className="text-blue-400 hover:text-blue-300 text-sm mb-4 inline-block"
+          className="mb-4 inline-block text-sm font-medium text-accent hover:underline"
         >
           ← Retour à la liste
         </Link>
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-          <p className="text-red-400">
-            Erreur : {error instanceof Error ? error.message : 'inconnue'}
-          </p>
-        </div>
+        <ErrorPanel error={error} />
       </div>
     )
   }
@@ -174,76 +171,74 @@ export default function DossierDetailPage() {
     <div>
       <Link
         to="/"
-        className="text-blue-400 hover:text-blue-300 text-sm mb-6 inline-block"
+        className="mb-4 inline-block text-sm font-medium text-accent hover:underline"
       >
         ← Retour à la liste
       </Link>
 
-      <div className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold leading-snug mb-2">{data.title}</h2>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="text-gray-400">{data.procedure}</span>
-              {data.current_stage && (
-                <>
-                  <span className="text-gray-600">·</span>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-900/30 border border-indigo-800 text-indigo-300 text-xs font-medium">
-                    {data.current_stage.label}
-                    {data.current_stage.chamber && (
-                      <span className="text-indigo-500">
-                        — {data.current_stage.chamber}
-                      </span>
-                    )}
-                  </span>
-                </>
-              )}
-              <span className="text-gray-600">·</span>
-              <span className="text-blue-400">
-                {data.last_activity_label}
-              </span>
-              <span className="text-gray-600">·</span>
-              <span className="text-gray-400">
-                {new Date(
-                  data.last_activity_date + 'T00:00:00',
-                ).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </span>
-            </div>
-          </div>
-          {data.persisted ? (
-            <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-900/30 border border-emerald-800 text-emerald-400 text-xs font-medium">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              Sauvegardé
+      <div className="mb-5 flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <h2 className="max-w-4xl text-2xl font-semibold leading-tight tracking-tight">
+            {data.title}
+          </h2>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint">
+            <span>{data.procedure}</span>
+            {data.current_stage && (
+              <Pill tone="info">
+                {data.current_stage.label}
+                {data.current_stage.chamber &&
+                  ` — ${data.current_stage.chamber}`}
+              </Pill>
+            )}
+            <span>·</span>
+            <span className="text-ink-soft">{data.last_activity_label}</span>
+            <span>·</span>
+            <span>
+              {new Date(
+                data.last_activity_date + 'T00:00:00',
+              ).toLocaleDateString('fr-FR', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
             </span>
-          ) : (
-            <button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium transition-colors"
-            >
-              {saveMutation.isPending ? (
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
-                </svg>
-              )}
-              Sauvegarder
-            </button>
-          )}
+            {data.committee && (
+              <>
+                <span>·</span>
+                <span>Commission : {data.committee}</span>
+              </>
+            )}
+          </div>
         </div>
+        {data.persisted ? (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-yes-soft px-2.5 py-1 text-xs font-medium text-yes ring-1 ring-inset ring-yes/15">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Sauvegardé
+          </span>
+        ) : (
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-strong disabled:opacity-50"
+          >
+            {saveMutation.isPending ? (
+              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+            )}
+            Sauvegarder
+          </button>
+        )}
       </div>
 
-      <div className="mb-6">
+      <div className="mb-4">
         <OutcomePanel
           outcome={data.outcome}
           lastActivityLabel={data.last_activity_label}
@@ -251,23 +246,65 @@ export default function DossierDetailPage() {
         />
       </div>
 
+      {/* Le groupe d'un initiateur n'est jamais affiché sans la date à laquelle
+          il a été lu : l'appartenance est datée (README.md §3). */}
+      {data.initiators.length > 0 && (
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4 text-xs">
+          <span className="text-ink-faint">
+            Initiateur{data.initiators.length > 1 ? 's' : ''} :
+          </span>
+          {data.initiators.map((init, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 text-ink-soft ring-1 ring-inset ring-line"
+            >
+              {init.official_url ? (
+                <a
+                  href={init.official_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-accent hover:underline"
+                >
+                  {init.full_name}
+                </a>
+              ) : (
+                init.full_name
+              )}
+              {init.role && <span className="text-ink-faint">{init.role}</span>}
+              {init.group && init.reference_date && (
+                <span className="font-medium text-ink" title={init.group.label}>
+                  {init.group.abbrev}
+                  <span className="ml-1 font-normal text-ink-faint">
+                    (au{' '}
+                    {new Date(
+                      init.reference_date + 'T00:00:00',
+                    ).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                    )
+                  </span>
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
       {data.curation_status && (
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-2 mb-4">
           {(() => {
             const info = curationLabels[data.curation_status] ?? curationLabels.new
-            return (
-              <span className={`inline-flex items-center px-2.5 py-1 rounded-md border text-xs font-medium ${info.classes}`}>
-                {info.label}
-              </span>
-            )
+            return <Pill tone={info.tone}>{info.label}</Pill>
           })()}
           {data.curation_status !== 'published' && (
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               {data.curation_status !== 'selected' && (
                 <button
                   onClick={() => curateMutation.mutate('selected')}
                   disabled={curateMutation.isPending}
-                  className="px-3 py-1 rounded text-xs font-medium bg-emerald-900/30 border border-emerald-800 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-50"
+                  className="rounded-md bg-yes-soft px-2 py-0.5 text-xs font-medium text-yes ring-1 ring-inset ring-yes/15 hover:ring-yes/40 disabled:opacity-50"
                 >
                   Sélectionner
                 </button>
@@ -276,7 +313,7 @@ export default function DossierDetailPage() {
                 <button
                   onClick={() => curateMutation.mutate('dismissed')}
                   disabled={curateMutation.isPending}
-                  className="px-3 py-1 rounded text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700 disabled:opacity-50"
+                  className="rounded-md bg-surface-soft px-2 py-0.5 text-xs font-medium text-ink-soft ring-1 ring-inset ring-line hover:ring-line-strong disabled:opacity-50"
                 >
                   Écarter
                 </button>
@@ -284,7 +321,7 @@ export default function DossierDetailPage() {
               <button
                 onClick={() => curateMutation.mutate('published')}
                 disabled={curateMutation.isPending}
-                className="px-3 py-1 rounded text-xs font-medium bg-blue-900/30 border border-blue-800 text-blue-400 hover:bg-blue-900/50 disabled:opacity-50"
+                className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/15 hover:ring-accent/40 disabled:opacity-50"
               >
                 Publié
               </button>
@@ -293,109 +330,62 @@ export default function DossierDetailPage() {
         </div>
       )}
 
-      {(data.initiators.length > 0 || data.committee) && (
-        <div className="flex flex-wrap gap-3 mb-6">
-          {data.initiators.length > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-500">Initiateur{data.initiators.length > 1 ? 's' : ''} :</span>
-              <div className="flex flex-wrap gap-1.5">
-                {data.initiators.map((init, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-800 text-gray-200 text-xs"
-                  >
-                    {init.official_url ? (
-                      <a
-                        href={init.official_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:underline"
-                      >
-                        {init.full_name}
-                      </a>
-                    ) : (
-                      init.full_name
-                    )}
-                    {init.role && <span className="text-gray-500">{init.role}</span>}
-                    {/* Le groupe n'est jamais affiché sans la date à laquelle il a été lu. */}
-                    {init.group && init.reference_date && (
-                      <span className="text-amber-400 font-medium" title={init.group.label}>
-                        {init.group.abbrev}
-                        <span className="text-gray-500 font-normal ml-1">
-                          (au{' '}
-                          {new Date(init.reference_date + 'T00:00:00').toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                          )
-                        </span>
-                      </span>
-                    )}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {data.committee && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-500">Commission :</span>
-              <span className="px-2 py-0.5 rounded-md bg-gray-800 text-gray-200 text-xs">
-                {data.committee}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid gap-6 md:grid-cols-2 mb-8">
-        <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Score</h3>
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <Card className="p-4">
+          <div className="mb-3 flex items-baseline justify-between">
+            <SectionTitle>Score</SectionTitle>
             <span
-              className={`text-3xl font-bold ${scoreTotalColor(data.score.total)}`}
+              className={`text-2xl font-semibold tracking-tight ${scoreTotalColor(data.score.total)}`}
             >
               {data.score.total}
-              <span className="text-base text-gray-500 font-normal">/100</span>
+              <span className="text-sm font-normal text-ink-faint">/100</span>
             </span>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             <ScoreBar
               label="Avancement"
               value={data.score.progress}
               weight={3}
-              color="bg-blue-500"
+              color="bg-accent"
             />
             <ScoreBar
               label="Ampleur"
               value={data.score.magnitude}
               weight={2}
-              color="bg-purple-500"
+              color="bg-info"
             />
             <ScoreBar
               label="Vélocité"
               value={data.score.momentum}
               weight={1}
-              color="bg-cyan-500"
+              color="bg-ink-faint"
             />
           </div>
-          <div className="mt-4 pt-3 border-t border-gray-800">
-            <p className="text-xs text-gray-500">
-              <span className="text-gray-400 font-medium">Avancement</span> — stade législatif atteint (dépôt → promulgation)
+          {/* Définitions repliées : elles ne changent pas d'un dossier à
+              l'autre et n'ont pas à occuper le haut de chaque page. */}
+          <details className="mt-3 pt-2 border-t border-line">
+            <summary className="text-xs text-ink-faint cursor-pointer hover:text-ink-soft">
+              Comment ce score est calculé
+            </summary>
+            <p className="text-xs text-ink-faint mt-1.5">
+              <span className="text-ink-soft font-medium">Avancement</span> —
+              stade législatif atteint (dépôt → promulgation)
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              <span className="text-gray-400 font-medium">Ampleur</span> — importance thématique (budget, santé, sécurité…)
+            <p className="text-xs text-ink-faint mt-1">
+              <span className="text-ink-soft font-medium">Ampleur</span> —
+              importance thématique (budget, santé, sécurité…)
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              <span className="text-gray-400 font-medium">Vélocité</span> — nombre d'actes législatifs enregistrés
+            <p className="text-xs text-ink-faint mt-1">
+              <span className="text-ink-soft font-medium">Vélocité</span> —
+              nombre d'actes législatifs enregistrés
             </p>
-          </div>
-        </section>
+          </details>
+        </Card>
 
-        <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h3 className="text-lg font-semibold mb-4">Timeline</h3>
+        <Card className="p-4">
+          <SectionTitle>Déroulé</SectionTitle>
           {data.acts.length === 0 ? (
-            <p className="text-gray-500 text-sm">Aucun acte enregistré</p>
+            <p className="text-ink-faint text-sm">Aucun acte enregistré</p>
           ) : (
             (() => {
               // La source les rend du plus ancien au plus récent. On montre les
@@ -409,15 +399,15 @@ export default function DossierDetailPage() {
               return (
                 <>
                   <div
-                    className={`relative pl-4 border-l border-gray-700 space-y-4 ${
+                    className={`relative pl-4 border-l border-line space-y-2.5 ${
                       allActsShown ? 'max-h-56 overflow-y-auto pr-2' : ''
                     }`}
                   >
                     {shown.map((acte, i) => (
                       <div key={`${acte.date}-${i}`} className="relative">
-                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-gray-900" />
-                        <p className="text-sm text-white">{acte.label}</p>
-                        <p className="text-xs text-gray-500">
+                        <div className="absolute -left-[21px] top-1.5 w-2 h-2 rounded-full bg-accent border-2 border-surface" />
+                        <p className="text-sm leading-snug">{acte.label}</p>
+                        <p className="text-xs text-ink-faint">
                           {new Date(
                             acte.date + 'T00:00:00',
                           ).toLocaleDateString('fr-FR', {
@@ -435,7 +425,7 @@ export default function DossierDetailPage() {
                       type="button"
                       onClick={() => setAllActsShown(!allActsShown)}
                       aria-expanded={allActsShown}
-                      className="mt-4 text-sm text-blue-400 hover:text-blue-300 underline"
+                      className="mt-3 text-xs text-accent hover:underline"
                     >
                       {allActsShown
                         ? 'Masquer les actes antérieurs'
@@ -446,7 +436,7 @@ export default function DossierDetailPage() {
               )
             })()
           )}
-        </section>
+        </Card>
       </div>
 
       <DossierScrutins uid={data.uid} />
@@ -456,7 +446,7 @@ export default function DossierDetailPage() {
           href={`https://www.assemblee-nationale.fr/dyn/17/dossiers/${data.uid}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-gray-500 hover:text-gray-300 underline"
+          className="text-xs text-ink-faint hover:text-accent underline"
         >
           Voir sur assemblee-nationale.fr ↗
         </a>

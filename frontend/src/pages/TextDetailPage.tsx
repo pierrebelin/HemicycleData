@@ -20,52 +20,58 @@ export default function TextDetailPage() {
       }),
   })
 
-  if (text.isLoading) return <p className="text-gray-500">Chargement…</p>
+  if (text.isLoading)
+    return <p className="animate-pulse text-ink-faint">Chargement…</p>
   if (text.error)
-    return <p className="text-red-400">{(text.error as Error).message}</p>
+    return <p className="text-no">{(text.error as Error).message}</p>
 
   const data = text.data!
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div>
-        <Link to="/themes" className="text-sm text-gray-500 hover:text-gray-300">
+        <Link to="/themes" className="text-sm text-accent hover:underline">
           ← Tous les thèmes
         </Link>
-        <h2 className="mt-2 text-xl font-bold">{data.label}</h2>
-        <p className="mt-1 text-xs text-gray-500">
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+          {data.label}
+        </h2>
+        <p className="mt-0.5 text-xs text-ink-faint">
           {data.scrutin_count} scrutin{data.scrutin_count > 1 ? 's' : ''}
           {data.first_vote && data.last_vote
             ? ` · du ${frenchDate(data.first_vote)} au ${frenchDate(data.last_vote)}`
             : ''}
+          {data.dossier_uid && (
+            <>
+              {' · dossier : '}
+              <Link
+                to={`/dossiers/${data.dossier_uid}`}
+                className="text-accent underline"
+              >
+                {data.dossier_label ?? data.dossier_uid}
+              </Link>
+            </>
+          )}
         </p>
-        {data.dossier_uid && (
-          <p className="mt-1 text-xs text-gray-500">
-            Dossier :{' '}
-            <Link
-              to={`/dossiers/${data.dossier_uid}`}
-              className="underline hover:text-gray-300"
-            >
-              {data.dossier_label ?? data.dossier_uid}
-            </Link>
-          </p>
-        )}
       </div>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-gray-300">Familles</h3>
+        <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink-faint">
+          Familles
+        </h3>
         {data.families.length > 0 ? (
           <FamilyBadges families={data.families} />
         ) : (
           <UnassignedNote outcome={data.last_attempt_outcome} />
         )}
         {data.families.some((f) => f.motive) && (
-          <ul className="mt-3 space-y-1 text-xs text-gray-400">
+          <ul className="mt-2 space-y-0.5 text-xs text-ink-soft">
             {data.families
               .filter((f) => f.motive)
               .map((f) => (
                 <li key={f.code}>
-                  <span className="text-gray-300">{f.label}</span> — {f.motive}
+                  <span className="font-medium text-ink">{f.label}</span> —{' '}
+                  {f.motive}
                 </li>
               ))}
           </ul>
@@ -73,26 +79,26 @@ export default function TextDetailPage() {
       </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-gray-300">
+        <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink-faint">
           Scrutins de ce texte
         </h3>
         {data.scrutins.length === 0 ? (
-          <p className="text-sm text-gray-500">Aucun scrutin listé.</p>
+          <p className="text-sm text-ink-faint">Aucun scrutin listé.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
             {data.scrutins.map((scrutin) => (
               <li
                 key={scrutin.uid}
-                className="rounded border border-gray-800 bg-gray-900/40 p-3"
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-4 py-2"
               >
                 <Link
                   to={`/scrutins/${scrutin.uid}`}
-                  className="text-sm hover:underline"
+                  className="min-w-0 flex-1 text-sm hover:text-accent hover:underline"
                 >
                   {scrutin.subject}
                 </Link>
-                <p className="mt-1 text-xs text-gray-500">
-                  {frenchDate(scrutin.date)} · scrutin n° {scrutin.number} ·{' '}
+                <p className="shrink-0 text-xs text-ink-faint">
+                  {frenchDate(scrutin.date)} · n° {scrutin.number} ·{' '}
                   {scrutin.outcome_label} · pour {scrutin.votes_for}, contre{' '}
                   {scrutin.votes_against}, abstention {scrutin.abstentions}
                 </p>
@@ -101,7 +107,7 @@ export default function TextDetailPage() {
           </ul>
         )}
         {data.scrutin_count > data.scrutins.length && (
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-1.5 text-xs text-ink-faint">
             {data.scrutins.length} scrutins affichés sur {data.scrutin_count}.
           </p>
         )}

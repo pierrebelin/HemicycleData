@@ -20,32 +20,32 @@ export default function DossierScrutins({ uid }: { uid: string }) {
   })
 
   return (
-    <section className="mb-8">
-      <h3 className="text-lg font-semibold mb-3">
+    <section className="mb-6">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-faint mb-2">
         Scrutins
         {data && data.count > 0 && (
-          <span className="text-sm text-gray-500 font-normal ml-2">
+          <span className="ml-2 font-normal normal-case tracking-normal text-ink-faint">
             {data.count}
           </span>
         )}
       </h3>
 
       {isLoading && (
-        <p className="text-gray-500 text-sm animate-pulse">
+        <p className="text-ink-faint text-sm animate-pulse">
           Chargement des scrutins…
         </p>
       )}
 
       {isError && (
-        <p className="text-red-400 text-sm">
+        <p className="text-no text-sm">
           Erreur : {error instanceof Error ? error.message : 'inconnue'}
         </p>
       )}
 
       {data && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {data.count === 0 ? (
-            <p className="text-gray-500 text-sm border border-gray-800 rounded-lg p-4">
+            <p className="text-ink-soft text-sm border border-line bg-surface rounded-lg px-4 py-3">
               La source ne rattache aucun scrutin public à ce dossier. Cela ne
               signifie pas qu'aucun vote n'a eu lieu sur ce texte.{' '}
               <GuideLink ancre="q-sans-dossier">

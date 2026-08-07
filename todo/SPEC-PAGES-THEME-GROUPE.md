@@ -4,9 +4,9 @@
 
 ## 1. Contexte
 
-Le site porte 8 434 scrutins et 1 270 476 positions nominales. On les atteint par date, par dossier ou par numéro — jamais par sujet. La promesse de PROJECT.md §1, « voici les textes sur le logement, voici comment chaque groupe a voté », n'a aucune page.
+Le site porte 8 434 scrutins et 1 270 476 positions nominales. On les atteint par date, par dossier ou par numéro — jamais par sujet. La promesse de README.md §1, « voici les textes sur le logement, voici comment chaque groupe a voté », n'a aucune page.
 
-Le piège tient en une phrase : « le groupe X sur le logement » est un agrégat multi-scrutins par groupe, que SPEC-scrutins RM-08 et PROJECT.md §6 interdisent. La page existe quand même — comme **liste filtrée**, pas comme synthèse.
+Le piège tient en une phrase : « le groupe X sur le logement » est un agrégat multi-scrutins par groupe, que SPEC-scrutins RM-08 et README.md §6 interdisent. La page existe quand même — comme **liste filtrée**, pas comme synthèse.
 
 ## 2. Vocabulaire
 
@@ -87,7 +87,7 @@ Le piège tient en une phrase : « le groupe X sur le logement » est un agréga
 ## 4. Règles métier
 
 ### RM-01 — Critère d'admissibilité d'un chiffre
-- **Énoncé** : sur une page filtrée par groupe, un nombre n'est affichable que si sa valeur ne dépend pas du sens des votes du groupe. Admis : nombre de scrutins listés, bornes de dates, effectif publié au scrutin, nombre de textes du thème. Refusé : compte de « pour », de « contre », d'abstentions ou de non-votes sur plus d'un scrutin, taux de participation, part d'abstention, compte de positions majoritaires. · **Origine** : PROJECT.md §6, SPEC-scrutins RM-08 · **Sévérité** : bloquant · **Applies to** : transverse
+- **Énoncé** : sur une page filtrée par groupe, un nombre n'est affichable que si sa valeur ne dépend pas du sens des votes du groupe. Admis : nombre de scrutins listés, bornes de dates, effectif publié au scrutin, nombre de textes du thème. Refusé : compte de « pour », de « contre », d'abstentions ou de non-votes sur plus d'un scrutin, taux de participation, part d'abstention, compte de positions majoritaires. · **Origine** : README.md §6, SPEC-scrutins RM-08 · **Sévérité** : bloquant · **Applies to** : transverse
 - **Conforme** : « 34 scrutins listés, du 12/03/2025 au 04/06/2026 » — identique pour chaque groupe.
 - **Non conforme** : « le groupe a voté pour 21 fois sur ce thème », « 78 % de participation ».
 
@@ -95,19 +95,19 @@ Le piège tient en une phrase : « le groupe X sur le logement » est un agréga
 - **Énoncé** : les chiffres de vote restent attachés à un scrutin. Aucune somme, moyenne, taux ni classement portant sur plusieurs scrutins d'un groupe. · **Origine** : SPEC-scrutins RM-08, SPEC-thematisation RM-12 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
 
 ### RM-03 — Deux groupes côte à côte seulement au scrutin
-- **Énoncé** : la mise en regard de plusieurs groupes n'existe qu'au détail d'un scrutin, où la source publie leurs lignes ensemble. Aucune page ne juxtapose deux groupes sur un thème ou une période. · **Origine** : PROJECT.md §6, §9 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-06
+- **Énoncé** : la mise en regard de plusieurs groupes n'existe qu'au détail d'un scrutin, où la source publie leurs lignes ensemble. Aucune page ne juxtapose deux groupes sur un thème ou une période. · **Origine** : README.md §6, §9 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-06
 
 ### RM-04 — Groupe de la ligne = groupe publié au scrutin
-- **Énoncé** : le filtre groupe porte sur le groupe sous lequel la source range le vote **dans ce scrutin**, jamais sur l'appartenance courante d'un député. · **Origine** : PROJECT.md §3.2, SPEC-scrutins RM-04 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
+- **Énoncé** : le filtre groupe porte sur le groupe sous lequel la source range le vote **dans ce scrutin**, jamais sur l'appartenance courante d'un député. · **Origine** : README.md §3.2, SPEC-scrutins RM-04 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
 
 ### RM-05 — Fenêtre d'existence affichée
-- **Énoncé** : une liste vide par absence du groupe sur la période porte la mention de sa fenêtre d'existence. L'absence n'est jamais présentée comme une position de vote. · **Origine** : PROJECT.md §2, mesure du 05/08/2026 (H3) · **Sévérité** : bloquant · **Applies to** : CU-04
+- **Énoncé** : une liste vide par absence du groupe sur la période porte la mention de sa fenêtre d'existence. L'absence n'est jamais présentée comme une position de vote. · **Origine** : README.md §2, mesure du 05/08/2026 (H3) · **Sévérité** : bloquant · **Applies to** : CU-04
 
 ### RM-06 — Le thème vient du texte
 - **Énoncé** : un scrutin entre dans un thème par les familles de son texte débattu. Aucun rattachement direct sur un scrutin, aucun sur un amendement isolé. · **Origine** : SPEC-thematisation RM-06 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
 
 ### RM-07 — Le tri ordonne, il ne filtre pas
-- **Énoncé** : tout scrutin d'un texte rattaché est atteignable depuis la page du thème. Les filtres de nature et de période sont explicites, réversibles et affichés ; aucun retrait implicite. · **Origine** : PROJECT.md §2 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02, CU-03
+- **Énoncé** : tout scrutin d'un texte rattaché est atteignable depuis la page du thème. Les filtres de nature et de période sont explicites, réversibles et affichés ; aucun retrait implicite. · **Origine** : README.md §2 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02, CU-03
 - **Non conforme** : n'afficher que les scrutins « l'ensemble du texte » parce que les amendements sont bruyants.
 
 ### RM-08 — Chiffres de la source, jamais recalculés
@@ -117,22 +117,22 @@ Le piège tient en une phrase : « le groupe X sur le logement » est un agréga
 - **Énoncé** : une ligne reconstruite depuis le décompte nominatif porte sa mention de méthode partout où elle s'affiche, liste comprise. · **Origine** : SPEC-scrutins RM-03 · **Sévérité** : bloquant · **Applies to** : CU-02
 
 ### RM-10 — Position majoritaire sans lecture d'intention
-- **Énoncé** : la position majoritaire publiée s'affiche comme un fait de la source. Jamais présentée comme consigne, discipline ou engagement du groupe. · **Origine** : SPEC-scrutins §6, PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02
+- **Énoncé** : la position majoritaire publiée s'affiche comme un fait de la source. Jamais présentée comme consigne, discipline ou engagement du groupe. · **Origine** : SPEC-scrutins §6, README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02
 
 ### RM-11 — Couverture thématique affichée
-- **Énoncé** : chaque page de thème porte le nombre de textes rattachés, non rattachés et jamais soumis, et le lien vers les non rattachés. · **Origine** : PROJECT.md §2, SPEC-thematisation RM-01 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-05
+- **Énoncé** : chaque page de thème porte le nombre de textes rattachés, non rattachés et jamais soumis, et le lien vers les non rattachés. · **Origine** : README.md §2, SPEC-thematisation RM-01 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-05
 
 ### RM-12 — Lien source sur chaque scrutin listé
-- **Énoncé** : chaque scrutin affiché porte le lien vers sa page officielle, depuis la liste comme depuis le détail. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-06
+- **Énoncé** : chaque scrutin affiché porte le lien vers sa page officielle, depuis la liste comme depuis le détail. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-06
 
 ### RM-13 — Période nommée par ses dates
 - **Énoncé** : une session est présentée par ses dates de premier et dernier scrutin. La référence de la source est conservée dans l'adresse, jamais seule à l'écran. · **Origine** : choix produit · **Sévérité** : warning · **Applies to** : CU-03
 
 ### RM-14 — Lacune des votes à main levée affichée
-- **Énoncé** : les pages de thème portent la mention que les votes à main levée ne figurent pas dans la source. · **Origine** : PROJECT.md §7, SPEC-scrutins RM-06 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
+- **Énoncé** : les pages de thème portent la mention que les votes à main levée ne figurent pas dans la source. · **Origine** : README.md §7, SPEC-scrutins RM-06 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
 
 ### RM-15 — Adresses stables et partageables
-- **Énoncé** : thème, thème × groupe, thème × groupe × période ont chacun une adresse stable, partageable et indexable. · **Origine** : PROJECT.md §8.1 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02, CU-03
+- **Énoncé** : thème, thème × groupe, thème × groupe × période ont chacun une adresse stable, partageable et indexable. · **Origine** : README.md §8.1 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02, CU-03
 
 ## 5. Données
 
@@ -148,7 +148,7 @@ Le piège tient en une phrase : « le groupe X sur le logement » est un agréga
 
 ## 6. Comportements transverses
 
-**Volumétrie** — un thème peut porter plus de mille scrutins : 17 textes concentrent 5 699 des 8 434 scrutins. Les listes sont paginées, l'ordre est stable, et le compte total est affiché avant pagination : une page tronquée sans son total laisserait croire à une sélection (PROJECT.md §2).
+**Volumétrie** — un thème peut porter plus de mille scrutins : 17 textes concentrent 5 699 des 8 434 scrutins. Les listes sont paginées, l'ordre est stable, et le compte total est affiché avant pagination : une page tronquée sans son total laisserait croire à une sélection (README.md §2).
 
 **Ordre** — chronologique décroissant partout, par défaut. Aucun tri par « importance » : il ordonnerait ce que le visiteur croirait filtré.
 
@@ -172,8 +172,8 @@ Le piège tient en une phrase : « le groupe X sur le logement » est un agréga
 |---|---|
 | Tout total, taux ou classement par groupe | RM-01, RM-02 |
 | Comparaison de deux groupes hors détail d'un scrutin | RM-03 |
-| Fiche par député, historique de vote d'une personne | PROJECT.md §3.3, SPEC-scrutins §8. PROJECT.md §8.1 annonce pourtant une adresse « député » — contradiction, voir Q4 |
-| Traduction d'un groupe en parti | PROJECT.md §3.1 |
+| Fiche par député, historique de vote d'une personne | README.md §3.3, SPEC-scrutins §8. README.md §8.1 annonce pourtant une adresse « député » — contradiction, voir Q4 |
+| Traduction d'un groupe en parti | README.md §3.1 |
 | Rattachement des ~2 758 dossiers sans scrutin | SPEC-thematisation §9, mécanique existante non lancée |
 | Export, graphiques, séries temporelles | Une courbe de votes par groupe est un cumul déguisé (RM-02) |
 | Législatures antérieures | SPEC-acteurs RM-07 |
@@ -205,7 +205,7 @@ Mesures reproductibles : `cargo run --bin measure_phase5`.
 | Q1 | La volumétrie par famille n'est pas mesurée : couverture nulle faute de clé d'API. Une famille pourrait porter 4 000 scrutins comme 12. | Dimensionnement des listes, pertinence du filtre de nature | Mesurer après la première passe de thématisation (retenu) · dimensionner sur le pire cas mesuré aujourd'hui (931 scrutins pour un texte) |
 | Q2 | La session SCR5A2025E2 porte 1 scrutin. Proposée comme les autres, elle donnera presque toujours une liste vide. | Un filtre qui ne rend rien 8 fois sur 8 se lit comme un défaut | Proposer toutes les sessions (retenu) · fondre les sessions extraordinaires dans l'ordinaire voisine · masquer les sessions vides pour le thème consulté |
 | Q3 | La justification produite par le modèle est-elle affichée au visiteur ? Reprend SPEC-thematisation Q3, que ces pages rendent concrète. | Transparence contre bruit sur la page de thème | Sur la fiche du texte seulement · sur chaque ligne de la liste · réservée à l'arbitrage |
-| Q4 | PROJECT.md §8.1 annonce une adresse « député » ; §3.3 et SPEC-scrutins §8 excluent la fiche par personne. | Contradiction non tranchée dans les sources | Trancher pour l'exclusion et corriger §8.1 · ouvrir une page député sans historique agrégé · laisser en l'état |
+| Q4 | README.md §8.1 annonce une adresse « député » ; §3.3 et SPEC-scrutins §8 excluent la fiche par personne. | Contradiction non tranchée dans les sources | Trancher pour l'exclusion et corriger §8.1 · ouvrir une page député sans historique agrégé · laisser en l'état |
 | Q5 | Le filtre de nature (amendement / article / ensemble du texte / motion) n'existe dans aucune spec livrée : il est introduit ici. | Dérive possible vers un filtre par défaut, que RM-07 interdit | Filtre explicite, jamais actif par défaut (retenu) · nature affichée sans filtre · TBD |
 | Q6 | Une proposition non arbitrée alimente ces pages sans limite de temps. Reprend SPEC-thematisation Q4. | Le visiteur lit un rattachement que personne n'a validé | Mention d'origine sur chaque ligne (déjà RM-09 de THEMATISATION) · compteur d'attente en méthode · priorisation par nombre de scrutins portés |
 

@@ -17,28 +17,30 @@ export default function TextList({
   showFamilies?: boolean
 }) {
   if (texts.length === 0) {
-    return <p className="text-sm text-gray-500">Aucun texte dans cette liste.</p>
+    return <p className="text-sm text-ink-faint">Aucun texte dans cette liste.</p>
   }
 
   return (
-    <ul className="space-y-3">
+    <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface shadow-card">
       {texts.map((text) => (
         <li
           key={text.key}
-          className="rounded border border-gray-800 bg-gray-900/40 p-4"
+          className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1.5 px-4 py-3"
         >
-          <Link
-            to={`/textes/${encodeURIComponent(text.key)}`}
-            className="font-medium hover:underline"
-          >
-            {text.label}
-          </Link>
-          <p className="mt-1 text-xs text-gray-500">
-            {text.scrutin_count} scrutin{text.scrutin_count > 1 ? 's' : ''}
-            {period(text) ? ` · ${period(text)}` : ''}
-            {text.dossier_uid ? ' · dossier rattaché' : ''}
-          </p>
-          <div className="mt-2">
+          <div className="min-w-0 flex-1">
+            <Link
+              to={`/textes/${encodeURIComponent(text.key)}`}
+              className="text-[15px] font-semibold leading-snug transition-colors hover:text-accent"
+            >
+              {text.label}
+            </Link>
+            <p className="mt-0.5 text-xs text-ink-faint">
+              {text.scrutin_count} scrutin{text.scrutin_count > 1 ? 's' : ''}
+              {period(text) ? ` · ${period(text)}` : ''}
+              {text.dossier_uid ? ' · dossier rattaché' : ''}
+            </p>
+          </div>
+          <div className="shrink-0">
             {showFamilies && text.families.length > 0 ? (
               <FamilyBadges families={text.families} />
             ) : (

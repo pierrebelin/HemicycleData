@@ -1,10 +1,10 @@
 # SCRUTINS — Scrutins et votes des dossiers
 
-> ⚠️ **À réviser avant implémentation** — le pivot vers le site de transparence (PROJECT.md, août 2026) invalide plusieurs choix de cette spec :
-> - **RM-01** (rattachement obligatoire à un dossier) écarte les scrutins orphelins. Mesuré sur les données réelles le 02/08/2026 : **5 826 scrutins sur 8 434 (69 %) n'ont aucun dossier rattaché**. Cette règle viderait le site des deux tiers des votes. PROJECT.md §7 impose de les conserver.
+> ⚠️ **À réviser avant implémentation** — le pivot vers le site de transparence (README.md, août 2026) invalide plusieurs choix de cette spec :
+> - **RM-01** (rattachement obligatoire à un dossier) écarte les scrutins orphelins. Mesuré sur les données réelles le 02/08/2026 : **5 826 scrutins sur 8 434 (69 %) n'ont aucun dossier rattaché**. Cette règle viderait le site des deux tiers des votes. README.md §7 impose de les conserver.
 > - **RM-02** (deux régimes de vote) est faux : les 8 434 scrutins portent tous le décompte nominatif. Les votes à main levée sont absents du jeu, pas présents sans répartition — c'est un trou de couverture à afficher, pas un mode d'affichage.
 > - **Bonne nouvelle** : chaque votant porte la référence de son mandat, donc son groupe **au moment du vote**, sans recherche par date. La répartition par groupe ne dépend pas de la phase acteurs — seul l'affichage des libellés en dépend.
-> - **Position nominale par député** est en hors périmètre §9 ; les données la fournissent pour tous les scrutins et elle devient le niveau de preuve central (PROJECT.md §7).
+> - **Position nominale par député** est en hors périmètre §9 ; les données la fournissent pour tous les scrutins et elle devient le niveau de preuve central (README.md §7).
 > - Les justifications « matière des contenus générés » tombent : la couche éditoriale est abandonnée.
 
 > Ingérer les scrutins publics de l'Assemblée nationale rattachés aux dossiers suivis. Afficher la répartition des votes par groupe politique en chiffres bruts. Matière des futurs contenus (« rejeté par 280 voix contre 250 ») et du critère importance du scoring.
@@ -50,14 +50,14 @@ Un dossier montre aujourd'hui ses actes (« Vote solennel ») sans le résultat 
 - **Énoncé** : un scrutin n'entre dans l'application que rattaché à un dossier suivi. Scrutin orphelin ignoré. · **Origine** : choix produit (périmètre centré dossier) · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-02 — Deux régimes de vote
-- **Énoncé** : scrutin public → répartition par groupe affichée. Main levée → résultat sec « adopté » / « rejeté », aucune répartition. Absence de répartition ≠ zéro voix. · **Origine** : PROJECT.md §7 (limite des données AN) · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
+- **Énoncé** : scrutin public → répartition par groupe affichée. Main levée → résultat sec « adopté » / « rejeté », aucune répartition. Absence de répartition ≠ zéro voix. · **Origine** : README.md §7 (limite des données AN) · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
 
 ### RM-03 — Chiffres bruts, jamais inventés
-- **Énoncé** : tout chiffre de vote affiché provient tel quel des données officielles. Aucun chiffre calculé, estimé ou reformulé. · **Origine** : PROJECT.md §6-7 (neutralité) · **Sévérité** : bloquant · **Applies to** : transverse
+- **Énoncé** : tout chiffre de vote affiché provient tel quel des données officielles. Aucun chiffre calculé, estimé ou reformulé. · **Origine** : README.md §6-7 (neutralité) · **Sévérité** : bloquant · **Applies to** : transverse
 - **Exemple conforme** : « Pour : 280 — Contre : 250 ». **Non conforme** : « adopté à une large majorité ».
 
 ### RM-04 — Lien source officielle
-- **Énoncé** : chaque scrutin affiché porte un lien vers sa page officielle AN. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02
+- **Énoncé** : chaque scrutin affiché porte un lien vers sa page officielle AN. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02
 
 ## 5. Données
 

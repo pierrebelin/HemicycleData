@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { Note } from './ui'
 import type { AssignedFamilyDto } from '../types/themes'
 
 /**
@@ -15,7 +16,7 @@ export function FamilyBadges({
   if (families.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1">
       {families.map((family) => {
         const arbitrated = family.origin === 'human_arbitration'
         const content = (
@@ -23,7 +24,7 @@ export function FamilyBadges({
             {family.label}
             <span
               className={`ml-1.5 text-[10px] uppercase tracking-wide ${
-                arbitrated ? 'text-emerald-400' : 'text-amber-400'
+                arbitrated ? 'text-yes' : 'text-abstain'
               }`}
               title={family.origin_note}
             >
@@ -32,12 +33,12 @@ export function FamilyBadges({
           </>
         )
         const className =
-          'inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2 py-0.5 text-xs text-gray-200'
+          'inline-flex items-center rounded-md bg-surface-soft px-1.5 py-0.5 text-[11px] font-medium text-ink-soft ring-1 ring-inset ring-line'
         return linkToFamily ? (
           <Link
             key={family.code}
             to={`/themes/${family.code}`}
-            className={`${className} hover:border-gray-500`}
+            className={`${className} transition-colors hover:bg-surface hover:text-ink hover:ring-line-strong`}
           >
             {content}
           </Link>
@@ -59,16 +60,16 @@ export function UnassignedNote({ outcome }: { outcome: string | null }) {
       : outcome === 'failed'
         ? "Aucune famille : le modèle n'a pas répondu. Une nouvelle passe reprendra ce texte."
         : "Aucune famille : ce texte n'a pas encore été soumis."
-  return <p className="text-xs text-gray-500">{reason}</p>
+  return <p className="text-xs text-ink-faint">{reason}</p>
 }
 
 export function MethodNote({ note }: { note: string }) {
   return (
-    <p className="rounded border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-400">
+    <Note>
       {note}{' '}
-      <Link to="/themes/methode" className="underline hover:text-gray-200">
+      <Link to="/themes/methode" className="text-accent underline">
         Méthode complète
       </Link>
-    </p>
+    </Note>
   )
 }

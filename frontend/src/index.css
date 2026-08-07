@@ -1,1 +1,85 @@
 @import "tailwindcss";
+
+/*
+ * Inter, auto-hébergée. Le paquet déclare une `@font-face` par sous-ensemble
+ * Unicode : un lecteur français ne télécharge que le latin, pas le cyrillique
+ * ni le grec. Aucun appel à un CDN tiers, donc aucune requête sortante depuis
+ * le navigateur du lecteur.
+ */
+@import "@fontsource-variable/inter/wght.css";
+
+/**
+ * Tokens sémantiques du thème clair.
+ *
+ * Les composants ne nomment jamais une couleur brute (`bg-white`, `text-gray-500`)
+ * mais son rôle (`bg-surface`, `text-ink-faint`). Changer la palette — ou ajouter
+ * un mode sombre — se fait ici, pas dans les vingt-trois fichiers de vue.
+ *
+ * Les couleurs de position disent « pour », « contre », « abstention », jamais
+ * « bien » ou « mal » : elles sont réservées aux positions, la couleur d'un
+ * groupe reste cantonnée à sa pastille d'identité (README.md §6).
+ */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+  /* Fonds */
+  --color-canvas: #fafafa;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f4f4f5;
+
+  /* Traits */
+  --color-line: #e8e8ea;
+  --color-line-strong: #d1d1d6;
+
+  /* Texte */
+  --color-ink: #18181b;
+  --color-ink-soft: #52525b;
+  --color-ink-faint: #8e8e97;
+
+  /* Lien / mise en avant */
+  --color-accent: #2563eb;
+  --color-accent-strong: #1d4ed8;
+  --color-accent-soft: #eff4ff;
+
+  /* Étape législative, information neutre */
+  --color-info: #4f46e5;
+  --color-info-soft: #eef1fe;
+
+  /*
+   * Positions de vote. Les teintes des barres sont volontairement moins
+   * saturées que celles du texte : à pleine saturation, une barre verte contre
+   * une barre rouge se lit comme un feu tricolore, donc comme un jugement.
+   */
+  --color-yes: #04785d;
+  --color-yes-soft: #edfaf5;
+  --color-yes-bar: #14a37f;
+  --color-no: #b3261e;
+  --color-no-soft: #fdf1f0;
+  --color-no-bar: #d9534b;
+  --color-abstain: #9a5b06;
+  --color-abstain-soft: #fdf6e9;
+  --color-abstain-bar: #d99b31;
+
+  /* Cartes et ligne de liste : le relief vient d'une ombre d'un pixel, pas
+     d'un dégradé ni d'une bordure épaisse. */
+  --shadow-card: 0 1px 2px 0 rgb(24 24 27 / 0.04), 0 1px 3px 0 rgb(24 24 27 / 0.03);
+  --shadow-card-hover: 0 2px 4px 0 rgb(24 24 27 / 0.06), 0 4px 12px -2px rgb(24 24 27 / 0.06);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Inter dessine des chiffres proportionnels par défaut : dans une colonne de
+ * décomptes, les unités ne s'alignent plus. `tabular-nums` est donc le régime
+ * normal du site, pas une exception à demander sur chaque nombre.
+ */
+body {
+  font-variant-numeric: tabular-nums;
+}

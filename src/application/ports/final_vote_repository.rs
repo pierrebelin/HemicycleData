@@ -74,7 +74,7 @@ pub struct FinalVotePage {
 ///
 /// `final_vote_count` rend visible qu'un groupe cree en cours de legislature
 /// n'a pas de position sur les votes anterieurs: la lacune est affichee plutot
-/// que comblee par un zero (PROJECT.md §2).
+/// que comblee par un zero (README.md §2).
 #[derive(Debug, Clone)]
 pub struct GroupOption {
     pub uid: String,
@@ -88,7 +88,7 @@ pub struct GroupOption {
 ///
 /// `with_family` rend visible l'avancement de la thematisation: un filtre par
 /// theme ne peut pas trouver ce qui n'est pas encore rattache, et le taire
-/// laisserait croire a une absence de vote (PROJECT.md §2).
+/// laisserait croire a une absence de vote (README.md §2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FinalVoteTotals {
     pub total: i64,

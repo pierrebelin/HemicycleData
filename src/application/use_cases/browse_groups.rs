@@ -20,7 +20,7 @@ pub enum BrowseGroupsError {
 /// Un groupe de la liste, lignee rapprochee.
 ///
 /// Aucun taux ici. Treize taux d'abstention alignes en colonnes forment un
-/// tableau qui se lit comme un classement, ce que PROJECT.md §6 interdit —
+/// tableau qui se lit comme un classement, ce que README.md §6 interdit —
 /// alors que les memes chiffres sur la fiche d'un seul groupe restent une
 /// description. Les taux vivent donc dans `get_group_detail`.
 #[derive(Debug, Clone)]
@@ -57,7 +57,7 @@ impl GroupSummary {
 
     /// Vrai quand le jeton designe ce groupe, par identifiant ou par sigle,
     /// ancien ou courant. Le sigle rend l'adresse partageable, l'identifiant la
-    /// rend stable (PROJECT.md §8.1).
+    /// rend stable (README.md §8.1).
     pub fn designated_by(&self, token: &str) -> bool {
         self.uids.iter().any(|uid| uid == token)
             || self.abbrev.eq_ignore_ascii_case(token)
@@ -133,7 +133,7 @@ pub fn merge_lineages(records: Vec<GroupRecord>) -> Vec<GroupSummary> {
     // Groupes actifs d'abord, par effectif decroissant — l'ordre dont
     // l'Assemblee elle-meme se sert. Les groupes dissous suivent, du plus
     // recemment actif au plus ancien: ils restent visibles, jamais retires
-    // (PROJECT.md §2).
+    // (README.md §2).
     groups.sort_by(|a, b| {
         a.is_dissolved()
             .cmp(&b.is_dissolved())
