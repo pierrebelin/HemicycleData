@@ -1,12 +1,38 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use chrono::NaiveDate;
 
 use crate::application::ports::actor_repository::ActorRepository;
 use crate::application::ports::assembly_source::AssemblySource;
-use crate::application::ports::dossier_repository::DossierRepository;
+use crate::application::ports::dossier_repository::{DossierRepository, StoredDossierState};
 use crate::domain::actor::ActorUid;
-use crate::domain::dossier::InitiatorAttachment;
+use crate::domain::dossier::{InitiatorAttachment, LegislativeDossier};
+
+/// Ce qu'un rafraichissement a ecrit, et ce qu'il a volontairement laisse de
+/// cote. Les deux sont comptes: un dossier saute doit rester explicable
+/// (PROJECT.md §2).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct DossiersSummary {
+    /// Dossiers lus dans la source.
+    pub seen: usize,
+    /// Dossiers reellement reecrits en base.
+    pub written: usize,
+    /// Sort definitif deja stocke: plus rien ne peut changer.
+    pub skipped_final: usize,
+    /// Dernier acte et nombre d'actes inchanges depuis la derniere ingestion.
+    pub skipped_unchanged: usize,
+}
+
+/// Portee du rafraichissement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefreshScope {
+    /// N'ecrit que les dossiers dont la source a bouge.
+    Incremental,
+    /// Reecrit tout. Necessaire apres un changement de regle de derivation
+    /// (score, sort, rattachement): l'incremental ne verrait aucun changement
+    /// cote source et laisserait la base sur l'ancienne regle.
+    Full,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
@@ -35,9 +61,84 @@ impl<'a> RefreshDossiers<'a> {
         }
     }
 
-    pub async fn execute(&self) -> Result<usize, RefreshError> {
+    pub async fn execute(&self) -> Result<DossiersSummary, RefreshError> {
+        self.execute_with(RefreshScope::Incremental).await
+    }
+
+    /// Un dossier n'est reecrit que si la source a bouge.
+    ///
+    /// Deux raisons de sauter, dans cet ordre:
+    ///
+    /// 1. le sort stocke est definitif (promulgation, retrait, fusion) — il ne
+    ///    peut plus changer, quoi que la source republie;
+    /// 2. le dernier acte et le nombre d'actes sont identiques a ce qui est
+    ///    stocke — rien n'a bouge.
+    ///
+    /// L'anciennete n'est deliberement pas un critere: une proposition de loi
+    /// dormante depuis deux ans peut etre inscrite a l'ordre du jour du jour au
+    /// lendemain. La sauter sur son age figerait sa page au moment ou elle
+    /// redevient interessante, sans rien economiser de plus que la regle 2 —
+    /// qui la saute deja tant qu'elle dort.
+    ///
+    /// Limite connue: une correction de titre ou de resume qui ne toucherait
+    /// aucun acte n'est pas detectee. `RefreshScope::Full` la rattrape.
+    fn should_write(
+        dossier: &LegislativeDossier,
+        stored: Option<&StoredDossierState>,
+        summary: &mut DossiersSummary,
+    ) -> bool {
+        let Some(stored) = stored else {
+            return true;
+        };
+
+        if stored.outcome_is_final {
+            summary.skipped_final += 1;
+            return false;
+        }
+
+        if stored.last_activity_date == dossier.last_activity_date
+            && stored.act_count == dossier.acts.len()
+        {
+            summary.skipped_unchanged += 1;
+            return false;
+        }
+
+        true
+    }
+
+    pub async fn execute_with(&self, scope: RefreshScope) -> Result<DossiersSummary, RefreshError> {
         let since = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap();
         let dossiers_with_refs = self.source.fetch_dossiers_since_with_refs(since).await?;
+
+        let mut summary = DossiersSummary {
+            seen: dossiers_with_refs.len(),
+            ..Default::default()
+        };
+
+        let stored = match scope {
+            RefreshScope::Incremental => self.repository.load_states().await?,
+            RefreshScope::Full => HashMap::new(),
+        };
+
+        // Le tri precede le rattachement: un dossier qu'on n'ecrira pas n'a pas
+        // besoin qu'on resolve ses initiateurs, et son absence allege d'autant
+        // le referentiel a charger.
+        let dossiers_with_refs: Vec<_> = dossiers_with_refs
+            .into_iter()
+            .filter(|(dossier, _)| {
+                Self::should_write(dossier, stored.get(dossier.uid.as_str()), &mut summary)
+            })
+            .collect();
+
+        if dossiers_with_refs.is_empty() {
+            tracing::info!(
+                "Dossiers refresh: {} seen, nothing changed ({} final, {} unchanged)",
+                summary.seen,
+                summary.skipped_final,
+                summary.skipped_unchanged
+            );
+            return Ok(summary);
+        }
 
         let actor_uids: Vec<ActorUid> = dossiers_with_refs
             .iter()
@@ -88,8 +189,17 @@ impl<'a> RefreshDossiers<'a> {
             dossiers_without_deposit_date
         );
 
-        let count = self.repository.save_all(&dossiers).await?;
-        Ok(count)
+        summary.written = self.repository.save_all(&dossiers).await?;
+
+        tracing::info!(
+            "Dossiers refresh: {} seen, {} written, {} skipped (final outcome), {} skipped (unchanged)",
+            summary.seen,
+            summary.written,
+            summary.skipped_final,
+            summary.skipped_unchanged
+        );
+
+        Ok(summary)
     }
 }
 
@@ -108,7 +218,7 @@ pub(crate) mod tests {
         MembershipPeriod, MembershipQuality, ParliamentaryGroup,
     };
     use crate::domain::dossier::{
-        CurationStatus, DossierUid, LegislativeAct, LegislativeDossier, Score,
+        CurationStatus, DossierOutcome, DossierUid, LegislativeAct, LegislativeDossier, Score,
     };
 
     fn date(y: i32, m: u32, d: u32) -> NaiveDate {
@@ -253,12 +363,16 @@ pub(crate) mod tests {
 
     pub(crate) struct InMemoryDossierRepository {
         pub(crate) dossiers: Mutex<HashMap<String, LegislativeDossier>>,
+        /// Uid de chaque dossier reellement passe a `save_all`, dans l'ordre.
+        /// C'est ce que le rafraichissement incremental doit reduire.
+        pub(crate) written: Mutex<Vec<String>>,
     }
 
     impl InMemoryDossierRepository {
         pub(crate) fn new() -> Self {
             Self {
                 dossiers: Mutex::new(HashMap::new()),
+                written: Mutex::new(vec![]),
             }
         }
 
@@ -275,9 +389,31 @@ pub(crate) mod tests {
         ) -> Result<usize, crate::application::ports::dossier_repository::RepositoryError> {
             let mut store = self.dossiers.lock().unwrap();
             for d in dossiers {
+                self.written.lock().unwrap().push(d.uid.as_str().to_string());
                 store.insert(d.uid.as_str().to_string(), d.clone());
             }
             Ok(dossiers.len())
+        }
+
+        async fn load_states(
+            &self,
+        ) -> Result<HashMap<String, StoredDossierState>, RepositoryError> {
+            Ok(self
+                .dossiers
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(uid, d)| {
+                    (
+                        uid.clone(),
+                        StoredDossierState {
+                            last_activity_date: d.last_activity_date,
+                            act_count: d.acts.len(),
+                            outcome_is_final: d.outcome.is_final(),
+                        },
+                    )
+                })
+                .collect())
         }
 
         async fn find_recent(
@@ -350,6 +486,7 @@ pub(crate) mod tests {
             initiators: vec![],
             committee: None,
             curation_status: CurationStatus::New,
+            outcome: DossierOutcome::NoRecordedConclusion,
         }
     }
 
@@ -376,7 +513,7 @@ pub(crate) mod tests {
             .await
             .unwrap();
 
-        assert_eq!(count, 2);
+        assert_eq!(count.written, 2);
         assert_eq!(repo.count(), 2);
 
         let store = repo.dossiers.lock().unwrap();
@@ -482,5 +619,267 @@ pub(crate) mod tests {
         assert_eq!(initiator.full_name(), "Jean Dupont");
         assert!(initiator.group().is_none());
         assert!(initiator.reference_date().is_none());
+    }
+}
+
+#[cfg(test)]
+mod incremental_tests {
+    use super::tests::{dossier, InMemoryActorRepository, InMemoryDossierRepository};
+    use super::*;
+    use crate::application::ports::assembly_source::SourceError;
+    use crate::domain::dossier::{DossierOutcome, DossierUid, LegislativeAct, LegislativeDossier};
+    use async_trait::async_trait;
+
+    fn date(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    struct FakeSource {
+        dossiers: Vec<LegislativeDossier>,
+    }
+
+    #[async_trait]
+    impl AssemblySource for FakeSource {
+        async fn fetch_dossiers_since(
+            &self,
+            _since: NaiveDate,
+        ) -> Result<Vec<LegislativeDossier>, SourceError> {
+            unreachable!()
+        }
+
+        async fn fetch_dossiers_since_with_refs(
+            &self,
+            _since: NaiveDate,
+        ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
+            Ok(self
+                .dossiers
+                .iter()
+                .cloned()
+                .map(|d| (d, vec![]))
+                .collect())
+        }
+
+        async fn fetch_dossier_by_uid(
+            &self,
+            _uid: &DossierUid,
+        ) -> Result<Option<LegislativeDossier>, SourceError> {
+            unreachable!()
+        }
+
+        async fn fetch_dossier_by_uid_with_refs(
+            &self,
+            _uid: &DossierUid,
+        ) -> Result<Option<(LegislativeDossier, Vec<String>)>, SourceError> {
+            unreachable!()
+        }
+    }
+
+    /// Pose l'etat initial de la base sans passer par le use case, puis remet
+    /// le journal des ecritures a zero: seul ce que fera le rafraichissement
+    /// suivant nous interesse.
+    fn seeded_repository(stored: Vec<LegislativeDossier>) -> InMemoryDossierRepository {
+        let repo = InMemoryDossierRepository::new();
+        {
+            let mut store = repo.dossiers.lock().unwrap();
+            for d in stored {
+                store.insert(d.uid.as_str().to_string(), d);
+            }
+        }
+        repo.written.lock().unwrap().clear();
+        repo
+    }
+
+    fn with_extra_act(mut dossier: LegislativeDossier, act_date: NaiveDate) -> LegislativeDossier {
+        dossier.acts.push(LegislativeAct {
+            date: act_date,
+            label: "R\u{00e9}union de commission".into(),
+            code: Some("AN1-COM-FOND-REUNION".into()),
+        });
+        dossier.last_activity_date = act_date;
+        dossier.last_activity_label = "R\u{00e9}union de commission".into();
+        dossier
+    }
+
+    #[tokio::test]
+    async fn rewrites_only_the_dossiers_whose_source_moved() {
+        let unchanged = dossier("D1", Some(date(2025, 5, 13)), date(2025, 5, 13));
+        let moved = dossier("D2", Some(date(2025, 5, 13)), date(2025, 5, 13));
+        let repo = seeded_repository(vec![unchanged.clone(), moved.clone()]);
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
+
+        let source = FakeSource {
+            dossiers: vec![unchanged, with_extra_act(moved, date(2026, 1, 20))],
+        };
+
+        let summary = RefreshDossiers::new(&source, &repo, &actors)
+            .execute()
+            .await
+            .unwrap();
+
+        assert_eq!(summary.seen, 2);
+        assert_eq!(summary.written, 1);
+        assert_eq!(summary.skipped_unchanged, 1);
+        assert_eq!(*repo.written.lock().unwrap(), vec!["D2".to_string()]);
+    }
+
+    /// Un acte insere a une date anterieure ne bouge pas la derniere activite:
+    /// c'est le nombre d'actes qui doit le rattraper.
+    #[tokio::test]
+    async fn an_act_inserted_before_the_last_one_still_triggers_a_write() {
+        let stored = dossier("D1", Some(date(2025, 5, 13)), date(2026, 1, 20));
+        let repo = seeded_repository(vec![stored.clone()]);
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
+
+        let mut backdated = stored;
+        backdated.acts.push(LegislativeAct {
+            date: date(2025, 9, 3),
+            label: "Nomination de rapporteur".into(),
+            code: Some("AN1-COM-FOND-NOMIN".into()),
+        });
+
+        let source = FakeSource {
+            dossiers: vec![backdated],
+        };
+
+        let summary = RefreshDossiers::new(&source, &repo, &actors)
+            .execute()
+            .await
+            .unwrap();
+
+        assert_eq!(summary.written, 1);
+        assert_eq!(summary.skipped_unchanged, 0);
+    }
+
+    /// Une loi promulguee ne peut plus bouger: meme si la source republie le
+    /// dossier autrement, on ne le reecrit pas.
+    #[tokio::test]
+    async fn a_final_outcome_is_never_rewritten() {
+        let mut promulgated = dossier("D1", Some(date(2025, 5, 13)), date(2026, 4, 21));
+        promulgated.outcome = DossierOutcome::Promulgated {
+            date: date(2026, 4, 21),
+            publication: crate::domain::dossier::LawPublication {
+                law_code: Some("2026-300".into()),
+                jo_date: None,
+                legifrance_url: None,
+            },
+        };
+        let repo = seeded_repository(vec![promulgated.clone()]);
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
+
+        let source = FakeSource {
+            dossiers: vec![with_extra_act(promulgated, date(2026, 6, 1))],
+        };
+
+        let summary = RefreshDossiers::new(&source, &repo, &actors)
+            .execute()
+            .await
+            .unwrap();
+
+        assert_eq!(summary.written, 0);
+        assert_eq!(summary.skipped_final, 1);
+        assert!(repo.written.lock().unwrap().is_empty());
+    }
+
+    /// Un rejet n'est pas definitif: la navette peut reprendre, le dossier doit
+    /// continuer a etre relu.
+    #[tokio::test]
+    async fn a_rejected_dossier_keeps_being_refreshed() {
+        let mut rejected = dossier("D1", Some(date(2025, 5, 13)), date(2025, 11, 4));
+        rejected.outcome = DossierOutcome::Rejected {
+            date: date(2025, 11, 4),
+            label: "rejet\u{00e9}e".into(),
+        };
+        let repo = seeded_repository(vec![rejected.clone()]);
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
+
+        let source = FakeSource {
+            dossiers: vec![with_extra_act(rejected, date(2026, 3, 17))],
+        };
+
+        let summary = RefreshDossiers::new(&source, &repo, &actors)
+            .execute()
+            .await
+            .unwrap();
+
+        assert_eq!(summary.written, 1);
+        assert_eq!(summary.skipped_final, 0);
+    }
+
+    /// Une proposition dormante depuis deux ans est sautee tant qu'elle dort,
+    /// et reecrite des qu'elle bouge: son age n'entre pas dans la decision.
+    #[tokio::test]
+    async fn a_long_dormant_dossier_is_written_again_as_soon_as_it_moves() {
+        let dormant = dossier("D1", Some(date(2024, 7, 20)), date(2024, 7, 20));
+        let repo = seeded_repository(vec![dormant.clone()]);
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
+
+        let still_asleep = FakeSource {
+            dossiers: vec![dormant.clone()],
+        };
+        let summary = RefreshDossiers::new(&still_asleep, &repo, &actors)
+            .execute()
+            .await
+            .unwrap();
+        assert_eq!(summary.written, 0);
+        assert_eq!(summary.skipped_unchanged, 1);
+
+        let scheduled = FakeSource {
+            dossiers: vec![with_extra_act(dormant, date(2026, 8, 5))],
+        };
+        let summary = RefreshDossiers::new(&scheduled, &repo, &actors)
+            .execute()
+            .await
+            .unwrap();
+        assert_eq!(summary.written, 1);
+    }
+
+    #[tokio::test]
+    async fn a_dossier_absent_from_the_database_is_always_written() {
+        let repo = seeded_repository(vec![]);
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
+
+        let source = FakeSource {
+            dossiers: vec![dossier("D1", Some(date(2025, 5, 13)), date(2025, 5, 13))],
+        };
+
+        let summary = RefreshDossiers::new(&source, &repo, &actors)
+            .execute()
+            .await
+            .unwrap();
+
+        assert_eq!(summary.written, 1);
+        assert_eq!(summary.skipped_unchanged, 0);
+        assert_eq!(summary.skipped_final, 0);
+    }
+
+    /// Apres un changement de regle de derivation, la source n'a pas bouge mais
+    /// la base est perimee: `Full` doit tout reecrire, sort definitif compris.
+    #[tokio::test]
+    async fn a_full_scope_rewrites_everything_including_final_outcomes() {
+        let mut promulgated = dossier("D1", Some(date(2025, 5, 13)), date(2026, 4, 21));
+        promulgated.outcome = DossierOutcome::Promulgated {
+            date: date(2026, 4, 21),
+            publication: crate::domain::dossier::LawPublication {
+                law_code: Some("2026-300".into()),
+                jo_date: None,
+                legifrance_url: None,
+            },
+        };
+        let unchanged = dossier("D2", Some(date(2025, 5, 13)), date(2025, 5, 13));
+        let repo = seeded_repository(vec![promulgated.clone(), unchanged.clone()]);
+        let actors = InMemoryActorRepository::with_deputy_changing_group();
+
+        let source = FakeSource {
+            dossiers: vec![promulgated, unchanged],
+        };
+
+        let summary = RefreshDossiers::new(&source, &repo, &actors)
+            .execute_with(RefreshScope::Full)
+            .await
+            .unwrap();
+
+        assert_eq!(summary.written, 2);
+        assert_eq!(summary.skipped_final, 0);
+        assert_eq!(summary.skipped_unchanged, 0);
     }
 }

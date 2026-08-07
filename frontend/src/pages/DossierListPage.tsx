@@ -1,5 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
+import OutcomeBadge from '../components/OutcomeBadge'
+import type { OutcomeDto } from '../types/dossiers'
 
 interface StageDto {
   label: string
@@ -13,6 +15,7 @@ interface DossierDto {
   last_activity_date: string
   last_activity_label: string
   current_stage: StageDto | null
+  outcome: OutcomeDto
 }
 
 interface DossierPageResponse {
@@ -95,6 +98,7 @@ export default function DossierListPage() {
                       {d.current_stage.chamber && ` — ${d.current_stage.chamber}`}
                     </span>
                   )}
+                  <OutcomeBadge outcome={d.outcome} />
                 </div>
               </div>
               <div className="flex flex-col items-end shrink-0 text-right">

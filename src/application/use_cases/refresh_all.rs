@@ -6,7 +6,7 @@ use crate::application::ports::scrutin_repository::ScrutinRepository;
 use crate::application::ports::scrutin_source::ScrutinSource;
 
 use super::refresh_actor_registry::RefreshActorRegistry;
-use super::refresh_dossiers::{RefreshDossiers, RefreshError};
+use super::refresh_dossiers::{DossiersSummary, RefreshDossiers, RefreshError, RefreshScope};
 use super::refresh_scrutins::{RefreshScrutins, ScrutinsSummary};
 
 #[derive(Debug, Clone)]
@@ -15,7 +15,7 @@ pub struct RefreshOutcome {
     /// Anomalie signalee plutot que silencieuse: le referentiel n'a pas pu etre
     /// rafraichi, les rattachements reposent sur la version precedente.
     pub registry_anomaly: Option<String>,
-    pub dossiers: usize,
+    pub dossiers: DossiersSummary,
     pub scrutins: Option<ScrutinsSummary>,
     /// Idem cote scrutins: source indisponible, les scrutins deja stockes
     /// restent en place et la lacune est signalee.
@@ -54,6 +54,10 @@ impl<'a> RefreshAll<'a> {
     }
 
     pub async fn execute(&self) -> Result<RefreshOutcome, RefreshError> {
+        self.execute_with(RefreshScope::Incremental).await
+    }
+
+    pub async fn execute_with(&self, scope: RefreshScope) -> Result<RefreshOutcome, RefreshError> {
         let registry_result = RefreshActorRegistry::new(self.actor_source, self.actor_repository)
             .execute()
             .await;
@@ -73,7 +77,7 @@ impl<'a> RefreshAll<'a> {
             self.dossier_repository,
             self.actor_repository,
         )
-        .execute()
+        .execute_with(scope)
         .await?;
 
         // Meme regle que pour le referentiel: une source indisponible ne fait
@@ -276,7 +280,7 @@ mod tests {
             .lock()
             .unwrap()
             .contains(&ActorUid::new("PA111111".into()).unwrap()));
-        assert_eq!(outcome.dossiers, 1);
+        assert_eq!(outcome.dossiers.written, 1);
         assert!(outcome.registry_anomaly.is_none());
     }
 
@@ -312,7 +316,7 @@ mod tests {
         assert!(outcome.scrutins_anomaly.is_some());
         assert_eq!(*scrutin_repository.saved.lock().unwrap(), 0);
         assert!(outcome.registry_anomaly.is_some());
-        assert_eq!(outcome.dossiers, 1);
+        assert_eq!(outcome.dossiers.written, 1);
 
         // Le referentiel precedent a bien servi au rattachement.
         let store = dossier_repository.dossiers.lock().unwrap();
