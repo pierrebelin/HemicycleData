@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
+import { Card, ErrorPanel, Loading, Note, Pill } from '../components/ui'
 import { formatDate } from '../types/scrutins'
 import {
   formatCount,
@@ -19,7 +20,7 @@ import { GroupDot } from './GroupListPage'
 const RATE_BARS = {
   expressed: 'bg-sky-500',
   abstention: 'bg-amber-500',
-  absence: 'bg-slate-500',
+  absence: 'bg-slate-400',
 } as const
 
 function Section({
@@ -30,34 +31,28 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded border border-gray-800 bg-gray-900/40 p-4">
-      <h3 className="text-sm font-medium text-gray-300">{title}</h3>
-      <div className="mt-3">{children}</div>
-    </section>
+    <Card className="px-4 py-3">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-faint">
+        {title}
+      </h3>
+      <div className="mt-2">{children}</div>
+    </Card>
   )
 }
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-gray-800/70 py-1.5 last:border-0">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className="text-sm tabular-nums text-gray-200">{children}</span>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-line py-1.5 last:border-0">
+      <span className="text-xs text-ink-faint">{label}</span>
+      <span className="text-sm font-medium">{children}</span>
     </div>
-  )
-}
-
-function Note({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500">
-      {children}
-    </p>
   )
 }
 
 /** Barre des trois parts. Elle rend visible ce que le pourcentage résume. */
 function RateBar({ rates }: { rates: ParticipationRatesDto }) {
   return (
-    <div className="flex h-2 w-full overflow-hidden rounded bg-gray-800">
+    <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-soft">
       <div
         className={RATE_BARS.expressed}
         style={{ width: `${rates.expressed_per_mille / 10}%` }}
@@ -92,16 +87,21 @@ function Rate({
   detail?: string
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-gray-800/70 py-1.5 last:border-0">
-      <span className={`inline-block h-2 w-2 shrink-0 rounded-sm ${swatch}`} aria-hidden />
-      <span className="text-xs text-gray-400">{label}</span>
-      <span className="ml-auto text-sm font-medium tabular-nums text-gray-100">
-        {formatPerMille(perMille)}
-      </span>
-      <span className="w-full pl-4 text-xs tabular-nums text-gray-600">
+    <div className="border-b border-line py-2 last:border-0 md:border-0">
+      <div className="flex items-baseline gap-2">
+        <span
+          className={`inline-block h-2 w-2 shrink-0 rounded-full ${swatch}`}
+          aria-hidden
+        />
+        <span className="text-xs text-ink-soft">{label}</span>
+        <span className="ml-auto text-lg font-semibold tracking-tight">
+          {formatPerMille(perMille)}
+        </span>
+      </div>
+      <p className="pl-4 text-xs text-ink-faint">
         {formatCount(count)} position{count > 1 ? 's' : ''}
         {detail && <> — {detail}</>}
-      </span>
+      </p>
     </div>
   )
 }
@@ -127,19 +127,13 @@ export default function GroupDetailPage() {
       }),
   })
 
-  if (isLoading) {
-    return <p className="animate-pulse text-gray-400">Chargement du groupe…</p>
-  }
+  if (isLoading) return <Loading>Chargement du groupe…</Loading>
 
   if (isError) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-red-800 bg-red-900/20 p-4">
-          <p className="text-red-400">
-            Erreur : {error instanceof Error ? error.message : 'inconnue'}
-          </p>
-        </div>
-        <Link to="/groupes" className="text-sm text-gray-400 underline hover:text-gray-200">
+        <ErrorPanel error={error} />
+        <Link to="/groupes" className="text-sm text-accent underline">
           ← Tous les groupes
         </Link>
       </div>
@@ -150,92 +144,95 @@ export default function GroupDetailPage() {
   const { counts, rates } = group
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <Link to="/groupes" className="text-xs text-gray-500 underline hover:text-gray-300">
+        <Link
+          to="/groupes"
+          className="text-sm font-medium text-accent hover:underline"
+        >
           ← Tous les groupes
         </Link>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <GroupDot color={group.color} />
-          <h2 className="text-xl font-bold">{group.abbrev}</h2>
-          {group.dissolved && (
-            <span className="rounded border border-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
-              dissous
-            </span>
-          )}
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <GroupDot color={group.color} size="lg" />
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {group.abbrev}
+          </h2>
+          <span className="text-sm text-ink-soft">{group.label}</span>
+          {group.dissolved && <Pill>dissous</Pill>}
         </div>
-        <p className="mt-1 text-sm text-gray-400">{group.label}</p>
       </div>
 
-      <Note>{group.party_note}</Note>
+      {/* Les trois relevés factuels tiennent de front : la largeur du site les
+          porte, et empilés ils poussaient la participation hors de l'écran. */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <Section title="Identité">
+          <Fact label="Législature">{group.legislature}<sup>e</sup></Fact>
+          <Fact label="Constitué le">
+            {group.created_on ? formatDate(group.created_on) : 'non publié'}
+          </Fact>
+          {group.dissolved_on && (
+            <Fact label="Dissous le">{formatDate(group.dissolved_on)}</Fact>
+          )}
+          {group.former_abbrevs.length > 0 && (
+            <Fact label="Sigles antérieurs">{group.former_abbrevs.join(', ')}</Fact>
+          )}
+        </Section>
 
-      <Section title="Identité">
-        <Fact label="Législature">{group.legislature}<sup>e</sup></Fact>
-        <Fact label="Constitué le">
-          {group.created_on ? formatDate(group.created_on) : 'non publié'}
-        </Fact>
-        {group.dissolved_on && (
-          <Fact label="Dissous le">{formatDate(group.dissolved_on)}</Fact>
-        )}
-        {group.former_abbrevs.length > 0 && (
-          <Fact label="Sigles antérieurs">{group.former_abbrevs.join(', ')}</Fact>
-        )}
-      </Section>
+        <Section title="Effectif">
+          <Fact label={`Députés au ${formatDate(group.reference_date)}`}>
+            {formatCount(group.member_count)}
+          </Fact>
+          <Fact label="Députés y ayant siégé depuis sa constitution">
+            {formatCount(group.total_member_count)}
+          </Fact>
+          {group.published_member_range && (
+            <Fact label="Effectif publié sur les scrutins">
+              {group.published_member_range.stable
+                ? formatCount(group.published_member_range.min)
+                : `de ${formatCount(group.published_member_range.min)} à ${formatCount(
+                    group.published_member_range.max,
+                  )}`}
+            </Fact>
+          )}
+          {group.qualities.map((quality) => (
+            <Fact key={quality.quality} label={quality.quality}>
+              {formatCount(quality.members)}
+            </Fact>
+          ))}
+        </Section>
 
-      <Section title="Effectif">
-        <Fact label={`Députés au ${formatDate(group.reference_date)}`}>
-          {formatCount(group.member_count)}
-        </Fact>
-        <Fact label="Députés y ayant siégé depuis sa constitution">
-          {formatCount(group.total_member_count)}
-        </Fact>
-        {group.published_member_range && (
-          <Fact label="Effectif publié sur les scrutins">
-            {group.published_member_range.stable
-              ? formatCount(group.published_member_range.min)
-              : `de ${formatCount(group.published_member_range.min)} à ${formatCount(
-                  group.published_member_range.max,
-                )}`}
+        <Section title="Présence dans les scrutins">
+          <Fact label="Scrutins portant une ligne pour ce groupe">
+            {formatCount(group.line_count)}
           </Fact>
-        )}
-        {group.qualities.map((quality) => (
-          <Fact key={quality.quality} label={quality.quality}>
-            {formatCount(quality.members)}
-          </Fact>
-        ))}
-      </Section>
-
-      <Section title="Présence dans les scrutins">
-        <Fact label="Scrutins portant une ligne pour ce groupe">
-          {formatCount(group.line_count)}
-        </Fact>
-        {group.first_scrutin_date && group.last_scrutin_date && (
-          <Fact label="Du premier au dernier scrutin">
-            {formatDate(group.first_scrutin_date)} → {formatDate(group.last_scrutin_date)}
-          </Fact>
-        )}
-        {group.reconstructed_count > 0 && (
-          <Fact label="Répartitions reconstituées">
-            {formatCount(group.reconstructed_count)}
-          </Fact>
-        )}
-        {group.silent_line_count > 0 && (
-          <Fact label="Scrutins sans aucun membre du groupe">
-            {formatCount(group.silent_line_count)}
-          </Fact>
-        )}
-      </Section>
+          {group.first_scrutin_date && group.last_scrutin_date && (
+            <Fact label="Du premier au dernier scrutin">
+              {formatDate(group.first_scrutin_date)} → {formatDate(group.last_scrutin_date)}
+            </Fact>
+          )}
+          {group.reconstructed_count > 0 && (
+            <Fact label="Répartitions reconstituées">
+              {formatCount(group.reconstructed_count)}
+            </Fact>
+          )}
+          {group.silent_line_count > 0 && (
+            <Fact label="Scrutins sans aucun membre du groupe">
+              {formatCount(group.silent_line_count)}
+            </Fact>
+          )}
+        </Section>
+      </div>
 
       <Section title="Participation">
         {rates === null ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-soft">
             L'Assemblée ne publie aucune position pour ce groupe : il n'y a
             aucun taux à calculer.
           </p>
         ) : (
           <>
             <RateBar rates={rates} />
-            <div className="mt-3">
+            <div className="mt-2 grid gap-x-8 md:grid-cols-3">
               <Rate
                 label="Voix exprimées"
                 swatch={RATE_BARS.expressed}
@@ -261,7 +258,7 @@ export default function GroupDetailPage() {
                 }`}
               />
             </div>
-            <p className="mt-3 text-xs tabular-nums text-gray-500">
+            <p className="mt-2 text-xs text-ink-faint">
               Rapportés à {formatCount(counts.published_positions)} positions
               publiées, sur {formatCount(group.line_count)} scrutin
               {group.line_count > 1 ? 's' : ''}.
@@ -270,22 +267,28 @@ export default function GroupDetailPage() {
         )}
       </Section>
 
-      <div className="space-y-1.5">
-        <Note>{group.rate_note}</Note>
-        <Note>{group.comparison_note}</Note>
-        <Note>{group.hand_vote_note}</Note>
-        {group.reconstructed_count > 0 && <Note>{group.reconstructed_note}</Note>}
-        {group.silent_line_count > 0 && <Note>{group.silent_line_note}</Note>}
-      </div>
+      <Link
+        to={`/votes-par-groupe?groupes=${encodeURIComponent(group.abbrev)}`}
+        className="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface px-4 py-3 shadow-card transition-shadow hover:shadow-card-hover"
+      >
+        <span className="text-sm font-semibold text-ink">
+          Voir les votes de {group.abbrev}, scrutin par scrutin
+        </span>
+        <span className="text-sm text-accent">→</span>
+      </Link>
 
-      <p className="text-sm">
-        <Link
-          to={`/votes-par-groupe?groupes=${encodeURIComponent(group.abbrev)}`}
-          className="text-gray-400 underline hover:text-gray-200"
-        >
-          Voir les votes de {group.abbrev}, scrutin par scrutin →
-        </Link>
-      </p>
+      {/* Toutes les mises en garde dues (README.md §6) dans un seul encadré :
+          cinq blocs empilés pesaient plus que la fiche qu'ils commentent. */}
+      <Note>
+        <div className="space-y-1">
+          <p>{group.party_note}</p>
+          <p>{group.rate_note}</p>
+          <p>{group.comparison_note}</p>
+          <p>{group.hand_vote_note}</p>
+          {group.reconstructed_count > 0 && <p>{group.reconstructed_note}</p>}
+          {group.silent_line_count > 0 && <p>{group.silent_line_note}</p>}
+        </div>
+      </Note>
     </div>
   )
 }
