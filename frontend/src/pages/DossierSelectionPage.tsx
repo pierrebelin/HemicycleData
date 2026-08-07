@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
+import { AdminTokenField } from '../components/AdminTokenField'
+import { adminFetch } from '../lib/adminToken'
 
 interface StageDto {
   label: string
@@ -60,14 +62,13 @@ export default function DossierSelectionPage() {
   })
 
   const curate = useMutation({
-    mutationFn: ({ uid, status }: { uid: string; status: string }) =>
-      fetch(`/api/dossiers/${uid}/curate`, {
+    mutationFn: async ({ uid, status }: { uid: string; status: string }) => {
+      await adminFetch(`/api/dossiers/${uid}/curate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
-      }).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      }),
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suggestions'] })
       queryClient.invalidateQueries({ queryKey: ['dossiers-recent'] })
@@ -75,11 +76,10 @@ export default function DossierSelectionPage() {
   })
 
   const refresh = useMutation({
-    mutationFn: () =>
-      fetch('/api/refresh', { method: 'POST' }).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json() as Promise<{ count: number }>
-      }),
+    mutationFn: async () => {
+      const response = await adminFetch('/api/refresh', { method: 'POST' })
+      return response.json() as Promise<{ count: number }>
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dossiers'] })
       queryClient.invalidateQueries({ queryKey: ['dossiers-recent'] })
@@ -116,6 +116,20 @@ export default function DossierSelectionPage() {
           )}
         </button>
       </div>
+
+      {/* Curation et rafraîchissement écrivent : sans le jeton du jour, l'API
+          répond 401 (src/api/security.rs). */}
+      <div className="mb-3 max-w-md">
+        <AdminTokenField />
+      </div>
+
+      {curate.isError && (
+        <div className="mb-3 rounded-lg border border-no/25 bg-no-soft px-3 py-2">
+          <p className="text-no text-sm">
+            {curate.error instanceof Error ? curate.error.message : 'Erreur inconnue'}
+          </p>
+        </div>
+      )}
 
       {refresh.isSuccess && (
         <div className="mb-3 rounded-lg border border-yes/25 bg-yes-soft px-3 py-2">
