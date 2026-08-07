@@ -1,6 +1,7 @@
+use chrono::NaiveDate;
 use serde::Deserialize;
 
-use crate::domain::dossier::LegislativeStage;
+use crate::domain::dossier::{DossierOutcome, DossierUid, LawPublication, LegislativeStage};
 
 #[derive(Deserialize)]
 pub struct RawDossierWrapper {
@@ -20,6 +21,15 @@ pub struct RawDossier {
     pub legislative_acts: Option<RawActsContainer>,
     #[serde(rename = "initiateur")]
     pub initiator: Option<RawInitiator>,
+    #[serde(rename = "fusionDossier")]
+    pub fusion: Option<RawFusion>,
+}
+
+#[derive(Deserialize)]
+pub struct RawFusion {
+    pub cause: Option<String>,
+    #[serde(rename = "dossierAbsorbantRef")]
+    pub absorbing_dossier_ref: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -54,6 +64,26 @@ pub struct RawAct {
     pub texte_associe: Option<String>,
     #[serde(rename = "actesLegislatifs")]
     pub legislative_acts: Option<RawActsContainer>,
+    #[serde(rename = "statutConclusion")]
+    pub conclusion: Option<RawConclusion>,
+    #[serde(rename = "infoJO")]
+    pub jo_info: Option<RawJoInfo>,
+    #[serde(rename = "codeLoi")]
+    pub law_code: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct RawConclusion {
+    pub fam_code: Option<String>,
+    pub libelle: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct RawJoInfo {
+    #[serde(rename = "dateJO")]
+    pub jo_date: Option<String>,
+    #[serde(rename = "urlLegifrance")]
+    pub legifrance_url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -315,6 +345,130 @@ pub fn find_current_stage(acts: &Option<RawActsContainer>) -> Option<Legislative
     best
 }
 
+/// Familles de sorts de seance valant rejet du texte.
+///
+/// `TSORTF07` = « rejete », `TSORTF24` = rejet en application de l'article 49
+/// alinea 3. Les autres familles `TSORTF*` sont des adoptions ou des
+/// modifications.
+const REJECTION_FAM_CODES: [&str; 2] = ["TSORTF07", "TSORTF24"];
+
+fn act_date(act: &RawAct) -> Option<NaiveDate> {
+    let raw = act.act_date.as_deref()?;
+    NaiveDate::parse_from_str(&raw[..10.min(raw.len())], "%Y-%m-%d").ok()
+}
+
+fn for_each_act(acts: &Option<RawActsContainer>, visit: &mut impl FnMut(&RawAct)) {
+    fn walk(act: &RawAct, visit: &mut impl FnMut(&RawAct)) {
+        visit(act);
+        if let Some(ref children) = act.legislative_acts {
+            walk_container(children, visit);
+        }
+    }
+
+    fn walk_container(container: &RawActsContainer, visit: &mut impl FnMut(&RawAct)) {
+        match &container.legislative_act {
+            SingleOrVec::Vec(v) => {
+                for a in v {
+                    walk(a, visit);
+                }
+            }
+            SingleOrVec::Single(a) => walk(a, visit),
+        }
+    }
+
+    if let Some(container) = acts.as_ref() {
+        walk_container(container, visit);
+    }
+}
+
+/// Sort du dossier, lu dans les actes — jamais deduit d'une absence.
+///
+/// La source ne porte pas de champ de statut: seuls quelques actes concluent
+/// un dossier. Tout le reste reste `NoRecordedConclusion`, y compris un
+/// dossier sans acte depuis des annees (PROJECT.md §6).
+///
+/// Precedence: promulgation, puis retrait, puis fusion. Un dossier a la fois
+/// retire et absorbe existe (2 cas en legislature 17): le retrait est un acte
+/// parlementaire date, la fusion un simple rattachement documentaire.
+pub fn find_outcome(acts: &Option<RawActsContainer>, fusion: Option<&RawFusion>) -> DossierOutcome {
+    let mut promulgation: Option<(NaiveDate, LawPublication)> = None;
+    let mut withdrawal: Option<NaiveDate> = None;
+    let mut last_decision: Option<(NaiveDate, String, String)> = None;
+
+    for_each_act(acts, &mut |act| {
+        let code = act.code.as_deref().unwrap_or("");
+
+        if code == "PROM-PUB" {
+            if let Some(date) = act_date(act) {
+                let publication = LawPublication {
+                    law_code: act.law_code.clone(),
+                    jo_date: act.jo_info.as_ref().and_then(|jo| {
+                        let raw = jo.jo_date.as_deref()?;
+                        NaiveDate::parse_from_str(&raw[..10.min(raw.len())], "%Y-%m-%d").ok()
+                    }),
+                    legifrance_url: act
+                        .jo_info
+                        .as_ref()
+                        .and_then(|jo| jo.legifrance_url.clone()),
+                };
+                if promulgation.as_ref().map_or(true, |(d, _)| date > *d) {
+                    promulgation = Some((date, publication));
+                }
+            }
+        }
+
+        if code.ends_with("-RTRINI") {
+            if let Some(date) = act_date(act) {
+                if withdrawal.map_or(true, |d| date > d) {
+                    withdrawal = Some(date);
+                }
+            }
+        }
+
+        // Seul le dernier sort connu compte: un rejet en premiere lecture suivi
+        // d'une adoption ne doit pas laisser le dossier marque rejete.
+        if let (Some(conclusion), Some(date)) = (act.conclusion.as_ref(), act_date(act)) {
+            let (Some(fam_code), Some(label)) =
+                (conclusion.fam_code.as_deref(), conclusion.libelle.as_deref())
+            else {
+                return;
+            };
+            if !fam_code.starts_with("TSORTF") {
+                return;
+            }
+            if last_decision.as_ref().map_or(true, |(d, _, _)| date >= *d) {
+                last_decision = Some((date, fam_code.to_string(), label.to_string()));
+            }
+        }
+    });
+
+    if let Some((date, publication)) = promulgation {
+        return DossierOutcome::Promulgated { date, publication };
+    }
+    if let Some(date) = withdrawal {
+        return DossierOutcome::Withdrawn { date };
+    }
+    if let Some(fusion) = fusion {
+        if let Some(uid) = fusion
+            .absorbing_dossier_ref
+            .clone()
+            .and_then(|r| DossierUid::new(r).ok())
+        {
+            return DossierOutcome::MergedInto {
+                dossier_uid: uid,
+                cause: fusion.cause.clone(),
+            };
+        }
+    }
+    if let Some((date, fam_code, label)) = last_decision {
+        if REJECTION_FAM_CODES.contains(&fam_code.as_str()) {
+            return DossierOutcome::Rejected { date, label };
+        }
+    }
+
+    DossierOutcome::NoRecordedConclusion
+}
+
 pub fn find_committee_organe_ref(acts: &Option<RawActsContainer>) -> Option<String> {
     let container = acts.as_ref()?;
     let mut result: Option<String> = None;
@@ -364,5 +518,195 @@ pub fn extract_initiator_refs(initiator: &Option<RawInitiator>) -> Vec<String> {
     match &acteurs.acteur {
         SingleOrVec::Vec(v) => v.iter().map(|a| a.acteur_ref.clone()).collect(),
         SingleOrVec::Single(a) => vec![a.acteur_ref.clone()],
+    }
+}
+
+#[cfg(test)]
+mod outcome_tests {
+    use super::*;
+
+    /// Les fragments sont recopies du dump officiel
+    /// `Dossiers_Legislatifs.json.zip` (legislature 17), structure comprise.
+    fn dossier(json: &str) -> RawDossier {
+        let wrapper: RawDossierWrapper =
+            serde_json::from_str(json).expect("fragment is valid dossier JSON");
+        wrapper.parliamentary_dossier
+    }
+
+    fn wrap(acts: &str, fusion: &str) -> String {
+        format!(
+            r#"{{"dossierParlementaire": {{
+                "uid": "DLR5L17N1",
+                "legislature": "17",
+                "titreDossier": {{"titre": "Loi test"}},
+                "procedureParlementaire": {{"libelle": "Projet de loi ordinaire"}},
+                "actesLegislatifs": {{"acteLegislatif": {acts}}},
+                "fusionDossier": {fusion}
+            }}}}"#
+        )
+    }
+
+    fn date(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    #[test]
+    fn a_promulgation_carries_the_law_and_its_journal_officiel_reference() {
+        let raw = dossier(&wrap(
+            r#"{
+                "codeActe": "PROM",
+                "dateActe": null,
+                "actesLegislatifs": {"acteLegislatif": {
+                    "codeActe": "PROM-PUB",
+                    "dateActe": "2026-04-21T00:00:00.000+02:00",
+                    "codeLoi": "2026-300",
+                    "infoJO": {
+                        "dateJO": "2026-04-22+02:00",
+                        "urlLegifrance": "http://www.legifrance.gouv.fr/x"
+                    }
+                }}
+            }"#,
+            "null",
+        ));
+
+        let outcome = find_outcome(&raw.legislative_acts, raw.fusion.as_ref());
+
+        let DossierOutcome::Promulgated { date: d, publication } = outcome else {
+            panic!("expected a promulgation, got {outcome:?}");
+        };
+        assert_eq!(d, date(2026, 4, 21));
+        assert_eq!(publication.law_code.as_deref(), Some("2026-300"));
+        assert_eq!(publication.jo_date, Some(date(2026, 4, 22)));
+        assert_eq!(
+            publication.legifrance_url.as_deref(),
+            Some("http://www.legifrance.gouv.fr/x")
+        );
+    }
+
+    #[test]
+    fn a_withdrawn_initiative_is_read_from_its_act() {
+        let raw = dossier(&wrap(
+            r#"{
+                "codeActe": "ANLUNI",
+                "dateActe": null,
+                "actesLegislatifs": {"acteLegislatif": {
+                    "codeActe": "ANLUNI-RTRINI",
+                    "dateActe": "2026-08-04T00:00:00.000+02:00"
+                }}
+            }"#,
+            "null",
+        ));
+
+        assert_eq!(
+            find_outcome(&raw.legislative_acts, raw.fusion.as_ref()),
+            DossierOutcome::Withdrawn {
+                date: date(2026, 8, 4)
+            }
+        );
+    }
+
+    #[test]
+    fn an_absorbed_dossier_points_to_the_one_that_absorbed_it() {
+        let raw = dossier(&wrap(
+            r#"{"codeActe": "AN1-DEPOT", "dateActe": "2025-03-12T00:00:00.000+01:00"}"#,
+            r#"{"cause": "Dossier absorbé", "dossierAbsorbantRef": "DLR5L17N54344"}"#,
+        ));
+
+        let outcome = find_outcome(&raw.legislative_acts, raw.fusion.as_ref());
+
+        let DossierOutcome::MergedInto { dossier_uid, cause } = outcome else {
+            panic!("expected a merge, got {outcome:?}");
+        };
+        assert_eq!(dossier_uid.as_str(), "DLR5L17N54344");
+        assert_eq!(cause.as_deref(), Some("Dossier absorb\u{00e9}"));
+    }
+
+    /// Un retrait est un acte parlementaire date, la fusion un rattachement
+    /// documentaire: 2 dossiers de la legislature 17 portent les deux.
+    #[test]
+    fn a_withdrawal_wins_over_a_merge() {
+        let raw = dossier(&wrap(
+            r#"{
+                "codeActe": "AN1-RTRINI",
+                "dateActe": "2026-02-10T00:00:00.000+01:00"
+            }"#,
+            r#"{"cause": "Dossier absorbé", "dossierAbsorbantRef": "DLR5L17N54344"}"#,
+        ));
+
+        assert_eq!(
+            find_outcome(&raw.legislative_acts, raw.fusion.as_ref()),
+            DossierOutcome::Withdrawn {
+                date: date(2026, 2, 10)
+            }
+        );
+    }
+
+    #[test]
+    fn a_rejection_keeps_the_wording_of_the_source() {
+        let raw = dossier(&wrap(
+            r#"{
+                "codeActe": "AN1-DEBATS-DEC",
+                "dateActe": "2025-11-04T00:00:00.000+01:00",
+                "statutConclusion": {"fam_code": "TSORTF07", "libelle": "rejetée"}
+            }"#,
+            "null",
+        ));
+
+        assert_eq!(
+            find_outcome(&raw.legislative_acts, raw.fusion.as_ref()),
+            DossierOutcome::Rejected {
+                date: date(2025, 11, 4),
+                label: "rejet\u{00e9}e".into()
+            }
+        );
+    }
+
+    /// Un rejet en premiere lecture suivi d'une adoption ne doit pas laisser le
+    /// dossier marque rejete: seul le dernier sort connu compte.
+    #[test]
+    fn a_rejection_followed_by_an_adoption_is_no_longer_a_rejection() {
+        let raw = dossier(&wrap(
+            r#"[
+                {
+                    "codeActe": "AN1-DEBATS-DEC",
+                    "dateActe": "2025-11-04T00:00:00.000+01:00",
+                    "statutConclusion": {"fam_code": "TSORTF07", "libelle": "rejetée"}
+                },
+                {
+                    "codeActe": "AN2-DEBATS-DEC",
+                    "dateActe": "2026-03-17T00:00:00.000+01:00",
+                    "statutConclusion": {"fam_code": "TSORTF01", "libelle": "adoptée"}
+                }
+            ]"#,
+            "null",
+        ));
+
+        assert_eq!(
+            find_outcome(&raw.legislative_acts, raw.fusion.as_ref()),
+            DossierOutcome::NoRecordedConclusion
+        );
+    }
+
+    /// 2 788 des 3 035 dossiers de la legislature 17 sont dans ce cas: la
+    /// source ne conclut rien, on ne conclut rien non plus.
+    #[test]
+    fn a_dossier_deposited_and_never_examined_has_no_recorded_conclusion() {
+        let raw = dossier(&wrap(
+            r#"{"codeActe": "AN1-DEPOT", "dateActe": "2024-11-05T00:00:00.000+01:00"}"#,
+            "null",
+        ));
+
+        assert_eq!(
+            find_outcome(&raw.legislative_acts, raw.fusion.as_ref()),
+            DossierOutcome::NoRecordedConclusion
+        );
+    }
+
+    #[test]
+    fn a_dossier_without_any_act_has_no_recorded_conclusion() {
+        assert_eq!(
+            find_outcome(&None, None),
+            DossierOutcome::NoRecordedConclusion
+        );
     }
 }

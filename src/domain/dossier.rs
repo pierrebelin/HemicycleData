@@ -341,6 +341,78 @@ impl CurationStatus {
     }
 }
 
+/// Publication au Journal officiel d'une loi promulguee.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LawPublication {
+    pub law_code: Option<String>,
+    pub jo_date: Option<NaiveDate>,
+    pub legifrance_url: Option<String>,
+}
+
+/// Sort du dossier, tel que la source l'atteste — jamais deduit d'un silence.
+///
+/// L'open data de l'Assemblee ne porte aucun champ de statut: le sort se lit
+/// dans les actes. 92% des dossiers de la legislature 17 n'en portent aucun
+/// (2 788 sur 3 035): pour ceux-la la seule chose vraie est « aucune
+/// conclusion enregistree ». Les declarer abandonnes serait une inference,
+/// les declarer en cours aussi (PROJECT.md §6).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum DossierOutcome {
+    /// Acte `PROM-PUB`. Definitif.
+    Promulgated {
+        date: NaiveDate,
+        #[serde(flatten)]
+        publication: LawPublication,
+    },
+    /// Acte `*-RTRINI`: l'initiative a ete retiree. Definitif.
+    Withdrawn { date: NaiveDate },
+    /// `fusionDossier`: le dossier a ete absorbe par un autre. Definitif.
+    MergedInto {
+        dossier_uid: DossierUid,
+        cause: Option<String>,
+    },
+    /// Dernier sort de seance connu, quand il vaut rejet.
+    ///
+    /// **Pas definitif**: un rejet en premiere lecture ne clot pas la navette,
+    /// le texte peut revenir. C'est le dernier fait connu, pas une fin.
+    Rejected { date: NaiveDate, label: String },
+    /// Aucun acte de conclusion. Le dernier acte du dossier fait foi.
+    NoRecordedConclusion,
+}
+
+impl DossierOutcome {
+    /// Un sort definitif ne peut plus changer: le dossier n'a plus a etre
+    /// reecrit lors des rafraichissements suivants.
+    ///
+    /// `Rejected` en est exclu volontairement: la navette peut reprendre.
+    pub fn is_final(&self) -> bool {
+        matches!(
+            self,
+            Self::Promulgated { .. } | Self::Withdrawn { .. } | Self::MergedInto { .. }
+        )
+    }
+
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Promulgated { .. } => "promulgated",
+            Self::Withdrawn { .. } => "withdrawn",
+            Self::MergedInto { .. } => "merged_into",
+            Self::Rejected { .. } => "rejected",
+            Self::NoRecordedConclusion => "no_recorded_conclusion",
+        }
+    }
+
+    pub fn date(&self) -> Option<NaiveDate> {
+        match self {
+            Self::Promulgated { date, .. }
+            | Self::Withdrawn { date }
+            | Self::Rejected { date, .. } => Some(*date),
+            Self::MergedInto { .. } | Self::NoRecordedConclusion => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LegislativeDossier {
     pub uid: DossierUid,
@@ -361,6 +433,7 @@ pub struct LegislativeDossier {
     pub initiators: Vec<Initiator>,
     pub committee: Option<Committee>,
     pub curation_status: CurationStatus,
+    pub outcome: DossierOutcome,
 }
 
 /// Ce qu'un rattachement d'initiateurs a produit, y compris ce qu'il n'a pas pu
@@ -485,6 +558,7 @@ mod tests {
             initiators: vec![],
             committee: None,
             curation_status: CurationStatus::New,
+            outcome: DossierOutcome::NoRecordedConclusion,
         }
     }
 
@@ -772,6 +846,62 @@ mod tests {
     fn committee_accepts_valid() {
         let c = Committee::new("Finances".into()).unwrap();
         assert_eq!(c.as_str(), "Finances");
+    }
+
+    fn outcome_date() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 4, 21).unwrap()
+    }
+
+    #[test]
+    fn promulgation_withdrawal_and_merge_are_final() {
+        let promulgated = DossierOutcome::Promulgated {
+            date: outcome_date(),
+            publication: LawPublication {
+                law_code: Some("2026-300".into()),
+                jo_date: None,
+                legifrance_url: None,
+            },
+        };
+        let withdrawn = DossierOutcome::Withdrawn {
+            date: outcome_date(),
+        };
+        let merged = DossierOutcome::MergedInto {
+            dossier_uid: DossierUid::new("DLR5L17N54344".into()).unwrap(),
+            cause: Some("Dossier absorb\u{00e9}".into()),
+        };
+
+        assert!(promulgated.is_final());
+        assert!(withdrawn.is_final());
+        assert!(merged.is_final());
+    }
+
+    /// Un rejet en lecture ne clot pas la navette: le dossier doit continuer a
+    /// etre relu a chaque rafraichissement.
+    #[test]
+    fn a_rejection_is_not_final() {
+        let rejected = DossierOutcome::Rejected {
+            date: outcome_date(),
+            label: "rejet\u{00e9}".into(),
+        };
+
+        assert!(!rejected.is_final());
+    }
+
+    #[test]
+    fn an_absent_conclusion_is_not_final() {
+        assert!(!DossierOutcome::NoRecordedConclusion.is_final());
+    }
+
+    #[test]
+    fn only_dated_outcomes_carry_a_date() {
+        assert_eq!(
+            DossierOutcome::Withdrawn {
+                date: outcome_date()
+            }
+            .date(),
+            Some(outcome_date())
+        );
+        assert_eq!(DossierOutcome::NoRecordedConclusion.date(), None);
     }
 
     #[test]
