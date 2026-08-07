@@ -355,7 +355,7 @@ pub struct LawPublication {
 /// dans les actes. 92% des dossiers de la legislature 17 n'en portent aucun
 /// (2 788 sur 3 035): pour ceux-la la seule chose vraie est « aucune
 /// conclusion enregistree ». Les declarer abandonnes serait une inference,
-/// les declarer en cours aussi (PROJECT.md §6).
+/// les declarer en cours aussi (README.md §6).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DossierOutcome {

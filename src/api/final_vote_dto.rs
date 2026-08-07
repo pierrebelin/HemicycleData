@@ -9,13 +9,13 @@ use crate::application::use_cases::browse_final_votes::{
 use crate::domain::final_vote::{GroupStance, VoterShare};
 use crate::domain::scrutin::{VotePosition, VoteTally};
 
-/// Perimetre de la page, affiche en tete (PROJECT.md §2): la restriction est
+/// Perimetre de la page, affiche en tete (README.md §2): la restriction est
 /// annoncee, et le reste des scrutins reste accessible.
 pub const SCOPE_NOTE: &str = "Cette page ne montre que le vote sur l'ensemble d'un texte, \
      celui qui tranche le texte entier. Les votes d'amendement, d'article et les motions de \
      censure restent consultables sur la page Scrutins.";
 
-/// Methode du pourcentage, affichee a cote des chiffres (PROJECT.md §6, §9).
+/// Methode du pourcentage, affichee a cote des chiffres (README.md §6, §9).
 pub const SHARE_NOTE: &str = "Le pourcentage rapporte les voix d'un groupe à ses seuls votants \
      (pour + contre + abstention). Les non-votants sont comptés à part, en valeur brute.";
 

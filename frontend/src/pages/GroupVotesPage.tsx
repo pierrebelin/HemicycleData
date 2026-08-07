@@ -45,7 +45,7 @@ function ShareBar({ share }: { share: NonNullable<StanceDto['share']> }) {
 
 /**
  * Position d'un groupe sur un vote. Le pourcentage ne remplace jamais les
- * chiffres bruts : les deux sont affichés côte à côte (PROJECT.md §6).
+ * chiffres bruts : les deux sont affichés côte à côte (README.md §6).
  */
 function StanceCard({ stance }: { stance: StanceDto }) {
   const { share, tally } = stance
@@ -126,7 +126,7 @@ function StanceCard({ stance }: { stance: StanceDto }) {
 
 /**
  * Un groupe sélectionné mais absent du scrutin : la lacune est nommée, jamais
- * comblée par un zéro (PROJECT.md §2).
+ * comblée par un zéro (README.md §2).
  */
 function MissingStance({ group }: { group: GroupDto }) {
   return (
@@ -188,7 +188,7 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
       {selected.length > 0 && (
         // Deux colonnes au plus par ligne : à quatre groupes de front, les
         // cartes seraient trop étroites pour porter les chiffres bruts, et il
-        // ne resterait que les pourcentages (PROJECT.md §6).
+        // ne resterait que les pourcentages (README.md §6).
         <div
           className={`mt-3 grid gap-2 ${selected.length > 1 ? 'sm:grid-cols-2' : ''}`}
         >
@@ -278,14 +278,14 @@ function GroupPicker({
  *
  * Le groupe parlementaire est l'unité affichée, jamais le parti : ce ne sont
  * pas les mêmes objets, et une équivalence approximative présentée comme un
- * fait serait une fausse information (PROJECT.md §3.1).
+ * fait serait une fausse information (README.md §3.1).
  */
 export default function GroupVotesPage() {
   const [params, setParams] = useSearchParams()
 
   // Aucune sélection par défaut : présélectionner des groupes reviendrait à
   // désigner la comparaison qui mérite d'être faite, et à orienter la lecture
-  // avant qu'elle commence (PROJECT.md §6).
+  // avant qu'elle commence (README.md §6).
   const groupsParam = params.get('groupes') ?? ''
   const theme = params.get('theme') ?? ''
   const offset = Math.max(0, Number(params.get('offset') ?? 0) || 0)

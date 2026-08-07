@@ -1,8 +1,8 @@
 # SCORE-LLM — Scoring par grille complète
 
-> ⚠️ **À réviser avant implémentation** — le pivot vers le site de transparence (PROJECT.md, août 2026) change la nature du scoring : il **ordonne** l'affichage, il ne **filtre** plus (PROJECT.md §2, exhaustivité). Tombent donc : la short-list 3-5, le filtre de vulgarisabilité 60-90 s, la distinction « sujet développé / mention courte ». Ce qui survit : la thématisation par familles (devient PROJECT.md §5, seul point de jugement du produit, méthode à publier).
+> ⚠️ **À réviser avant implémentation** — le pivot vers le site de transparence (README.md, août 2026) change la nature du scoring : il **ordonne** l'affichage, il ne **filtre** plus (README.md §2, exhaustivité). Tombent donc : la short-list 3-5, le filtre de vulgarisabilité 60-90 s, la distinction « sujet développé / mention courte ». Ce qui survit : la thématisation par familles (devient README.md §5, seul point de jugement du produit, méthode à publier).
 
-> Remplace le score heuristique 3 dimensions (progress, magnitude, momentum) par la grille cible de PROJECT.md §4 : 6 critères pondérés + 1 filtre. 3 critères notés par jugement automatisé (LLM), 3 lus dans les données structurées. But : short-list crédible, sujets pertinents pour le public 25-40 ans jamais ratés.
+> Remplace le score heuristique 3 dimensions (progress, magnitude, momentum) par la grille cible de README.md §4 : 6 critères pondérés + 1 filtre. 3 critères notés par jugement automatisé (LLM), 3 lus dans les données structurées. But : short-list crédible, sujets pertinents pour le public 25-40 ans jamais ratés.
 
 ## 1. Contexte
 
@@ -15,7 +15,7 @@ Score actuel = mots-clés dans titre et libellé d'acte. Rate les sujets à fort
 | Critère LLM | Critère noté par jugement automatisé : proximité thématique, impact concret, résonance actu |
 | Critère objectif | Critère calculé depuis données structurées : ampleur, avancement, importance |
 | Vulgarisabilité | Sujet explicable en 60-90 s ? Filtre, pas un poids |
-| Famille thématique | Une des 7 familles cibles de PROJECT.md §5 (pouvoir d'achat, logement, travail, environnement, numérique, santé, société) |
+| Famille thématique | Une des 7 familles cibles de README.md §5 (pouvoir d'achat, logement, travail, environnement, numérique, santé, société) |
 | Sujet développé | Dossier candidat à un contenu complet |
 | Mention courte | Dossier pertinent mais inexplicable en court : cité en une phrase, pas développé |
 | Notation | Passage d'un dossier dans la grille complète, produit notes + justifications |
@@ -54,7 +54,7 @@ Score actuel = mots-clés dans titre et libellé d'acte. Rate les sujets à fort
 ## 4. Règles métier
 
 ### RM-01 — Grille de pondération
-- **Énoncé** : score total = somme pondérée des 6 critères, normalisée 0-100. Grille : · **Origine** : PROJECT.md §4 · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : score total = somme pondérée des 6 critères, normalisée 0-100. Grille : · **Origine** : README.md §4 · **Sévérité** : bloquant · **Applies to** : CU-01
 
 | Critère | Mesure | Poids | Type |
 |---|---|---|---|
@@ -69,16 +69,16 @@ Score actuel = mots-clés dans titre et libellé d'acte. Rate les sujets à fort
 - **Énoncé** : un dossier passe au LLM si jamais noté, ou si nouvel acte depuis la dernière notation. Critères objectifs recalculés à chaque rafraîchissement. · **Origine** : choix produit (maîtrise du coût) · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-03 — Vulgarisabilité = filtre
-- **Énoncé** : dossier jugé non explicable en 60-90 s → catégorie « mention courte ». Jamais exclu du flux, jamais d'impact sur le score total. · **Origine** : PROJECT.md §4 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
+- **Énoncé** : dossier jugé non explicable en 60-90 s → catégorie « mention courte ». Jamais exclu du flux, jamais d'impact sur le score total. · **Origine** : README.md §4 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
 
 ### RM-04 — Justification obligatoire
-- **Énoncé** : chaque critère LLM porte une justification d'une à deux phrases. Critère sans justification = notation invalide. · **Origine** : PROJECT.md §3 (la validation manuelle surveille les jugements LLM en priorité) · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
+- **Énoncé** : chaque critère LLM porte une justification d'une à deux phrases. Critère sans justification = notation invalide. · **Origine** : README.md §3 (la validation manuelle surveille les jugements LLM en priorité) · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
 
 ### RM-05 — Échec LLM non bloquant
 - **Énoncé** : notation LLM en échec → dossier conserve ses critères objectifs, marqué « notation en attente », re-tenté au prochain rafraîchissement. Le rafraîchissement n'échoue jamais pour cause de LLM. · **Origine** : choix produit · **Sévérité** : warning · **Applies to** : CU-01
 
 ### RM-06 — Le LLM ne lit que le dossier
-- **Énoncé** : la notation s'appuie exclusivement sur les données du dossier (titre, procédure, actes, étape, initiateurs, commission). Aucun fait externe injecté dans les justifications. · **Origine** : PROJECT.md §6 (neutralité) · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : la notation s'appuie exclusivement sur les données du dossier (titre, procédure, actes, étape, initiateurs, commission). Aucun fait externe injecté dans les justifications. · **Origine** : README.md §6 (neutralité) · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-07 — Importance dégradée sans scrutins
 - **Énoncé** : tant que les scrutins ne sont pas ingérés (spec SCRUTINS), le critère importance s'appuie sur le volume d'actes du dossier. Enrichi par la participation aux scrutins ensuite. · **Origine** : choix produit (ordre de livraison) · **Sévérité** : informatif · **Applies to** : CU-01
@@ -106,7 +106,7 @@ Score actuel = mots-clés dans titre et libellé d'acte. Rate les sujets à fort
 
 | Exclusion | Raison |
 |---|---|
-| Calibration des poids et seuils | Se fait sur données réelles après quelques semaines (PROJECT.md §4) |
+| Calibration des poids et seuils | Se fait sur données réelles après quelques semaines (README.md §4) |
 | Seuil score « édition spéciale » | Dépend de la calibration |
 | Veille médias externe pour la résonance actu | Le jugement s'appuie sur la culture générale du modèle, pas sur un flux d'actualité |
 | Historique des scores pour calibration | Itération séparée |
@@ -123,6 +123,6 @@ Score actuel = mots-clés dans titre et libellé d'acte. Rate les sujets à fort
 | # | Question | Impact | Options |
 |---|---|---|---|
 | Q1 | Seuil de score séparant sujet fort / sujet faible dans les suggestions | Affichage suggestions | TBD après calibration |
-| Q2 | L'ampleur (nb personnes concernées) est-elle notée LLM en attendant des données budgétaires structurées ? PROJECT.md la dit « mixte » | Fiabilité du critère | LLM seul au départ, ou volet objectif dès maintenant |
+| Q2 | L'ampleur (nb personnes concernées) est-elle notée LLM en attendant des données budgétaires structurées ? README.md la dit « mixte » | Fiabilité du critère | LLM seul au départ, ou volet objectif dès maintenant |
 
 → Étape suivante : /plan-implementation

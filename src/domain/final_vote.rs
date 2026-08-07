@@ -4,11 +4,11 @@
 //! procedure. Un seul tranche le texte entier: celui dont l'objet commence par
 //! « l'ensemble ». Agreger tous les scrutins d'un texte donnerait un chiffre
 //! sans signification: un groupe qui vote contre quarante amendements puis pour
-//! le texte en ressortirait « majoritairement contre » (PROJECT.md §6).
+//! le texte en ressortirait « majoritairement contre » (README.md §6).
 //!
 //! Le perimetre de cette page est donc restreint, et la restriction est
 //! affichee: les autres scrutins restent tous consultables sur `/scrutins`
-//! (PROJECT.md §2).
+//! (README.md §2).
 
 use chrono::NaiveDate;
 use serde::Serialize;
@@ -163,7 +163,7 @@ fn tied_positions(counts: &[u32; 3]) -> Vec<VotePosition> {
 
 /// Groupe parlementaire tel qu'il est nomme par l'Assemblee.
 ///
-/// PROJECT.md §3.1: aucune traduction vers un parti. Le libelle affiche est
+/// README.md §3.1: aucune traduction vers un parti. Le libelle affiche est
 /// celui du groupe, et rien d'autre.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct GroupIdentity {

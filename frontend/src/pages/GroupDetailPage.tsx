@@ -14,7 +14,7 @@ import { GroupDot } from './GroupListPage'
  *
  * Ni vert ni rouge, contrairement aux pages de vote : là-bas ils disent « pour »
  * et « contre », ici ils diraient « bien » et « mal ». Une participation élevée
- * n'est pas un mérite et une abstention n'est pas une faute (PROJECT.md §6).
+ * n'est pas un mérite et une abstention n'est pas une faute (README.md §6).
  */
 const RATE_BARS = {
   expressed: 'bg-sky-500',
@@ -76,7 +76,7 @@ function RateBar({ rates }: { rates: ParticipationRatesDto }) {
 
 /**
  * Un taux et le compte brut qui l'a produit. Le pourcentage ne remplace jamais
- * le chiffre : les deux sont affichés côte à côte (PROJECT.md §6).
+ * le chiffre : les deux sont affichés côte à côte (README.md §6).
  */
 function Rate({
   label,
@@ -113,7 +113,7 @@ function Rate({
  * non-participation — et jamais le sens du vote. « Pour » et « contre » sont
  * additionnés ensemble : cumulés sur toute la législature, dont 86 % de
  * scrutins d'amendement, ils ne décriraient aucune position et se liraient
- * pourtant comme une (PROJECT.md §6).
+ * pourtant comme une (README.md §6).
  */
 export default function GroupDetailPage() {
   const { uid } = useParams<{ uid: string }>()

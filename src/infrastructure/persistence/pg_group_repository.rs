@@ -40,7 +40,7 @@ impl GroupRepository for PgGroupRepository {
         //
         // La jointure sur les ventilations est externe: un groupe sans une
         // seule ligne de vote reste liste, couverture nulle affichee comme
-        // telle (PROJECT.md §2).
+        // telle (README.md §2).
         let rows = sqlx::query(
             "SELECT g.uid, g.legislature, g.label, g.abbrev, g.color,
                     g.start_date, g.end_date,
