@@ -42,6 +42,22 @@ cargo test                     # tests
 cargo run                      # lancer le serveur
 ```
 
+## Dépôt public — règles de confidentialité
+
+Ce dépôt a vocation à être public. Tout commit est définitif : réécrire l'historique après une fuite ne suffit pas, un secret poussé est un secret à révoquer.
+
+**Ne jamais versionner :**
+- Secrets et identifiants : `DATABASE_URL` réel, `ANTHROPIC_API_KEY`, `ADMIN_TOKEN`, clés SSH/TLS, tokens GitHub ou npm. Ils vivent dans `.env` en local (ignoré), dans `/home/hemicycle/shared/.env` en production, dans les *GitHub Secrets* pour la CI.
+- Infrastructure nominative : IP du VPS, empreintes d'hôtes, chemins absolus de la machine de dev (`/Users/...`). La documentation utilise des placeholders — `<IP_DU_VPS>` — et rien d'autre.
+- Données personnelles : adresses e-mail privées, dumps de base, exports contenant autre chose que de la donnée publique de l'Assemblée nationale.
+- Artefacts locaux : `.DS_Store`, `target/`, `node_modules/`, `dist/`.
+
+**Toujours :**
+- Un nouveau paramètre sensible s'ajoute à `.env.example` avec une valeur factice, jamais avec la vraie.
+- Les valeurs de configuration se lisent via `std::env::var`, jamais en dur dans le code ni dans un test.
+- Avant d'ouvrir une PR, vérifier `git diff` : pas de `sk-ant-`, pas de `postgresql://user:motdepasse@`, pas d'IP, pas de fichier `.env`.
+- La documentation de déploiement (`todo/SPEC-DEPLOIEMENT.md`) décrit la procédure, jamais l'instance : commandes et placeholders, pas d'hôte réel.
+
 ## Conventions
 
 - Langue du code : anglais
