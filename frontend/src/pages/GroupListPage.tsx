@@ -14,35 +14,6 @@ export function GroupDot({ color }: { color: string | null }) {
   )
 }
 
-/**
- * Couverture du groupe dans les scrutins. Un groupe constitué en cours de
- * législature n'a pas de ligne sur les votes antérieurs : la fenêtre est
- * affichée pour que l'absence ne se lise pas comme un silence du groupe
- * (PROJECT.md §2).
- */
-function Coverage({ group }: { group: GroupSummaryDto }) {
-  if (group.scrutin_count === 0) {
-    return (
-      <span className="text-gray-600">
-        Aucun scrutin ne porte de ligne pour ce groupe
-      </span>
-    )
-  }
-  return (
-    <span className="tabular-nums">
-      {formatCount(group.scrutin_count)} scrutin
-      {group.scrutin_count > 1 ? 's' : ''}
-      {group.first_scrutin_date && group.last_scrutin_date && (
-        <span className="text-gray-600">
-          {' '}
-          — du {formatDate(group.first_scrutin_date)} au{' '}
-          {formatDate(group.last_scrutin_date)}
-        </span>
-      )}
-    </span>
-  )
-}
-
 function GroupRow({ group }: { group: GroupSummaryDto }) {
   return (
     <li className="rounded border border-gray-800 bg-gray-900/40 p-4">
@@ -81,10 +52,6 @@ function GroupRow({ group }: { group: GroupSummaryDto }) {
           </>
         )}
         {group.dissolved_on && <> · dissous le {formatDate(group.dissolved_on)}</>}
-      </p>
-
-      <p className="mt-0.5 text-xs text-gray-500">
-        <Coverage group={group} />
       </p>
     </li>
   )
