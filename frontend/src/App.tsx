@@ -25,7 +25,7 @@ export default function App() {
             to="/"
             className="flex items-center gap-2 transition-opacity hover:opacity-70"
           >
-            <Logo className="size-6 shrink-0" />
+            <Logo className="h-9 w-auto shrink-0" />
             <h1 className="text-[15px] font-semibold tracking-tight">
               hémicycle
               <span className="text-accent">.data</span>
