@@ -1,8 +1,10 @@
 import { Outlet, Link, NavLink } from 'react-router'
 import Logo from './components/Logo'
+import ThemeToggle from './components/ThemeToggle'
 
 const NAV = [
-  { to: '/', label: 'Dossiers', end: true },
+  { to: '/', label: 'Accueil', end: true },
+  { to: '/dossiers', label: 'Dossiers', end: false },
   { to: '/scrutins', label: 'Scrutins', end: false },
   { to: '/groupes', label: 'Groupes', end: false },
   { to: '/votes-par-groupe', label: 'Votes par groupe', end: false },
@@ -49,6 +51,8 @@ export default function App() {
                 {item.label}
               </NavLink>
             ))}
+            <span className="mx-1 h-4 w-px bg-line" aria-hidden />
+            <ThemeToggle />
           </nav>
         </div>
       </header>

@@ -8,7 +8,24 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Appliqué avant le premier rendu : sinon la page s'afficherait dans le
+      // thème par défaut le temps que React monte, puis basculerait.
+      ;(function () {
+        var choix = null
+        try {
+          choix = localStorage.getItem('theme')
+        } catch (_) {
+          /* stockage refusé : on retombe sur la préférence système */
+        }
+        var sombre =
+          choix === 'dark' ||
+          (choix !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = sombre ? 'dark' : 'light'
+      })()
+    </script>
     <meta
       name="description"
       content="Consultation des votes de l'Assemblée nationale, par thème et par groupe parlementaire."
