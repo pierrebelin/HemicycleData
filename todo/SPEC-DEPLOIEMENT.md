@@ -54,6 +54,10 @@ systemd (hemicycle.service, User=hemicycle)
    └─ /home/hemicycle/app/target/release/hemicycle-data
          EnvironmentFile=/home/hemicycle/shared/.env
          PORT=8085
+
+systemd (hemicycle-refresh.timer → .service, toutes les 2 h)
+   └─ /home/hemicycle/app/deploy/refresh.sh
+         POST 127.0.0.1:8085/api/refresh
 ```
 
 ### 3.1 Pourquoi ce découpage pour l'écriture
@@ -218,6 +222,8 @@ se fait à l'installation, jamais dans le dépôt.
 
 ```bash
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle.service /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-refresh.service /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-refresh.timer /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/nginx/hemicycle-admin.conf /etc/nginx/sites-available/
 
 # Vhost public : domaine injecté à la volée.
@@ -232,6 +238,9 @@ ln -sf /etc/nginx/sites-available/hemicycle-public.conf /etc/nginx/sites-enabled
 ln -sf /etc/nginx/sites-available/hemicycle-admin.conf /etc/nginx/sites-enabled/
 systemctl daemon-reload
 systemctl enable hemicycle
+# Le timer seul est activé : le service de rafraîchissement est déclenché par
+# lui, jamais au démarrage (§6.2).
+systemctl enable --now hemicycle-refresh.timer
 ```
 
 Premier build manuel avant le premier démarrage (sinon le binaire n'existe pas) :
@@ -376,6 +385,9 @@ intercepteur venu. Aucun secret applicatif ne transite par GitHub.
 | `.github/workflows/deploy.yml` | verrou de tests + déploiement SSH |
 | `deploy/deploy.sh` | script exécuté sur le VPS (build, publication, restart, health check) |
 | `deploy/systemd/hemicycle.service` | unité systemd, à installer dans `/etc/systemd/system/` |
+| `deploy/systemd/hemicycle-refresh.service` | job de rafraîchissement (`oneshot`), déclenché par le timer |
+| `deploy/systemd/hemicycle-refresh.timer` | cadence du rafraîchissement, toutes les 2 h |
+| `deploy/refresh.sh` | script appelé par le job : `POST /api/refresh` sur la boucle locale |
 | `deploy/nginx/hemicycle-public.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
 | `deploy/nginx/hemicycle-admin.conf` | vhost d'administration sur `127.0.0.1:8080` |
 
@@ -385,6 +397,8 @@ interroge `https://<DOMAINE_PUBLIC>` et échoue tant que le certificat
 n'est pas posé.
 
 ## 6. Exploitation
+
+### 6.1 Commandes
 
 ```bash
 sudo systemctl status hemicycle          # état
@@ -399,6 +413,44 @@ Vérification du filtre d'écriture depuis l'extérieur — doit répondre `403`
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/refresh
 ```
 
+### 6.2 Rafraîchissement périodique
+
+`hemicycle-refresh.timer` déclenche `deploy/refresh.sh` toutes les deux heures
+(00:07, 02:07, 04:07… plus un décalage aléatoire de 5 min au plus). Le script
+appelle `POST 127.0.0.1:<PORT>/api/refresh`, qui enchaîne dans cet ordre :
+référentiel des acteurs, dossiers, scrutins. Un dossier nouveau est écrit avec
+le sort dérivé de ses actes ; un dossier dont la source a bougé est réécrit,
+sort compris ; un dossier au sort définitif (promulgation, retrait, fusion) est
+sauté, plus rien ne peut le changer.
+
+Deux heures est un rythme choisi pour rester sous le seuil de perceptibilité,
+pas pour suivre la source : l'open data de l'Assemblée n'est pas mis à jour à
+cette cadence. La plupart des passages ne réécrivent rien et se comptent en
+secondes.
+
+```bash
+systemctl list-timers hemicycle-refresh.timer    # prochaine et dernière passe
+journalctl -u hemicycle-refresh -n 50 --no-pager # résumé du dernier passage
+sudo systemctl start hemicycle-refresh.service   # déclenchement immédiat
+sudo systemctl disable --now hemicycle-refresh.timer  # suspendre la cadence
+```
+
+Les deux dernières sont des commandes root : le `sudoers` de `hemicycle` (§4.2)
+ne couvre que le service principal, et le timer n'a besoin d'aucun droit `sudo`
+pour tourner — c'est systemd qui le déclenche.
+
+Le résumé JSON de chaque passage est journalisé tel quel : nombre de dossiers
+vus, écrits, sautés, et les deux anomalies possibles. Une source indisponible
+ne fait pas échouer l'unité — le référentiel ou les scrutins précédents restent
+en place, et la ligne `ANOMALIE :` le signale dans le journal (README.md §2).
+
+Une réécriture complète (`?full=true`), nécessaire après un changement de règle
+de dérivation, reste manuelle et n'a pas sa place dans le timer :
+
+```bash
+sudo -u hemicycle /home/hemicycle/app/deploy/refresh.sh --full
+```
+
 ## 7. Recette
 
 - [ ] `https://<DOMAINE_PUBLIC>` répond en 200, certificat valide
@@ -410,3 +462,6 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/re
 - [ ] `systemctl restart hemicycle` remonte le service et rejoue les migrations sans erreur
 - [ ] Un merge sur `main` déclenche le workflow et le site sert bien le nouveau code
 - [ ] `sudo -l` sous `hemicycle` ne liste que les trois commandes `systemctl`
+- [ ] `systemctl list-timers hemicycle-refresh.timer` annonce une prochaine passe à moins de 2 h
+- [ ] `sudo -u hemicycle /home/hemicycle/app/deploy/refresh.sh` répond `OK` et journalise un résumé JSON
+- [ ] Après un `systemctl restart hemicycle`, le script attend la reprise au lieu d'échouer
