@@ -11,10 +11,11 @@ export default function App() {
               Transparence des votes parlementaires
             </p>
           </Link>
-          <nav className="flex gap-1">
+          <nav className="flex flex-wrap justify-end gap-1">
             {[
               { to: '/', label: 'Dossiers', end: true },
-              { to: '/groupes', label: 'Votes par groupe', end: false },
+              { to: '/groupes', label: 'Groupes', end: false },
+              { to: '/votes-par-groupe', label: 'Votes par groupe', end: false },
               { to: '/themes', label: 'Thèmes', end: false },
               { to: '/comprendre', label: 'Comprendre', end: false },
             ].map((item) => (
@@ -23,7 +24,7 @@ export default function App() {
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  `px-3 py-1 rounded text-sm ${
+                  `whitespace-nowrap px-3 py-1 rounded text-sm ${
                     isActive
                       ? 'bg-gray-800 text-white'
                       : 'text-gray-400 hover:text-gray-200'

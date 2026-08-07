@@ -1,6 +1,7 @@
 pub mod arbitrate_theme;
 pub mod browse_dossiers;
 pub mod browse_final_votes;
+pub mod browse_groups;
 pub mod browse_themes;
 pub mod curate_dossier;
 pub mod describe_dataset;
@@ -8,6 +9,7 @@ pub mod extract_debated_texts;
 pub mod propose_theme_families;
 pub mod fetch_recent_dossiers;
 pub mod get_dossier_detail;
+pub mod get_group_detail;
 pub mod get_scrutin_detail;
 pub mod list_scrutins;
 pub mod refresh_actor_registry;
