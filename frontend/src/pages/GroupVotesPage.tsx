@@ -21,21 +21,21 @@ const MAX_GROUPS_BEFORE_LOAD = 4
  * cantonnée à sa pastille d'identité.
  */
 const POSITION_CLASSES: Record<string, string> = {
-  for: 'text-emerald-300',
-  against: 'text-red-300',
-  abstention: 'text-amber-300',
+  for: 'text-for-ink',
+  against: 'text-against-ink',
+  abstention: 'text-abstain-ink',
 }
 
 function outcomeClasses(adopted: boolean) {
   return adopted
-    ? 'bg-emerald-900/30 border-emerald-800 text-emerald-300'
-    : 'bg-red-900/30 border-red-800 text-red-300'
+    ? 'bg-for-soft border-for-line text-for-ink'
+    : 'bg-against-soft border-against-line text-against-ink'
 }
 
 /** Barre des trois parts. Elle rend visible ce que le pourcentage résume. */
 function ShareBar({ share }: { share: NonNullable<StanceDto['share']> }) {
   return (
-    <div className="flex h-1.5 w-full overflow-hidden rounded bg-gray-800">
+    <div className="flex h-1.5 w-full overflow-hidden rounded bg-sunken">
       <div className="bg-emerald-500" style={{ width: `${share.for_percent}%` }} />
       <div className="bg-red-500" style={{ width: `${share.against_percent}%` }} />
       <div className="bg-amber-500" style={{ width: `${share.abstention_percent}%` }} />
@@ -57,17 +57,17 @@ function StanceCard({ stance }: { stance: StanceDto }) {
     stance.majority !== null && share?.leading !== null && stance.majority !== share?.leading
 
   return (
-    <div className="flex-1 min-w-0 rounded border border-gray-800 bg-gray-950/60 p-3">
+    <div className="flex-1 min-w-0 rounded border border-line bg-sunken p-3">
       <div className="flex items-baseline gap-2">
         <span
-          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-gray-700"
+          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-line-strong"
           style={{ backgroundColor: stance.color ?? 'transparent' }}
           aria-hidden
         />
-        <span className="text-sm font-medium text-gray-200">{stance.abbrev}</span>
+        <span className="text-sm font-medium text-ink-1">{stance.abbrev}</span>
         {leading ? (
           <span
-            className={`text-sm font-semibold ${POSITION_CLASSES[share?.leading ?? ''] ?? 'text-gray-300'}`}
+            className={`text-sm font-semibold ${POSITION_CLASSES[share?.leading ?? ''] ?? 'text-ink-2'}`}
           >
             {leading}
             {share?.leading_percent !== null && (
@@ -78,7 +78,7 @@ function StanceCard({ stance }: { stance: StanceDto }) {
           // Égalité stricte entre deux positions : aucune ne l'emporte, et en
           // désigner une au hasard serait une invention.
           share !== null && (
-            <span className="text-sm text-gray-400">
+            <span className="text-sm text-ink-3">
               {share.tied_labels.join(' et ')} à égalité
             </span>
           )
@@ -86,7 +86,7 @@ function StanceCard({ stance }: { stance: StanceDto }) {
       </div>
 
       {share === null ? (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-ink-4">
           Aucun membre du groupe ne s'est prononcé sur ce vote.
         </p>
       ) : (
@@ -94,11 +94,11 @@ function StanceCard({ stance }: { stance: StanceDto }) {
           <div className="mt-2">
             <ShareBar share={share} />
           </div>
-          <p className="mt-1.5 text-xs tabular-nums text-gray-400">
-            <span className="text-emerald-400">{tally.votes_for}</span> pour ·{' '}
-            <span className="text-red-400">{tally.votes_against}</span> contre ·{' '}
-            <span className="text-amber-400">{tally.abstentions}</span> abst.
-            <span className="text-gray-600">
+          <p className="mt-1.5 text-xs tabular-nums text-ink-3">
+            <span className="text-for-ink">{tally.votes_for}</span> pour ·{' '}
+            <span className="text-against-ink">{tally.votes_against}</span> contre ·{' '}
+            <span className="text-abstain-ink">{tally.abstentions}</span> abst.
+            <span className="text-ink-5">
               {' '}
               — sur {share.voters} votant{share.voters > 1 ? 's' : ''}
             </span>
@@ -107,13 +107,13 @@ function StanceCard({ stance }: { stance: StanceDto }) {
       )}
 
       {divergent && stance.majority_label && (
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-ink-4">
           Position majoritaire publiée par l'Assemblée : {stance.majority_label}.
         </p>
       )}
 
       {(tally.not_voting > 0 || tally.voluntary_not_voting > 0) && (
-        <p className="mt-0.5 text-xs tabular-nums text-gray-600">
+        <p className="mt-0.5 text-xs tabular-nums text-ink-5">
           {tally.not_voting > 0 && `${tally.not_voting} non-votant${tally.not_voting > 1 ? 's' : ''}`}
           {tally.not_voting > 0 && tally.voluntary_not_voting > 0 && ' · '}
           {tally.voluntary_not_voting > 0 &&
@@ -130,9 +130,9 @@ function StanceCard({ stance }: { stance: StanceDto }) {
  */
 function MissingStance({ group }: { group: GroupDto }) {
   return (
-    <div className="flex-1 min-w-0 rounded border border-dashed border-gray-800 p-3">
-      <span className="text-sm font-medium text-gray-400">{group.abbrev}</span>
-      <p className="mt-2 text-xs text-gray-600">
+    <div className="flex-1 min-w-0 rounded border border-dashed border-line p-3">
+      <span className="text-sm font-medium text-ink-3">{group.abbrev}</span>
+      <p className="mt-2 text-xs text-ink-5">
         Aucune ligne pour ce groupe sur ce scrutin.
       </p>
     </div>
@@ -141,18 +141,18 @@ function MissingStance({ group }: { group: GroupDto }) {
 
 function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] }) {
   return (
-    <article className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+    <article className="rounded-lg border border-line bg-raised p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${outcomeClasses(vote.adopted)}`}
         >
           {vote.adopted ? 'adopté' : 'rejeté'}
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-ink-4">
           {formatDate(vote.date)} · n° {vote.number} · {vote.ballot_type_label}
         </span>
         {vote.reading && (
-          <span className="rounded border border-gray-700 px-1.5 py-0.5 text-xs text-gray-400">
+          <span className="rounded border border-line-strong px-1.5 py-0.5 text-xs text-ink-3">
             {vote.reading}
           </span>
         )}
@@ -161,7 +161,7 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
       <h3 className="mt-2 text-base leading-snug">
         <Link
           to={`/textes/${encodeURIComponent(vote.text_key)}`}
-          className="text-gray-100 hover:underline"
+          className="text-ink hover:underline"
         >
           {vote.text_label}
         </Link>
@@ -172,14 +172,14 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
         {vote.dossier_uid && (
           <Link
             to={`/dossiers/${vote.dossier_uid}`}
-            className="text-xs text-gray-500 underline hover:text-gray-300"
+            className="text-xs text-ink-4 underline hover:text-ink-2"
           >
             Dossier législatif
           </Link>
         )}
         <Link
           to={`/scrutins/${vote.scrutin_uid}`}
-          className="text-xs text-gray-500 underline hover:text-gray-300"
+          className="text-xs text-ink-4 underline hover:text-ink-2"
         >
           Détail du scrutin
         </Link>
@@ -203,7 +203,7 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
         </div>
       )}
 
-      <p className="mt-2 text-xs tabular-nums text-gray-600">
+      <p className="mt-2 text-xs tabular-nums text-ink-5">
         Assemblée entière : {vote.synthesis.votes_for} pour ·{' '}
         {vote.synthesis.votes_against} contre · {vote.synthesis.abstentions} abst.
       </p>
@@ -232,8 +232,8 @@ function GroupPicker({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-xs text-gray-500">Groupes comparés</span>
-        <span className="text-xs tabular-nums text-gray-600">
+        <span className="text-xs text-ink-4">Groupes comparés</span>
+        <span className="text-xs tabular-nums text-ink-5">
           {selected.length} sur {max} au maximum
         </span>
       </div>
@@ -250,12 +250,12 @@ function GroupPicker({
               title={group.label}
               className={`flex items-center gap-1.5 rounded border px-2 py-1 text-sm transition-colors ${
                 isSelected
-                  ? 'border-gray-600 bg-gray-800 text-gray-100'
-                  : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-800 disabled:hover:text-gray-400'
+                  ? 'border-line-stronger bg-sunken text-ink'
+                  : 'border-line bg-raised text-ink-3 hover:border-line-strong hover:text-ink-1 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-ink-3'
               }`}
             >
               <span
-                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-gray-700"
+                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-line-strong"
                 style={{ backgroundColor: group.color ?? 'transparent' }}
                 aria-hidden
               />
@@ -360,12 +360,12 @@ export default function GroupVotesPage() {
         />
 
         <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-xs text-gray-500">
+          <label className="flex items-center gap-2 text-xs text-ink-4">
             Thème
             <select
               value={theme}
               onChange={(e) => update({ theme: e.target.value })}
-              className="rounded border border-gray-800 bg-gray-900 px-2 py-1 text-sm text-gray-200 focus:border-gray-600 focus:outline-none"
+              className="rounded border border-line bg-raised px-2 py-1 text-sm text-ink-1 focus:border-line-stronger focus:outline-none"
             >
               <option value="">Tous</option>
               {(families.data?.families ?? []).map((family) => (
@@ -379,13 +379,13 @@ export default function GroupVotesPage() {
 
         {data && (
           <div className="space-y-1.5">
-            <p className="rounded-md border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500">
+            <p className="rounded-md border border-line bg-raised px-3 py-2 text-xs text-ink-4">
               {data.scope_note}{' '}
-              <Link to="/scrutins" className="underline hover:text-gray-300">
+              <Link to="/scrutins" className="underline hover:text-ink-2">
                 Voir tous les scrutins
               </Link>
             </p>
-            <p className="rounded-md border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500">
+            <p className="rounded-md border border-line bg-raised px-3 py-2 text-xs text-ink-4">
               {data.share_note} {data.outcome_note}
             </p>
             {selected
@@ -393,7 +393,7 @@ export default function GroupVotesPage() {
               .map((group) => (
                 <p
                   key={group.uid}
-                  className="rounded-md border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500"
+                  className="rounded-md border border-line bg-raised px-3 py-2 text-xs text-ink-4"
                 >
                   {group.label} ({group.abbrev}) n'apparaît que sur{' '}
                   {group.final_vote_count} des {data.total_unfiltered} votes sur
@@ -401,12 +401,12 @@ export default function GroupVotesPage() {
                 </p>
               ))}
             {theme && (
-              <p className="rounded-md border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500">
+              <p className="rounded-md border border-line bg-raised px-3 py-2 text-xs text-ink-4">
                 La thématisation est en cours : {data.total_with_family} des{' '}
                 {data.total_unfiltered} votes sur l'ensemble portent une famille.
                 Filtrer par thème laisse donc de côté les textes pas encore
                 rattachés.{' '}
-                <Link to="/themes/methode" className="underline hover:text-gray-300">
+                <Link to="/themes/methode" className="underline hover:text-ink-2">
                   Méthode
                 </Link>
               </p>
@@ -417,13 +417,13 @@ export default function GroupVotesPage() {
 
       {isLoading && (
         <div className="py-20 text-center">
-          <p className="animate-pulse text-gray-400">Chargement des votes…</p>
+          <p className="animate-pulse text-ink-3">Chargement des votes…</p>
         </div>
       )}
 
       {isError && (
-        <div className="rounded-lg border border-red-800 bg-red-900/20 p-4">
-          <p className="text-red-400">
+        <div className="rounded-lg border border-against-line bg-against-softer p-4">
+          <p className="text-against-ink">
             Erreur : {error instanceof Error ? error.message : 'inconnue'}
           </p>
         </div>
@@ -431,11 +431,11 @@ export default function GroupVotesPage() {
 
       {data && (
         <>
-          <p className="mb-3 text-sm tabular-nums text-gray-500">
+          <p className="mb-3 text-sm tabular-nums text-ink-4">
             {data.total.toLocaleString('fr-FR')} vote{data.total > 1 ? 's' : ''} sur
             l'ensemble
             {data.total > 0 && (
-              <span className="text-gray-600">
+              <span className="text-ink-5">
                 {' '}
                 — affichés {data.offset + 1} à {data.offset + shown}
               </span>
@@ -443,7 +443,7 @@ export default function GroupVotesPage() {
           </p>
 
           {shown === 0 ? (
-            <p className="rounded-lg border border-gray-800 p-4 text-sm text-gray-500">
+            <p className="rounded-lg border border-line p-4 text-sm text-ink-4">
               Aucun vote sur l'ensemble ne correspond à ce filtre.
             </p>
           ) : (
@@ -460,14 +460,14 @@ export default function GroupVotesPage() {
                 update({ offset: String(Math.max(0, offset - PAGE_SIZE)) })
               }
               disabled={offset === 0}
-              className="rounded bg-gray-800 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded bg-sunken px-3 py-1.5 text-sm text-ink-2 hover:bg-sunken-strong disabled:cursor-not-allowed disabled:opacity-40"
             >
               ← Précédents
             </button>
             <button
               onClick={() => update({ offset: String(offset + PAGE_SIZE) })}
               disabled={offset + shown >= data.total}
-              className="rounded bg-gray-800 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded bg-sunken px-3 py-1.5 text-sm text-ink-2 hover:bg-sunken-strong disabled:cursor-not-allowed disabled:opacity-40"
             >
               Suivants →
             </button>

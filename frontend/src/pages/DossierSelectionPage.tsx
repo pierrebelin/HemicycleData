@@ -95,7 +95,7 @@ export default function DossierSelectionPage() {
         <button
           onClick={() => refresh.mutate()}
           disabled={refresh.isPending}
-          className="ml-auto px-3 py-1 rounded text-sm bg-gray-800 text-gray-400 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="ml-auto px-3 py-1 rounded text-sm bg-sunken text-ink-3 hover:bg-sunken-strong disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {refresh.isPending ? (
             <>
@@ -110,22 +110,22 @@ export default function DossierSelectionPage() {
           )}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-8">
+      <p className="text-sm text-ink-4 mb-8">
         Outil éditorial interne. Le score et le classement n'apparaissent pas
         sur les pages publiques.
       </p>
 
       {refresh.isSuccess && (
-        <div className="mb-4 bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
-          <p className="text-emerald-400 text-sm">
+        <div className="mb-4 bg-for-softer border border-for-line rounded-lg p-3">
+          <p className="text-for-ink text-sm">
             {refresh.data.count} dossier{refresh.data.count > 1 ? 's' : ''} synchronisé{refresh.data.count > 1 ? 's' : ''}
           </p>
         </div>
       )}
 
       {refresh.isError && (
-        <div className="mb-4 bg-red-900/20 border border-red-800 rounded-lg p-3">
-          <p className="text-red-400 text-sm">
+        <div className="mb-4 bg-against-softer border border-against-line rounded-lg p-3">
+          <p className="text-against-ink text-sm">
             Erreur de synchronisation : {refresh.error instanceof Error ? refresh.error.message : 'inconnue'}
           </p>
         </div>
@@ -137,7 +137,7 @@ export default function DossierSelectionPage() {
           Suggestions Instagram
         </h3>
         {suggestions.data && suggestions.data.suggestions.length === 0 && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-4">
             Aucun dossier en attente de sélection.
           </p>
         )}
@@ -145,7 +145,7 @@ export default function DossierSelectionPage() {
           {suggestions.data?.suggestions.map((d) => (
             <div
               key={d.uid}
-              className="bg-gray-900 border border-amber-900/50 rounded-lg p-4 flex items-center gap-4"
+              className="bg-raised border border-abstain-line rounded-lg p-4 flex items-center gap-4"
             >
               <Link
                 to={`/dossiers/${d.uid}`}
@@ -157,11 +157,11 @@ export default function DossierSelectionPage() {
                   >
                     {d.score_total}
                   </span>
-                  <p className="text-white font-medium leading-snug truncate">
+                  <p className="text-ink font-medium leading-snug truncate">
                     {d.title}
                   </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{d.procedure}</p>
+                <p className="text-xs text-ink-4 mt-1">{d.procedure}</p>
               </Link>
               <div className="flex gap-2 shrink-0">
                 <button
@@ -169,7 +169,7 @@ export default function DossierSelectionPage() {
                     curate.mutate({ uid: d.uid, status: 'selected' })
                   }
                   disabled={curate.isPending}
-                  className="px-3 py-1.5 rounded text-xs font-medium bg-emerald-900/30 border border-emerald-800 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded text-xs font-medium bg-for-soft border border-for-line text-for-ink hover:bg-for-soft-strong disabled:opacity-50"
                 >
                   Sélectionner
                 </button>
@@ -178,7 +178,7 @@ export default function DossierSelectionPage() {
                     curate.mutate({ uid: d.uid, status: 'dismissed' })
                   }
                   disabled={curate.isPending}
-                  className="px-3 py-1.5 rounded text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded text-xs font-medium bg-sunken border border-line-strong text-ink-3 hover:bg-sunken-strong disabled:opacity-50"
                 >
                   Écarter
                 </button>
@@ -199,7 +199,7 @@ export default function DossierSelectionPage() {
                 className={`px-3 py-1 rounded text-sm ${
                   days === d
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    : 'bg-sunken text-ink-3 hover:bg-sunken-strong'
                 }`}
               >
                 {d}j
@@ -207,21 +207,21 @@ export default function DossierSelectionPage() {
             ))}
           </div>
           {recent.data && (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-ink-4">
               {recent.data.count} dossier{recent.data.count > 1 ? 's' : ''}
             </span>
           )}
         </div>
 
         {recent.isLoading && (
-          <p className="text-gray-400 animate-pulse py-8">
+          <p className="text-ink-3 animate-pulse py-8">
             Chargement des dossiers…
           </p>
         )}
 
         {recent.isError && (
-          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-            <p className="text-red-400">
+          <div className="bg-against-softer border border-against-line rounded-lg p-4">
+            <p className="text-against-ink">
               Erreur :{' '}
               {recent.error instanceof Error ? recent.error.message : 'inconnue'}
             </p>
@@ -233,7 +233,7 @@ export default function DossierSelectionPage() {
             <Link
               key={d.uid}
               to={`/dossiers/${d.uid}`}
-              className="block bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 transition-colors"
+              className="block bg-raised border border-line rounded-lg p-4 hover:border-line-stronger transition-colors"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -243,14 +243,14 @@ export default function DossierSelectionPage() {
                     >
                       {d.score_total}
                     </span>
-                    <p className="text-white font-medium leading-snug truncate">
+                    <p className="text-ink font-medium leading-snug truncate">
                       {d.title}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xs text-gray-500">{d.procedure}</p>
+                    <p className="text-xs text-ink-4">{d.procedure}</p>
                     {d.current_stage && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-900/30 border border-indigo-800/50 text-indigo-300">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-model-soft border border-model-line text-model-ink">
                         {d.current_stage.label}
                         {d.current_stage.chamber && ` — ${d.current_stage.chamber}`}
                       </span>
@@ -258,7 +258,7 @@ export default function DossierSelectionPage() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0 text-right">
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-ink-3">
                     {new Date(
                       d.last_activity_date + 'T00:00:00',
                     ).toLocaleDateString('fr-FR', {
@@ -266,7 +266,7 @@ export default function DossierSelectionPage() {
                       month: 'short',
                     })}
                   </span>
-                  <span className="text-xs text-blue-400 mt-0.5">
+                  <span className="text-xs text-link-ink mt-0.5">
                     {d.last_activity_label}
                   </span>
                 </div>

@@ -85,45 +85,45 @@ export default function ThemeArbitrationPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/themes" className="text-sm text-gray-500 hover:text-gray-300">
+        <Link to="/themes" className="text-sm text-ink-4 hover:text-ink-2">
           ← Tous les thèmes
         </Link>
         <h2 className="mt-2 text-xl font-bold">Arbitrage des rattachements</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-ink-3">
           Retenir, corriger ou écarter les familles proposées. Chaque décision
           clôt le rattachement précédent et en ouvre un nouveau : l'historique
           est conservé.
         </p>
       </div>
 
-      <div className="space-y-3 rounded border border-gray-800 bg-gray-900/40 p-4">
+      <div className="space-y-3 rounded border border-line bg-raised p-4">
         <label className="block text-sm">
-          <span className="text-gray-400">Jeton d'accès</span>
+          <span className="text-ink-3">Jeton d'accès</span>
           <input
             type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-line-strong bg-surface px-2 py-1 text-sm"
           />
         </label>
         <label className="block text-sm">
-          <span className="text-gray-400">Auteur de la décision</span>
+          <span className="text-ink-3">Auteur de la décision</span>
           <input
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
             placeholder="votre nom"
-            className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-line-strong bg-surface px-2 py-1 text-sm"
           />
         </label>
         <label className="block text-sm">
-          <span className="text-gray-400">Liste</span>
+          <span className="text-ink-3">Liste</span>
           <select
             value={source}
             onChange={(e) => {
               setSource(e.target.value)
               setSelected(null)
             }}
-            className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-line-strong bg-surface px-2 py-1 text-sm"
           >
             <option value="unassigned">Textes non rattachés</option>
             {referential.data?.families.map((family) => (
@@ -136,9 +136,9 @@ export default function ThemeArbitrationPage() {
       </div>
 
       {selected && (
-        <div className="space-y-3 rounded border border-gray-700 bg-gray-900 p-4">
+        <div className="space-y-3 rounded border border-line-strong bg-raised p-4">
           <p className="text-sm font-medium">{selected.label}</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-4">
             {selected.scrutin_count} scrutin
             {selected.scrutin_count > 1 ? 's' : ''}
           </p>
@@ -151,8 +151,8 @@ export default function ThemeArbitrationPage() {
                   key={family.code}
                   className={`cursor-pointer rounded border px-2 py-1 text-xs ${
                     checked
-                      ? 'border-gray-400 bg-gray-800 text-white'
-                      : 'border-gray-700 text-gray-400'
+                      ? 'border-line-stronger bg-sunken text-ink'
+                      : 'border-line-strong text-ink-3'
                   }`}
                 >
                   <input
@@ -174,20 +174,20 @@ export default function ThemeArbitrationPage() {
           </div>
 
           {tooMany && (
-            <p className="text-xs text-amber-400">
+            <p className="text-xs text-abstain-ink">
               {maxFamilies} familles au plus.
             </p>
           )}
 
           <label className="block text-sm">
-            <span className="text-gray-400">
+            <span className="text-ink-3">
               Motif {families.length === 0 ? '(obligatoire)' : '(facultatif)'}
             </span>
             <textarea
               value={motive}
               onChange={(e) => setMotive(e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm"
+              className="mt-1 w-full rounded border border-line-strong bg-surface px-2 py-1 text-sm"
             />
           </label>
 
@@ -202,21 +202,21 @@ export default function ThemeArbitrationPage() {
                 token.trim() === ''
               }
               onClick={() => arbitrate.mutate()}
-              className="rounded bg-gray-100 px-3 py-1 text-sm font-medium text-gray-900 disabled:opacity-40"
+              className="rounded bg-ink px-3 py-1 text-sm font-medium text-surface disabled:opacity-40"
             >
               {arbitrate.isPending ? 'Enregistrement…' : 'Enregistrer'}
             </button>
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="text-sm text-gray-400 hover:text-gray-200"
+              className="text-sm text-ink-3 hover:text-ink-1"
             >
               Annuler
             </button>
           </div>
 
           {arbitrate.error && (
-            <p className="text-xs text-red-400">
+            <p className="text-xs text-against-ink">
               {(arbitrate.error as Error).message}
             </p>
           )}
@@ -224,17 +224,17 @@ export default function ThemeArbitrationPage() {
       )}
 
       {texts.isLoading ? (
-        <p className="text-gray-500">Chargement…</p>
+        <p className="text-ink-4">Chargement…</p>
       ) : (
         <ul className="space-y-2">
           {texts.data?.items.map((text) => (
             <li
               key={text.key}
-              className="flex items-start justify-between gap-3 rounded border border-gray-800 bg-gray-900/40 p-3"
+              className="flex items-start justify-between gap-3 rounded border border-line bg-raised p-3"
             >
               <div>
                 <p className="text-sm">{text.label}</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-ink-4">
                   {text.scrutin_count} scrutin
                   {text.scrutin_count > 1 ? 's' : ''}
                   {text.families.length > 0
@@ -245,7 +245,7 @@ export default function ThemeArbitrationPage() {
               <button
                 type="button"
                 onClick={() => select(text)}
-                className="shrink-0 rounded border border-gray-700 px-2 py-1 text-xs hover:border-gray-500"
+                className="shrink-0 rounded border border-line-strong px-2 py-1 text-xs hover:border-line-stronger"
               >
                 Arbitrer
               </button>

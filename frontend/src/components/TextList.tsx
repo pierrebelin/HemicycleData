@@ -17,7 +17,7 @@ export default function TextList({
   showFamilies?: boolean
 }) {
   if (texts.length === 0) {
-    return <p className="text-sm text-gray-500">Aucun texte dans cette liste.</p>
+    return <p className="text-sm text-ink-4">Aucun texte dans cette liste.</p>
   }
 
   return (
@@ -25,7 +25,7 @@ export default function TextList({
       {texts.map((text) => (
         <li
           key={text.key}
-          className="rounded border border-gray-800 bg-gray-900/40 p-4"
+          className="rounded border border-line bg-raised p-4"
         >
           <Link
             to={`/textes/${encodeURIComponent(text.key)}`}
@@ -33,7 +33,7 @@ export default function TextList({
           >
             {text.label}
           </Link>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-ink-4">
             {text.scrutin_count} scrutin{text.scrutin_count > 1 ? 's' : ''}
             {period(text) ? ` · ${period(text)}` : ''}
             {text.dossier_uid ? ' · dossier rattaché' : ''}

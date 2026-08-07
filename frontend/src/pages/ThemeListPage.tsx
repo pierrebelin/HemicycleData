@@ -27,17 +27,17 @@ export default function ThemeListPage() {
   )
 
   if (families.isLoading) {
-    return <p className="text-gray-500">Chargement…</p>
+    return <p className="text-ink-4">Chargement…</p>
   }
   if (families.error) {
-    return <p className="text-red-400">{(families.error as Error).message}</p>
+    return <p className="text-against-ink">{(families.error as Error).message}</p>
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold">Thèmes</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-ink-3">
           Les votes de la législature, regroupés par famille thématique. Un
           texte peut appartenir à {families.data?.max_families_per_text}{' '}
           familles au plus.
@@ -52,7 +52,7 @@ export default function ThemeListPage() {
           return (
             <li
               key={family.code}
-              className="rounded border border-gray-800 bg-gray-900/40 p-4"
+              className="rounded border border-line bg-raised p-4"
             >
               <Link
                 to={`/themes/${family.code}`}
@@ -61,7 +61,7 @@ export default function ThemeListPage() {
                 {family.label}
               </Link>
               {stats && (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-ink-4">
                   {stats.text_count} texte{stats.text_count > 1 ? 's' : ''} ·{' '}
                   {stats.scrutin_count} scrutin
                   {stats.scrutin_count > 1 ? 's' : ''} ·{' '}
@@ -69,21 +69,21 @@ export default function ThemeListPage() {
                   {stats.arbitrated_text_count > 1 ? 's' : ''}
                 </p>
               )}
-              <p className="mt-2 text-sm text-gray-400">{family.scope}</p>
+              <p className="mt-2 text-sm text-ink-3">{family.scope}</p>
             </li>
           )
         })}
       </ul>
 
       {method.data && (
-        <div className="rounded border border-gray-800 bg-gray-900/40 p-4">
+        <div className="rounded border border-line bg-raised p-4">
           <Link
             to="/themes/non-rattaches"
             className="font-medium hover:underline"
           >
             Textes non rattachés
           </Link>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-ink-4">
             {method.data.texts_total - method.data.texts_assigned} texte
             {method.data.texts_total - method.data.texts_assigned > 1
               ? 's'

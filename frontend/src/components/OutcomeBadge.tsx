@@ -1,11 +1,11 @@
 import type { OutcomeDto, OutcomeKind } from '../types/dossiers'
 
 const styles: Record<OutcomeKind, string> = {
-  promulgated: 'bg-emerald-900/30 border-emerald-800/50 text-emerald-300',
-  rejected: 'bg-rose-900/30 border-rose-800/50 text-rose-300',
-  withdrawn: 'bg-gray-800 border-gray-700 text-gray-400',
-  merged_into: 'bg-gray-800 border-gray-700 text-gray-400',
-  no_recorded_conclusion: 'bg-gray-800 border-gray-700 text-gray-400',
+  promulgated: 'bg-for-soft border-for-line text-for-ink',
+  rejected: 'bg-against-soft border-against-line text-against-ink',
+  withdrawn: 'bg-sunken border-line-strong text-ink-3',
+  merged_into: 'bg-sunken border-line-strong text-ink-3',
+  no_recorded_conclusion: 'bg-sunken border-line-strong text-ink-3',
 }
 
 function formatDate(iso: string) {
@@ -51,9 +51,9 @@ export function OutcomePanel({
 }) {
   if (outcome.kind === 'no_recorded_conclusion') {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-        <p className="text-sm text-gray-300">Sans conclusion enregistrée</p>
-        <p className="text-xs text-gray-500 mt-1">
+      <div className="bg-raised border border-line rounded-lg p-4">
+        <p className="text-sm text-ink-2">Sans conclusion enregistrée</p>
+        <p className="text-xs text-ink-4 mt-1">
           L'Assemblée n'a publié aucun acte de clôture pour ce dossier. Dernier
           acte connu : {lastActivityLabel}, le {formatDate(lastActivityDate)}.
         </p>
@@ -62,18 +62,18 @@ export function OutcomePanel({
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+    <div className="bg-raised border border-line rounded-lg p-4">
       <div className="flex items-center gap-2">
         <OutcomeBadge outcome={outcome} />
         {!outcome.is_final && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-ink-4">
             la navette peut reprendre
           </span>
         )}
       </div>
 
       {outcome.law_code && (
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-ink-3 mt-2">
           Loi n° {outcome.law_code}
           {outcome.law_jo_date &&
             `, publiée au Journal officiel le ${formatDate(outcome.law_jo_date)}`}
@@ -84,7 +84,7 @@ export function OutcomePanel({
                 href={outcome.legifrance_url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-blue-400 hover:underline"
+                className="text-link-ink hover:underline"
               >
                 texte sur Légifrance
               </a>
@@ -94,11 +94,11 @@ export function OutcomePanel({
       )}
 
       {outcome.merged_into_uid && (
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-ink-3 mt-2">
           Suite de l'examen dans le dossier{' '}
           <a
             href={`/dossiers/${outcome.merged_into_uid}`}
-            className="text-blue-400 hover:underline"
+            className="text-link-ink hover:underline"
           >
             {outcome.merged_into_uid}
           </a>

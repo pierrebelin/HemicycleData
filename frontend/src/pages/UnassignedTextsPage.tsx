@@ -21,25 +21,25 @@ export default function UnassignedTextsPage() {
       ),
   })
 
-  if (texts.isLoading) return <p className="text-gray-500">Chargement…</p>
+  if (texts.isLoading) return <p className="text-ink-4">Chargement…</p>
   if (texts.error)
-    return <p className="text-red-400">{(texts.error as Error).message}</p>
+    return <p className="text-against-ink">{(texts.error as Error).message}</p>
 
   const data = texts.data!
 
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/themes" className="text-sm text-gray-500 hover:text-gray-300">
+        <Link to="/themes" className="text-sm text-ink-4 hover:text-ink-2">
           ← Tous les thèmes
         </Link>
         <h2 className="mt-2 text-xl font-bold">Textes non rattachés</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-ink-3">
           Ces textes n'ont aucune famille. Ils restent consultables et leurs
           votes sont exposés comme les autres : le site ne retire rien faute de
           thème.
         </p>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-ink-4">
           {data.total} texte{data.total > 1 ? 's' : ''}
         </p>
       </div>
@@ -51,11 +51,11 @@ export default function UnassignedTextsPage() {
           type="button"
           disabled={offset === 0}
           onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-          className="rounded border border-gray-700 px-3 py-1 text-sm disabled:opacity-40"
+          className="rounded border border-line-strong px-3 py-1 text-sm disabled:opacity-40"
         >
           Précédent
         </button>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-ink-4">
           {data.total === 0
             ? '0'
             : `${offset + 1} – ${Math.min(offset + PAGE_SIZE, data.total)} sur ${data.total}`}
@@ -64,7 +64,7 @@ export default function UnassignedTextsPage() {
           type="button"
           disabled={offset + PAGE_SIZE >= data.total}
           onClick={() => setOffset(offset + PAGE_SIZE)}
-          className="rounded border border-gray-700 px-3 py-1 text-sm disabled:opacity-40"
+          className="rounded border border-line-strong px-3 py-1 text-sm disabled:opacity-40"
         >
           Suivant
         </button>

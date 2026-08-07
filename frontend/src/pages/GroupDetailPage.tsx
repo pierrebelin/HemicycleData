@@ -30,8 +30,8 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded border border-gray-800 bg-gray-900/40 p-4">
-      <h3 className="text-sm font-medium text-gray-300">{title}</h3>
+    <section className="rounded border border-line bg-raised p-4">
+      <h3 className="text-sm font-medium text-ink-2">{title}</h3>
       <div className="mt-3">{children}</div>
     </section>
   )
@@ -39,16 +39,16 @@ function Section({
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-gray-800/70 py-1.5 last:border-0">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className="text-sm tabular-nums text-gray-200">{children}</span>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-line py-1.5 last:border-0">
+      <span className="text-xs text-ink-4">{label}</span>
+      <span className="text-sm tabular-nums text-ink-1">{children}</span>
     </div>
   )
 }
 
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500">
+    <p className="rounded border border-line bg-raised px-3 py-2 text-xs text-ink-4">
       {children}
     </p>
   )
@@ -57,7 +57,7 @@ function Note({ children }: { children: React.ReactNode }) {
 /** Barre des trois parts. Elle rend visible ce que le pourcentage résume. */
 function RateBar({ rates }: { rates: ParticipationRatesDto }) {
   return (
-    <div className="flex h-2 w-full overflow-hidden rounded bg-gray-800">
+    <div className="flex h-2 w-full overflow-hidden rounded bg-sunken">
       <div
         className={RATE_BARS.expressed}
         style={{ width: `${rates.expressed_per_mille / 10}%` }}
@@ -92,13 +92,13 @@ function Rate({
   detail?: string
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-gray-800/70 py-1.5 last:border-0">
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-line py-1.5 last:border-0">
       <span className={`inline-block h-2 w-2 shrink-0 rounded-sm ${swatch}`} aria-hidden />
-      <span className="text-xs text-gray-400">{label}</span>
-      <span className="ml-auto text-sm font-medium tabular-nums text-gray-100">
+      <span className="text-xs text-ink-3">{label}</span>
+      <span className="ml-auto text-sm font-medium tabular-nums text-ink">
         {formatPerMille(perMille)}
       </span>
-      <span className="w-full pl-4 text-xs tabular-nums text-gray-600">
+      <span className="w-full pl-4 text-xs tabular-nums text-ink-5">
         {formatCount(count)} position{count > 1 ? 's' : ''}
         {detail && <> — {detail}</>}
       </span>
@@ -128,18 +128,18 @@ export default function GroupDetailPage() {
   })
 
   if (isLoading) {
-    return <p className="animate-pulse text-gray-400">Chargement du groupe…</p>
+    return <p className="animate-pulse text-ink-3">Chargement du groupe…</p>
   }
 
   if (isError) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-red-800 bg-red-900/20 p-4">
-          <p className="text-red-400">
+        <div className="rounded-lg border border-against-line bg-against-softer p-4">
+          <p className="text-against-ink">
             Erreur : {error instanceof Error ? error.message : 'inconnue'}
           </p>
         </div>
-        <Link to="/groupes" className="text-sm text-gray-400 underline hover:text-gray-200">
+        <Link to="/groupes" className="text-sm text-ink-3 underline hover:text-ink-1">
           ← Tous les groupes
         </Link>
       </div>
@@ -152,19 +152,19 @@ export default function GroupDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/groupes" className="text-xs text-gray-500 underline hover:text-gray-300">
+        <Link to="/groupes" className="text-xs text-ink-4 underline hover:text-ink-2">
           ← Tous les groupes
         </Link>
         <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <GroupDot color={group.color} />
           <h2 className="text-xl font-bold">{group.abbrev}</h2>
           {group.dissolved && (
-            <span className="rounded border border-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+            <span className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-3">
               dissous
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm text-gray-400">{group.label}</p>
+        <p className="mt-1 text-sm text-ink-3">{group.label}</p>
       </div>
 
       <Note>{group.party_note}</Note>
@@ -228,7 +228,7 @@ export default function GroupDetailPage() {
 
       <Section title="Participation">
         {rates === null ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-4">
             L'Assemblée ne publie aucune position pour ce groupe : il n'y a
             aucun taux à calculer.
           </p>
@@ -261,7 +261,7 @@ export default function GroupDetailPage() {
                 }`}
               />
             </div>
-            <p className="mt-3 text-xs tabular-nums text-gray-500">
+            <p className="mt-3 text-xs tabular-nums text-ink-4">
               Rapportés à {formatCount(counts.published_positions)} positions
               publiées, sur {formatCount(group.line_count)} scrutin
               {group.line_count > 1 ? 's' : ''}.
@@ -281,7 +281,7 @@ export default function GroupDetailPage() {
       <p className="text-sm">
         <Link
           to={`/votes-par-groupe?groupes=${encodeURIComponent(group.abbrev)}`}
-          className="text-gray-400 underline hover:text-gray-200"
+          className="text-ink-3 underline hover:text-ink-1"
         >
           Voir les votes de {group.abbrev}, scrutin par scrutin →
         </Link>

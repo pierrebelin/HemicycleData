@@ -37,7 +37,7 @@ function FilterGroup({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500">{label}</span>
+      <span className="text-xs text-ink-4">{label}</span>
       <div className="flex gap-1">
         {options.map((o) => (
           <button
@@ -46,7 +46,7 @@ function FilterGroup({
             className={`px-2.5 py-1 rounded text-xs ${
               value === o.value
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                : 'bg-sunken text-ink-3 hover:bg-sunken-strong'
             }`}
           >
             {o.label}
@@ -94,7 +94,7 @@ export default function ScrutinListPage() {
     <>
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-1">Scrutins</h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-ink-4">
           Tous les scrutins publics de la législature, sans sélection.
         </p>
       </div>
@@ -112,11 +112,11 @@ export default function ScrutinListPage() {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Rechercher dans l'objet du scrutin…"
-            className="flex-1 bg-gray-900 border border-gray-800 rounded px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
+            className="flex-1 bg-raised border border-line rounded px-3 py-1.5 text-sm text-ink placeholder-ink-5 focus:outline-none focus:border-line-stronger"
           />
           <button
             type="submit"
-            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700"
+            className="px-3 py-1.5 rounded text-sm bg-sunken text-ink-2 hover:bg-sunken-strong"
           >
             Rechercher
           </button>
@@ -148,13 +148,13 @@ export default function ScrutinListPage() {
 
       {isLoading && (
         <div className="text-center py-20">
-          <p className="text-gray-400 animate-pulse">Chargement des scrutins…</p>
+          <p className="text-ink-3 animate-pulse">Chargement des scrutins…</p>
         </div>
       )}
 
       {isError && (
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-          <p className="text-red-400">
+        <div className="bg-against-softer border border-against-line rounded-lg p-4">
+          <p className="text-against-ink">
             Erreur : {error instanceof Error ? error.message : 'inconnue'}
           </p>
         </div>
@@ -162,11 +162,11 @@ export default function ScrutinListPage() {
 
       {data && (
         <>
-          <p className="text-sm text-gray-500 mb-3 tabular-nums">
+          <p className="text-sm text-ink-4 mb-3 tabular-nums">
             {data.total.toLocaleString('fr-FR')} scrutin
             {data.total > 1 ? 's' : ''}
             {data.total > 0 && (
-              <span className="text-gray-600">
+              <span className="text-ink-5">
                 {' '}
                 — affichés {data.offset + 1} à {data.offset + data.count}
               </span>
@@ -174,7 +174,7 @@ export default function ScrutinListPage() {
           </p>
 
           {data.count === 0 ? (
-            <p className="text-gray-500 text-sm border border-gray-800 rounded-lg p-4">
+            <p className="text-ink-4 text-sm border border-line rounded-lg p-4">
               Aucun scrutin ne correspond à ces filtres.
             </p>
           ) : (
@@ -185,14 +185,14 @@ export default function ScrutinListPage() {
             <button
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
               disabled={offset === 0}
-              className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded text-sm bg-sunken text-ink-2 hover:bg-sunken-strong disabled:opacity-40 disabled:cursor-not-allowed"
             >
               ← Précédents
             </button>
             <button
               onClick={() => setOffset(offset + PAGE_SIZE)}
               disabled={offset + data.count >= data.total}
-              className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded text-sm bg-sunken text-ink-2 hover:bg-sunken-strong disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Suivants →
             </button>

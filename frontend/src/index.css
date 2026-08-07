@@ -1,1 +1,131 @@
 @import "tailwindcss";
+
+/*
+ * Tokens sémantiques.
+ *
+ * Les pages nomment un rôle — surface, ligne, encre, ton de vote — jamais une
+ * teinte. Un thème n'est alors qu'un second jeu de valeurs pour les mêmes noms,
+ * ce qui évite de réécrire chaque page en `dark:`.
+ *
+ * Les valeurs par défaut portent le thème clair ; `[data-theme='dark']` les
+ * remplace. Le choix est appliqué sur <html> par le script de `index.html`,
+ * avant le premier rendu, pour qu'aucune page ne s'affiche dans le mauvais
+ * thème le temps du chargement.
+ *
+ * Échelle d'encre : `ink` est le texte principal, `ink-5` le plus effacé.
+ * Elle est monotone dans les deux thèmes — un contraste qui décroît d'un cran
+ * en clair décroît du même cran en sombre.
+ */
+@theme {
+  /* Surfaces */
+  --color-surface: #fbfaf9;
+  --color-raised: #ffffff;
+  --color-sunken: #f0efec;
+  --color-sunken-strong: #e2e0dc;
+
+  /* Traits */
+  --color-line: #e5e3de;
+  --color-line-strong: #d2cfc9;
+  --color-line-stronger: #b0aca4;
+
+  /* Encres */
+  --color-ink: #16130f;
+  --color-ink-1: #2a2521;
+  --color-ink-2: #423b35;
+  --color-ink-3: #5d554e;
+  --color-ink-4: #7d746c;
+  --color-ink-5: #a49b93;
+
+  /*
+   * Tons de vote. Les quatre positions publiées par l'Assemblée gardent la même
+   * teinte dans les deux thèmes ; seules la clarté et l'opacité changent.
+   */
+  /* Siège dont aucune position n'a été enregistrée : présent, mais muet. */
+  --color-seat-empty: #e7e5e1;
+
+  --color-for-softer: #f2fbf6;
+  --color-for-soft: #e6f6ed;
+  --color-for-soft-strong: #cfeddc;
+  --color-for-line: #a6dbbe;
+  --color-for-ink: #15803d;
+
+  --color-against-soft: #fdeaea;
+  --color-against-softer: #fdf3f3;
+  --color-against-line: #f2b5b5;
+  --color-against-ink: #b91c1c;
+
+  --color-abstain-soft: #fdf3e2;
+  --color-abstain-line: #ebc98f;
+  --color-abstain-ink: #a16207;
+
+  /* Lien, information de méthode, proposition du modèle */
+  --color-link-ink: #1d4ed8;
+  --color-link-soft: #e9effd;
+  --color-link-soft-strong: #d5e2fb;
+  --color-link-line: #aac4f6;
+
+  --color-info-soft: #e4f2fb;
+  --color-info-line: #a3d3ee;
+  --color-info-ink: #0369a1;
+
+  --color-model-soft: #eceafc;
+  --color-model-line: #bdbaf2;
+  --color-model-ink: #4338ca;
+}
+
+[data-theme='dark'] {
+  --color-surface: #030712;
+  --color-raised: #111827;
+  --color-sunken: #1f2937;
+  --color-sunken-strong: #374151;
+
+  --color-line: #1f2937;
+  --color-line-strong: #374151;
+  --color-line-stronger: #4b5563;
+
+  --color-ink: #ffffff;
+  --color-ink-1: #e5e7eb;
+  --color-ink-2: #d1d5db;
+  --color-ink-3: #9ca3af;
+  --color-ink-4: #6b7280;
+  --color-ink-5: #4b5563;
+
+  --color-seat-empty: #1c2432;
+
+  --color-for-softer: rgb(6 78 59 / 0.2);
+  --color-for-soft: rgb(6 78 59 / 0.3);
+  --color-for-soft-strong: rgb(6 78 59 / 0.5);
+  --color-for-line: #065f46;
+  --color-for-ink: #34d399;
+
+  --color-against-soft: rgb(127 29 29 / 0.3);
+  --color-against-softer: rgb(127 29 29 / 0.2);
+  --color-against-line: #991b1b;
+  --color-against-ink: #f87171;
+
+  --color-abstain-soft: rgb(120 53 15 / 0.3);
+  --color-abstain-line: #92400e;
+  --color-abstain-ink: #fbbf24;
+
+  --color-link-ink: #60a5fa;
+  --color-link-soft: rgb(30 58 138 / 0.3);
+  --color-link-soft-strong: rgb(30 58 138 / 0.5);
+  --color-link-line: #1e40af;
+
+  --color-info-soft: rgb(12 74 110 / 0.3);
+  --color-info-line: #075985;
+  --color-info-ink: #7dd3fc;
+
+  --color-model-soft: rgb(49 46 129 / 0.3);
+  --color-model-line: #3730a3;
+  --color-model-ink: #a5b4fc;
+}
+
+/* Contrôles natifs et barres de défilement suivent le thème choisi. */
+:root {
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}

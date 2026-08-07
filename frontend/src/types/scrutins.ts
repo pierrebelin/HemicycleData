@@ -111,10 +111,10 @@ export const positionLabels: Record<VoteDto['position'], string> = {
 }
 
 export const positionClasses: Record<VoteDto['position'], string> = {
-  for: 'bg-emerald-900/30 border-emerald-800 text-emerald-300',
-  against: 'bg-red-900/30 border-red-800 text-red-300',
-  abstention: 'bg-amber-900/30 border-amber-800 text-amber-300',
-  not_voting: 'bg-gray-800 border-gray-700 text-gray-400',
+  for: 'bg-for-soft border-for-line text-for-ink',
+  against: 'bg-against-soft border-against-line text-against-ink',
+  abstention: 'bg-abstain-soft border-abstain-line text-abstain-ink',
+  not_voting: 'bg-sunken border-line-strong text-ink-3',
 }
 
 export function formatDate(iso: string) {

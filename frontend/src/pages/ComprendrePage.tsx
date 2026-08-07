@@ -46,7 +46,7 @@ function RichText({ texte }: { texte: string }) {
     <>
       {morceaux.map((morceau, index) =>
         index % 2 === 1 ? (
-          <strong key={index} className="font-semibold text-gray-200">
+          <strong key={index} className="font-semibold text-ink-1">
             {morceau}
           </strong>
         ) : (
@@ -60,7 +60,7 @@ function RichText({ texte }: { texte: string }) {
 function BlocView({ bloc }: { bloc: Bloc }) {
   if (bloc.kind === 'p') {
     return (
-      <p className="text-sm leading-relaxed text-gray-400">
+      <p className="text-sm leading-relaxed text-ink-3">
         <RichText texte={bloc.texte} />
       </p>
     )
@@ -69,12 +69,12 @@ function BlocView({ bloc }: { bloc: Bloc }) {
   if (bloc.kind === 'ul') {
     return (
       <div>
-        {bloc.intro && <p className="text-sm text-gray-400">{bloc.intro}</p>}
+        {bloc.intro && <p className="text-sm text-ink-3">{bloc.intro}</p>}
         <ul className="mt-2 space-y-2">
           {bloc.items.map((item, index) => (
             <li
               key={index}
-              className="border-l-2 border-gray-800 pl-3 text-sm leading-relaxed text-gray-400"
+              className="border-l-2 border-line pl-3 text-sm leading-relaxed text-ink-3"
             >
               <RichText texte={item} />
             </li>
@@ -85,12 +85,12 @@ function BlocView({ bloc }: { bloc: Bloc }) {
   }
 
   return (
-    <p className="text-sm leading-relaxed text-gray-400">
+    <p className="text-sm leading-relaxed text-ink-3">
       <a
         href={bloc.lien}
         target="_blank"
         rel="noreferrer"
-        className="text-gray-200 underline decoration-gray-600 underline-offset-2 hover:decoration-gray-300"
+        className="text-ink-1 underline decoration-ink-5 underline-offset-2 hover:decoration-ink-2"
       >
         {bloc.libelle}
       </a>
@@ -113,10 +113,10 @@ function QuestionView({
       id={question.id}
       open={ouverte}
       onToggle={(event) => onBascule(event.currentTarget.open)}
-      className="scroll-mt-6 border-b border-gray-800"
+      className="scroll-mt-6 border-b border-line"
     >
-      <summary className="cursor-pointer list-none py-3 text-sm text-gray-200 marker:content-none hover:text-white">
-        <span className="mr-2 inline-block w-3 text-gray-600">
+      <summary className="cursor-pointer list-none py-3 text-sm text-ink-1 marker:content-none hover:text-ink">
+        <span className="mr-2 inline-block w-3 text-ink-5">
           {ouverte ? '−' : '+'}
         </span>
         {question.question}
@@ -145,10 +145,10 @@ function SectionView({
   if (questions.length === 0) return null
   return (
     <section id={section.id} className="scroll-mt-6">
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-4">
         {section.titre}
       </h3>
-      <div className="border-t border-gray-800">
+      <div className="border-t border-line">
         {questions.map((question) => (
           <QuestionView
             key={question.id}
@@ -236,7 +236,7 @@ export default function ComprendrePage() {
     <div className="space-y-8">
       <div>
         <h2 className="text-xl font-bold">Comprendre</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-400">
+        <p className="mt-2 text-sm leading-relaxed text-ink-3">
           Ce que ce site affiche, ce que les mots recouvrent, et ce que les
           données ne permettent pas de dire.
         </p>
@@ -253,15 +253,15 @@ export default function ComprendrePage() {
               onClick={() => appliquerNiveau(item.valeur)}
               className={`rounded px-3 py-1 text-sm ${
                 niveau === item.valeur
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'bg-sunken text-ink'
+                  : 'text-ink-3 hover:text-ink-1'
               }`}
             >
               {item.label}
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-ink-4">
           {NIVEAUX.find((item) => item.valeur === niveau)!.aide}
         </p>
       </div>
@@ -279,12 +279,12 @@ export default function ComprendrePage() {
       </div>
 
       {niveau === 'debutant' && (
-        <p className="border-t border-gray-800 pt-4 text-sm text-gray-500">
+        <p className="border-t border-line pt-4 text-sm text-ink-4">
           Ces réponses vous paraissent acquises ?{' '}
           <button
             type="button"
             onClick={() => appliquerNiveau('detaille')}
-            className="text-gray-300 underline decoration-gray-600 underline-offset-2 hover:decoration-gray-300"
+            className="text-ink-2 underline decoration-ink-5 underline-offset-2 hover:decoration-ink-2"
           >
             Passer au niveau détaillé
           </button>{' '}
@@ -292,11 +292,11 @@ export default function ComprendrePage() {
         </p>
       )}
 
-      <p className="border-t border-gray-800 pt-4 text-sm text-gray-500">
+      <p className="border-t border-line pt-4 text-sm text-ink-4">
         La méthode de rattachement aux thèmes est publiée à part :{' '}
         <Link
           to="/themes/methode"
-          className="text-gray-300 underline decoration-gray-600 underline-offset-2 hover:decoration-gray-300"
+          className="text-ink-2 underline decoration-ink-5 underline-offset-2 hover:decoration-ink-2"
         >
           méthode de thématisation
         </Link>

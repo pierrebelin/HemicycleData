@@ -55,7 +55,7 @@ export default function DossierListPage() {
       <div className="flex items-baseline gap-3 mb-8">
         <h2 className="text-xl font-semibold">Dossiers législatifs</h2>
         {data && (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-ink-4">
             {data.total.toLocaleString('fr-FR')} dossier
             {data.total > 1 ? 's' : ''}, du plus récent au plus ancien
           </span>
@@ -64,15 +64,15 @@ export default function DossierListPage() {
 
       {isLoading && (
         <div className="text-center py-20">
-          <p className="text-gray-400 animate-pulse">
+          <p className="text-ink-3 animate-pulse">
             Chargement des dossiers…
           </p>
         </div>
       )}
 
       {isError && (
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-          <p className="text-red-400">
+        <div className="bg-against-softer border border-against-line rounded-lg p-4">
+          <p className="text-against-ink">
             Erreur : {error instanceof Error ? error.message : 'inconnue'}
           </p>
         </div>
@@ -85,15 +85,15 @@ export default function DossierListPage() {
           <Link
             key={d.uid}
             to={`/dossiers/${d.uid}`}
-            className="block bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 transition-colors"
+            className="block bg-raised border border-line rounded-lg p-4 hover:border-line-stronger transition-colors"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium leading-snug">{d.title}</p>
+                <p className="text-ink font-medium leading-snug">{d.title}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs text-gray-500">{d.procedure}</p>
+                  <p className="text-xs text-ink-4">{d.procedure}</p>
                   {d.current_stage && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-900/30 border border-indigo-800/50 text-indigo-300">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-model-soft border border-model-line text-model-ink">
                       {d.current_stage.label}
                       {d.current_stage.chamber && ` — ${d.current_stage.chamber}`}
                     </span>
@@ -102,7 +102,7 @@ export default function DossierListPage() {
                 </div>
               </div>
               <div className="flex flex-col items-end shrink-0 text-right">
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-ink-3">
                   {new Date(
                     d.last_activity_date + 'T00:00:00',
                   ).toLocaleDateString('fr-FR', {
@@ -111,7 +111,7 @@ export default function DossierListPage() {
                     year: 'numeric',
                   })}
                 </span>
-                <span className="text-xs text-blue-400 mt-0.5">
+                <span className="text-xs text-link-ink mt-0.5">
                   {d.last_activity_label}
                 </span>
               </div>
@@ -125,17 +125,17 @@ export default function DossierListPage() {
           <button
             onClick={() => goTo(page - 1)}
             disabled={page <= 1}
-            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded text-sm bg-sunken text-ink-2 hover:bg-sunken-strong disabled:opacity-40 disabled:cursor-not-allowed"
           >
             ← Précédent
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-ink-4">
             Page {data.page} sur {data.total_pages}
           </span>
           <button
             onClick={() => goTo(page + 1)}
             disabled={page >= data.total_pages}
-            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded text-sm bg-sunken text-ink-2 hover:bg-sunken-strong disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Suivant →
           </button>

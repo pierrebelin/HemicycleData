@@ -1,10 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>hémicycle.data — Transparence des votes parlementaires</title>
+    <meta
+      name="description"
+      content="Les votes de l'Assemblée nationale, par thème et par groupe. Chiffres bruts, source officielle sur chaque page."
+    />
+    <script>
+      // Appliqué avant le premier rendu : sinon la page s'afficherait dans le
+      // thème par défaut le temps que React monte, puis basculerait.
+      (function () {
+        var choix = null
+        try {
+          choix = localStorage.getItem('theme')
+        } catch (_) {
+          /* stockage indisponible : on retombe sur la préférence système */
+        }
+        var sombre =
+          choix === 'dark' ||
+          (choix !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = sombre ? 'dark' : 'light'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

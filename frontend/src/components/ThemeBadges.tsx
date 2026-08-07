@@ -23,7 +23,7 @@ export function FamilyBadges({
             {family.label}
             <span
               className={`ml-1.5 text-[10px] uppercase tracking-wide ${
-                arbitrated ? 'text-emerald-400' : 'text-amber-400'
+                arbitrated ? 'text-for-ink' : 'text-abstain-ink'
               }`}
               title={family.origin_note}
             >
@@ -32,12 +32,12 @@ export function FamilyBadges({
           </>
         )
         const className =
-          'inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2 py-0.5 text-xs text-gray-200'
+          'inline-flex items-center rounded border border-line-strong bg-raised px-2 py-0.5 text-xs text-ink-1'
         return linkToFamily ? (
           <Link
             key={family.code}
             to={`/themes/${family.code}`}
-            className={`${className} hover:border-gray-500`}
+            className={`${className} hover:border-line-stronger`}
           >
             {content}
           </Link>
@@ -59,14 +59,14 @@ export function UnassignedNote({ outcome }: { outcome: string | null }) {
       : outcome === 'failed'
         ? "Aucune famille : le modèle n'a pas répondu. Une nouvelle passe reprendra ce texte."
         : "Aucune famille : ce texte n'a pas encore été soumis."
-  return <p className="text-xs text-gray-500">{reason}</p>
+  return <p className="text-xs text-ink-4">{reason}</p>
 }
 
 export function MethodNote({ note }: { note: string }) {
   return (
-    <p className="rounded border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-400">
+    <p className="rounded border border-line bg-raised px-3 py-2 text-xs text-ink-3">
       {note}{' '}
-      <Link to="/themes/methode" className="underline hover:text-gray-200">
+      <Link to="/themes/methode" className="underline hover:text-ink-1">
         Méthode complète
       </Link>
     </p>
