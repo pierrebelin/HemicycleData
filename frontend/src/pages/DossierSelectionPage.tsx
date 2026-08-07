@@ -29,9 +29,9 @@ interface RecentDossiersResponse {
 }
 
 function scoreBadgeColor(score: number) {
-  if (score >= 60) return 'bg-emerald-600'
-  if (score >= 30) return 'bg-amber-600'
-  return 'bg-gray-600'
+  if (score >= 60) return 'bg-yes'
+  if (score >= 30) return 'bg-abstain'
+  return 'bg-ink-faint'
 }
 
 /// Écran de travail éditorial, hérité de l'ancienne cible « posts Instagram ».
@@ -90,12 +90,18 @@ export default function DossierSelectionPage() {
 
   return (
     <>
-      <div className="flex items-center gap-4 mb-2">
-        <h2 className="text-xl font-semibold">Sélection des dossiers</h2>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3">
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Sélection des dossiers
+        </h2>
+        <p className="text-sm text-ink-faint">
+          Outil éditorial interne. Le score et le classement n'apparaissent pas
+          sur les pages publiques.
+        </p>
         <button
           onClick={() => refresh.mutate()}
           disabled={refresh.isPending}
-          className="ml-auto px-3 py-1 rounded text-sm bg-gray-800 text-gray-400 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="ml-auto flex items-center gap-2 rounded border border-line bg-surface px-3 py-1 text-sm text-ink-soft hover:bg-surface-soft disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {refresh.isPending ? (
             <>
@@ -110,66 +116,62 @@ export default function DossierSelectionPage() {
           )}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-8">
-        Outil éditorial interne. Le score et le classement n'apparaissent pas
-        sur les pages publiques.
-      </p>
 
       {refresh.isSuccess && (
-        <div className="mb-4 bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
-          <p className="text-emerald-400 text-sm">
+        <div className="mb-3 rounded-lg border border-yes/25 bg-yes-soft px-3 py-2">
+          <p className="text-yes text-sm">
             {refresh.data.count} dossier{refresh.data.count > 1 ? 's' : ''} synchronisé{refresh.data.count > 1 ? 's' : ''}
           </p>
         </div>
       )}
 
       {refresh.isError && (
-        <div className="mb-4 bg-red-900/20 border border-red-800 rounded-lg p-3">
-          <p className="text-red-400 text-sm">
+        <div className="mb-3 rounded-lg border border-no/25 bg-no-soft px-3 py-2">
+          <p className="text-no text-sm">
             Erreur de synchronisation : {refresh.error instanceof Error ? refresh.error.message : 'inconnue'}
           </p>
         </div>
       )}
 
-      <section className="mb-8">
-        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-amber-500" />
+      <section className="mb-5">
+        <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink-faint">
+          <span className="w-2 h-2 rounded-full bg-abstain-bar" />
           Suggestions Instagram
         </h3>
         {suggestions.data && suggestions.data.suggestions.length === 0 && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-faint">
             Aucun dossier en attente de sélection.
           </p>
         )}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {suggestions.data?.suggestions.map((d) => (
             <div
               key={d.uid}
-              className="bg-gray-900 border border-amber-900/50 rounded-lg p-4 flex items-center gap-4"
+              className="flex items-center gap-4 rounded-lg border border-abstain/30 bg-abstain-soft px-4 py-2.5"
             >
               <Link
                 to={`/dossiers/${d.uid}`}
-                className="flex-1 min-w-0 hover:opacity-80"
+                className="flex-1 min-w-0 hover:opacity-70"
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white ${scoreBadgeColor(d.score_total)}`}
+                    className={`inline-flex items-center justify-center rounded px-1.5 text-xs font-bold text-white ${scoreBadgeColor(d.score_total)}`}
                   >
                     {d.score_total}
                   </span>
-                  <p className="text-white font-medium leading-snug truncate">
+                  <p className="truncate text-sm font-medium leading-snug">
                     {d.title}
                   </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{d.procedure}</p>
+                <p className="mt-0.5 text-xs text-ink-faint">{d.procedure}</p>
               </Link>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-1.5 shrink-0">
                 <button
                   onClick={() =>
                     curate.mutate({ uid: d.uid, status: 'selected' })
                   }
                   disabled={curate.isPending}
-                  className="px-3 py-1.5 rounded text-xs font-medium bg-emerald-900/30 border border-emerald-800 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-50"
+                  className="rounded border border-yes/25 bg-yes-soft px-2 py-0.5 text-xs font-medium text-yes hover:border-yes/50 disabled:opacity-50"
                 >
                   Sélectionner
                 </button>
@@ -178,7 +180,7 @@ export default function DossierSelectionPage() {
                     curate.mutate({ uid: d.uid, status: 'dismissed' })
                   }
                   disabled={curate.isPending}
-                  className="px-3 py-1.5 rounded text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700 disabled:opacity-50"
+                  className="rounded border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ink-soft hover:border-line-strong disabled:opacity-50"
                 >
                   Écarter
                 </button>
@@ -189,17 +191,19 @@ export default function DossierSelectionPage() {
       </section>
 
       <section>
-        <div className="flex items-center gap-4 mb-3">
-          <h3 className="text-lg font-semibold">Dossiers actifs</h3>
-          <div className="flex gap-1">
+        <div className="mb-2 flex flex-wrap items-center gap-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-faint">
+            Dossiers actifs
+          </h3>
+          <div className="flex gap-0.5">
             {[7, 14, 30].map((d) => (
               <button
                 key={d}
                 onClick={() => setDays(d)}
-                className={`px-3 py-1 rounded text-sm ${
+                className={`rounded px-2 py-0.5 text-xs transition-colors ${
                   days === d
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    ? 'bg-accent-soft text-accent font-medium'
+                    : 'text-ink-soft hover:bg-surface-soft'
                 }`}
               >
                 {d}j
@@ -207,58 +211,58 @@ export default function DossierSelectionPage() {
             ))}
           </div>
           {recent.data && (
-            <span className="text-sm text-gray-500">
+            <span className="text-xs text-ink-faint">
               {recent.data.count} dossier{recent.data.count > 1 ? 's' : ''}
             </span>
           )}
         </div>
 
         {recent.isLoading && (
-          <p className="text-gray-400 animate-pulse py-8">
+          <p className="animate-pulse py-8 text-ink-faint">
             Chargement des dossiers…
           </p>
         )}
 
         {recent.isError && (
-          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-            <p className="text-red-400">
+          <div className="rounded-lg border border-no/25 bg-no-soft px-4 py-3">
+            <p className="text-no text-sm">
               Erreur :{' '}
               {recent.error instanceof Error ? recent.error.message : 'inconnue'}
             </p>
           </div>
         )}
 
-        <div className="space-y-3">
-          {recent.data?.dossiers.map((d) => (
-            <Link
-              key={d.uid}
-              to={`/dossiers/${d.uid}`}
-              className="block bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-4">
+        {recent.data && (
+          <div className="divide-y divide-line rounded-lg border border-line bg-surface">
+            {recent.data.dossiers.map((d) => (
+              <Link
+                key={d.uid}
+                to={`/dossiers/${d.uid}`}
+                className="flex items-baseline justify-between gap-6 px-4 py-2.5 hover:bg-surface-soft transition-colors"
+              >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white ${scoreBadgeColor(d.score_total)}`}
+                      className={`inline-flex items-center justify-center rounded px-1.5 text-xs font-bold text-white ${scoreBadgeColor(d.score_total)}`}
                     >
                       {d.score_total}
                     </span>
-                    <p className="text-white font-medium leading-snug truncate">
+                    <p className="truncate text-sm font-medium leading-snug">
                       {d.title}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xs text-gray-500">{d.procedure}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
+                    <span>{d.procedure}</span>
                     {d.current_stage && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-900/30 border border-indigo-800/50 text-indigo-300">
+                      <span className="rounded border border-info/20 bg-info-soft px-1.5 text-info">
                         {d.current_stage.label}
                         {d.current_stage.chamber && ` — ${d.current_stage.chamber}`}
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col items-end shrink-0 text-right">
-                  <span className="text-xs text-gray-400">
+                <div className="shrink-0 text-right">
+                  <span className="block text-xs text-ink-soft">
                     {new Date(
                       d.last_activity_date + 'T00:00:00',
                     ).toLocaleDateString('fr-FR', {
@@ -266,14 +270,14 @@ export default function DossierSelectionPage() {
                       month: 'short',
                     })}
                   </span>
-                  <span className="text-xs text-blue-400 mt-0.5">
+                  <span className="block text-xs text-ink-faint">
                     {d.last_activity_label}
                   </span>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </>
   )

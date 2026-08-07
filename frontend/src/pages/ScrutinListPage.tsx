@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ScrutinList, { CoverageNote } from '../components/ScrutinList'
+import {
+  Button,
+  ErrorPanel,
+  Loading,
+  PageHeader,
+  SegmentedControl,
+} from '../components/ui'
 import type { ScrutinListResponse } from '../types/scrutins'
 
 const PAGE_SIZE = 50
@@ -23,39 +30,6 @@ const dossierFilters = [
   { value: 'true', label: 'Avec dossier' },
   { value: 'false', label: 'Sans dossier' },
 ]
-
-function FilterGroup({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string
-  options: { value: string; label: string }[]
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500">{label}</span>
-      <div className="flex gap-1">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            onClick={() => onChange(o.value)}
-            className={`px-2.5 py-1 rounded text-xs ${
-              value === o.value
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 export default function ScrutinListPage() {
   const [outcome, setOutcome] = useState('')
@@ -92,110 +66,90 @@ export default function ScrutinListPage() {
 
   return (
     <>
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-1">Scrutins</h2>
-        <p className="text-sm text-gray-500">
-          Tous les scrutins publics de la législature, sans sélection.
-        </p>
-      </div>
+      <PageHeader
+        title="Scrutins"
+        lede="Tous les scrutins publics de la législature, dans l'ordre où ils ont eu lieu. Aucune sélection, aucun classement."
+      />
 
-      <div className="space-y-3 mb-6">
+      {/* Recherche et filtres sur une seule ligne : la largeur du site les
+          porte, et trois blocs empilés repoussaient la liste vers le bas. */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <form
           onSubmit={(e) => {
             e.preventDefault()
             setSearch(draft)
             setOffset(0)
           }}
-          className="flex gap-2"
+          className="flex w-full gap-1.5 sm:w-auto"
         >
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Rechercher dans l'objet du scrutin…"
-            className="flex-1 bg-gray-900 border border-gray-800 rounded px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm shadow-card placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-accent/15 focus:outline-none sm:w-72 sm:flex-none"
           />
-          <button
-            type="submit"
-            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700"
-          >
-            Rechercher
-          </button>
+          <Button type="submit">Rechercher</Button>
         </form>
 
-        <div className="flex flex-wrap gap-4">
-          <FilterGroup
-            label="Sort"
-            options={outcomes}
-            value={outcome}
-            onChange={reset(setOutcome)}
-          />
-          <FilterGroup
-            label="Type"
-            options={ballotTypes}
-            value={ballotType}
-            onChange={reset(setBallotType)}
-          />
-          <FilterGroup
-            label="Dossier"
-            options={dossierFilters}
-            value={withDossier}
-            onChange={reset(setWithDossier)}
-          />
-        </div>
-
-        {data && <CoverageNote note={data.coverage_note} />}
+        <SegmentedControl
+          label="Sort"
+          options={outcomes}
+          value={outcome}
+          onChange={reset(setOutcome)}
+        />
+        <SegmentedControl
+          label="Type"
+          options={ballotTypes}
+          value={ballotType}
+          onChange={reset(setBallotType)}
+        />
+        <SegmentedControl
+          label="Dossier"
+          options={dossierFilters}
+          value={withDossier}
+          onChange={reset(setWithDossier)}
+        />
       </div>
 
-      {isLoading && (
-        <div className="text-center py-20">
-          <p className="text-gray-400 animate-pulse">Chargement des scrutins…</p>
+      {data && (
+        <div className="mb-4">
+          <CoverageNote note={data.coverage_note} />
         </div>
       )}
 
-      {isError && (
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-          <p className="text-red-400">
-            Erreur : {error instanceof Error ? error.message : 'inconnue'}
-          </p>
-        </div>
-      )}
+      {isLoading && <Loading>Chargement des scrutins…</Loading>}
+      {isError && <ErrorPanel error={error} />}
 
       {data && (
         <>
-          <p className="text-sm text-gray-500 mb-3 tabular-nums">
+          <p className="mb-2 text-xs text-ink-faint">
             {data.total.toLocaleString('fr-FR')} scrutin
             {data.total > 1 ? 's' : ''}
-            {data.total > 0 && (
-              <span className="text-gray-600">
-                {' '}
-                — affichés {data.offset + 1} à {data.offset + data.count}
-              </span>
-            )}
+            {data.total > 0 &&
+              ` — affichés ${data.offset + 1} à ${data.offset + data.count}`}
           </p>
 
           {data.count === 0 ? (
-            <p className="text-gray-500 text-sm border border-gray-800 rounded-lg p-4">
+            <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-soft shadow-card">
               Aucun scrutin ne correspond à ces filtres.
             </p>
           ) : (
             <ScrutinList scrutins={data.scrutins} />
           )}
 
-          <div className="flex items-center justify-between mt-6">
-            <button
+          <div className="mt-5 flex items-center justify-between">
+            <Button
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
               disabled={offset === 0}
-              className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               ← Précédents
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setOffset(offset + PAGE_SIZE)}
               disabled={offset + data.count >= data.total}
-              className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Suivants →
-            </button>
+            </Button>
           </div>
         </>
       )}

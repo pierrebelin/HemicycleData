@@ -1,6 +1,15 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import OutcomeBadge from '../components/OutcomeBadge'
+import {
+  Button,
+  ErrorPanel,
+  ListCard,
+  Loading,
+  Meta,
+  PageHeader,
+  Pill,
+} from '../components/ui'
 import type { OutcomeDto } from '../types/dossiers'
 
 interface StageDto {
@@ -52,57 +61,48 @@ export default function DossierListPage() {
 
   return (
     <>
-      <div className="flex items-baseline gap-3 mb-8">
-        <h2 className="text-xl font-semibold">Dossiers législatifs</h2>
-        {data && (
-          <span className="text-sm text-gray-500">
-            {data.total.toLocaleString('fr-FR')} dossier
-            {data.total > 1 ? 's' : ''}, du plus récent au plus ancien
-          </span>
-        )}
-      </div>
+      <PageHeader
+        title="Dossiers législatifs"
+        lede={
+          data
+            ? `Les ${data.total.toLocaleString('fr-FR')} dossiers ouverts sous cette législature, du plus récemment actif au plus ancien. Rien n'est écarté.`
+            : 'Tous les dossiers ouverts sous cette législature, du plus récemment actif au plus ancien.'
+        }
+      />
 
-      {isLoading && (
-        <div className="text-center py-20">
-          <p className="text-gray-400 animate-pulse">
-            Chargement des dossiers…
-          </p>
-        </div>
-      )}
+      {isLoading && <Loading>Chargement des dossiers…</Loading>}
+      {isError && <ErrorPanel error={error} />}
 
-      {isError && (
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-          <p className="text-red-400">
-            Erreur : {error instanceof Error ? error.message : 'inconnue'}
-          </p>
-        </div>
-      )}
-
-      <div
-        className={`space-y-3 ${isPlaceholderData ? 'opacity-50' : ''}`}
-      >
-        {data?.dossiers.map((d) => (
-          <Link
-            key={d.uid}
-            to={`/dossiers/${d.uid}`}
-            className="block bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 transition-colors"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-medium leading-snug">{d.title}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs text-gray-500">{d.procedure}</p>
+      {/*
+        Une ligne par dossier plutôt qu'une carte : la largeur disponible porte
+        le titre et la date sur la même ligne, et vingt dossiers tiennent dans
+        une hauteur d'écran au lieu de trois.
+      */}
+      {data && (
+        <ListCard muted={isPlaceholderData}>
+          {data.dossiers.map((d) => (
+            <Link
+              key={d.uid}
+              to={`/dossiers/${d.uid}`}
+              className="group flex flex-col gap-1.5 px-4 py-3 transition-colors hover:bg-surface-soft sm:flex-row sm:items-baseline sm:justify-between sm:gap-6"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-semibold leading-snug text-ink transition-colors group-hover:text-accent">
+                  {d.title}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Meta>{d.procedure}</Meta>
                   {d.current_stage && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-900/30 border border-indigo-800/50 text-indigo-300">
+                    <Pill tone="info">
                       {d.current_stage.label}
                       {d.current_stage.chamber && ` — ${d.current_stage.chamber}`}
-                    </span>
+                    </Pill>
                   )}
                   <OutcomeBadge outcome={d.outcome} />
                 </div>
               </div>
-              <div className="flex flex-col items-end shrink-0 text-right">
-                <span className="text-xs text-gray-400">
+              <div className="shrink-0 sm:w-40 sm:text-right">
+                <span className="block text-xs font-medium text-ink-soft">
                   {new Date(
                     d.last_activity_date + 'T00:00:00',
                   ).toLocaleDateString('fr-FR', {
@@ -111,34 +111,29 @@ export default function DossierListPage() {
                     year: 'numeric',
                   })}
                 </span>
-                <span className="text-xs text-blue-400 mt-0.5">
+                <span className="block text-xs text-ink-faint">
                   {d.last_activity_label}
                 </span>
               </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+            </Link>
+          ))}
+        </ListCard>
+      )}
 
       {data && data.total_pages > 1 && (
-        <nav className="flex items-center justify-between gap-4 mt-8">
-          <button
-            onClick={() => goTo(page - 1)}
-            disabled={page <= 1}
-            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
+        <nav className="mt-5 flex items-center justify-between gap-4">
+          <Button onClick={() => goTo(page - 1)} disabled={page <= 1}>
             ← Précédent
-          </button>
-          <span className="text-sm text-gray-500">
+          </Button>
+          <span className="text-xs text-ink-faint">
             Page {data.page} sur {data.total_pages}
           </span>
-          <button
+          <Button
             onClick={() => goTo(page + 1)}
             disabled={page >= data.total_pages}
-            className="px-3 py-1.5 rounded text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Suivant →
-          </button>
+          </Button>
         </nav>
       )}
     </>
