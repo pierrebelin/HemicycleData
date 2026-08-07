@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { FamilyBadges } from '../components/ThemeBadges'
 import type {
@@ -236,6 +236,11 @@ function GroupPicker({
         <span className="text-xs tabular-nums text-gray-600">
           {selected.length} sur {max} au maximum
         </span>
+        {selected.length === 0 && (
+          <span className="text-xs text-gray-600">
+            — choisissez les groupes à comparer
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {groups.map((group) => {
@@ -278,25 +283,42 @@ function GroupPicker({
 export default function GroupVotesPage() {
   const [params, setParams] = useSearchParams()
 
-  const groupsParam = params.get('groupes') ?? 'RN,SOC'
+  // Aucune sélection par défaut : présélectionner des groupes reviendrait à
+  // désigner la comparaison qui mérite d'être faite, et à orienter la lecture
+  // avant qu'elle commence (PROJECT.md §6).
+  const groupsParam = params.get('groupes') ?? ''
   const theme = params.get('theme') ?? ''
   const offset = Math.max(0, Number(params.get('offset') ?? 0) || 0)
 
+  const requested = groupsParam
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean)
+
+  // Sans groupe demandé, la page n'affiche aucun vote : la requête ne sert
+  // alors qu'à ramener le référentiel des groupes du sélecteur, et une page
+  // entière de votes serait chargée pour rien.
   const query = new URLSearchParams({
     groupes: groupsParam,
-    limit: String(PAGE_SIZE),
+    limit: String(requested.length > 0 ? PAGE_SIZE : 1),
     offset: String(offset),
   })
   if (theme) query.set('theme', theme)
 
-  const { data, isLoading, isError, error } = useQuery<FinalVoteListResponse>({
-    queryKey: ['votes-finaux', query.toString()],
-    queryFn: () =>
-      fetch(`/api/votes-finaux?${query}`).then(async (res) => {
-        if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`)
-        return res.json()
-      }),
-  })
+  const { data, isLoading, isError, error, isPlaceholderData } =
+    useQuery<FinalVoteListResponse>({
+      queryKey: ['votes-finaux', query.toString()],
+      queryFn: () =>
+        fetch(`/api/votes-finaux?${query}`).then(async (res) => {
+          if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`)
+          return res.json()
+        }),
+      // Changer de groupes ne doit pas vider le haut de la page : le référentiel
+      // du sélecteur voyage dans la même réponse, et le laisser disparaître
+      // ferait clignoter les pastilles au moment même où on clique dessus. La
+      // réponse précédente tient le décor pendant que les votes se rechargent.
+      placeholderData: keepPreviousData,
+    })
 
   const families = useQuery<FamiliesResponse>({
     queryKey: ['themes'],
@@ -306,11 +328,6 @@ export default function GroupVotesPage() {
         return res.json()
       }),
   })
-
-  const requested = groupsParam
-    .split(',')
-    .map((token) => token.trim())
-    .filter(Boolean)
 
   function update(next: Record<string, string>) {
     const merged = new URLSearchParams(params)
@@ -332,16 +349,25 @@ export default function GroupVotesPage() {
 
   // Le sigle affiché fait foi : un groupe renommé est proposé sous son sigle
   // courant, et c'est celui-là qui part dans l'adresse.
+  // Pendant un rechargement, la réponse en main porte encore l'ancienne
+  // sélection : c'est l'adresse qui fait foi, sinon la pastille qu'on vient de
+  // cliquer resterait éteinte jusqu'à l'arrivée des votes.
   const selectedAbbrevs =
-    data === undefined ? requested : selected.map((group) => group.abbrev)
+    data === undefined || isPlaceholderData
+      ? requested
+      : selected.map((group) => group.abbrev)
+  const hasSelection = selectedAbbrevs.length > 0
+  // Les votes affichés ne correspondent plus à la sélection : la zone se
+  // recharge, le reste de la page ne bouge pas.
+  const reloading = hasSelection && (isLoading || isPlaceholderData) && !isError
 
   function toggleGroup(abbrev: string) {
     const next = selectedAbbrevs.includes(abbrev)
       ? selectedAbbrevs.filter((token) => token !== abbrev)
       : [...selectedAbbrevs, abbrev].slice(0, maxGroups)
-    // Un groupe au moins : sans paramètre, l'adresse retomberait sur la
-    // sélection par défaut, ce qui se lirait comme un bug.
-    if (next.length === 0) return
+    // Retirer le dernier groupe ramène à l'état de départ : l'adresse perd le
+    // paramètre, et la page repose la question au lieu de retomber sur une
+    // sélection qu'elle aurait choisie seule.
     update({ groupes: next.join(',') })
   }
 
@@ -377,7 +403,7 @@ export default function GroupVotesPage() {
           </label>
         </div>
 
-        {data && (
+        {data && hasSelection && (
           <div className="space-y-1.5">
             <p className="rounded-md border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500">
               {data.scope_note}{' '}
@@ -388,7 +414,7 @@ export default function GroupVotesPage() {
             <p className="rounded-md border border-gray-800 bg-gray-900/50 px-3 py-2 text-xs text-gray-500">
               {data.share_note} {data.outcome_note}
             </p>
-            {selected
+            {(isPlaceholderData ? [] : selected)
               .filter((group) => group.final_vote_count < data.total_unfiltered)
               .map((group) => (
                 <p
@@ -415,7 +441,21 @@ export default function GroupVotesPage() {
         )}
       </div>
 
-      {isLoading && (
+      {!hasSelection && (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-4">
+          <p className="text-sm text-gray-300">
+            Aucun groupe n'est sélectionné au départ.
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            Choisir pour vous les groupes à comparer reviendrait à désigner la
+            comparaison qui mérite d'être faite. Sélectionnez ci-dessus les
+            groupes que vous voulez lire côte à côte — {maxGroups} au maximum —
+            pour afficher les votes sur l'ensemble.
+          </p>
+        </div>
+      )}
+
+      {reloading && (
         <div className="py-20 text-center">
           <p className="animate-pulse text-gray-400">Chargement des votes…</p>
         </div>
@@ -429,7 +469,7 @@ export default function GroupVotesPage() {
         </div>
       )}
 
-      {data && (
+      {data && hasSelection && !reloading && (
         <>
           <p className="mb-3 text-sm tabular-nums text-gray-500">
             {data.total.toLocaleString('fr-FR')} vote{data.total > 1 ? 's' : ''} sur
