@@ -1,15 +1,19 @@
 import { Outlet, Link, NavLink } from 'react-router'
+import Logo from './components/Logo'
 
 export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-950 text-white">
       <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-end justify-between gap-4">
-          <Link to="/" className="hover:opacity-80">
-            <h1 className="text-2xl font-bold">hémicycle.data</h1>
-            <p className="text-sm text-gray-500">
-              Transparence des votes parlementaires
-            </p>
+        <div className="max-w-3xl mx-auto flex flex-wrap items-end justify-between gap-4">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-80">
+            <Logo className="h-10 w-auto shrink-0" />
+            <div>
+              <h1 className="text-2xl font-bold">hémicycle.data</h1>
+              <p className="text-sm text-gray-500">
+                Transparence des votes parlementaires
+              </p>
+            </div>
           </Link>
           <nav className="flex flex-wrap justify-end gap-1">
             {[
