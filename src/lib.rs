@@ -10,6 +10,7 @@ use application::ports::actor_source::ActorSource;
 use application::ports::assembly_source::AssemblySource;
 use application::ports::dossier_repository::DossierRepository;
 use application::ports::final_vote_repository::FinalVoteRepository;
+use application::ports::group_repository::GroupRepository;
 use application::ports::scrutin_repository::ScrutinRepository;
 use application::ports::scrutin_source::ScrutinSource;
 use application::ports::theme_classifier::ThemeClassifier;
@@ -25,6 +26,7 @@ pub struct AppState {
     pub scrutin_source: Arc<dyn ScrutinSource>,
     pub scrutin_repository: Arc<dyn ScrutinRepository>,
     pub final_vote_repository: Arc<dyn FinalVoteRepository>,
+    pub group_repository: Arc<dyn GroupRepository>,
     pub theme_repository: Arc<dyn ThemeRepository>,
     pub theme_classifier: Arc<dyn ThemeClassifier>,
     /// Jeton de l'ecran d'arbitrage (CU-03). Absent = arbitrage ferme.

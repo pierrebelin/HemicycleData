@@ -7,7 +7,8 @@ use tower_http::cors::CorsLayer;
 use crate::AppState;
 
 use super::handlers::{
-    dossier_handlers, final_vote_handlers, guide_handlers, scrutin_handlers, theme_handlers,
+    dossier_handlers, final_vote_handlers, group_handlers, guide_handlers, scrutin_handlers,
+    theme_handlers,
 };
 
 pub fn create_router(state: AppState) -> Router {
@@ -46,6 +47,10 @@ pub fn create_router(state: AppState) -> Router {
             "/api/votes-finaux",
             get(final_vote_handlers::list_final_votes),
         )
+        // Groupes parlementaires: liste et fiche. Un groupe repond a son
+        // identifiant comme a son sigle, ancien ou courant (PROJECT.md §8.1).
+        .route("/api/groupes", get(group_handlers::list_groups))
+        .route("/api/groupes/{group}", get(group_handlers::get_group_detail))
         .route(
             "/api/scrutins/refresh",
             post(scrutin_handlers::refresh_scrutins),
