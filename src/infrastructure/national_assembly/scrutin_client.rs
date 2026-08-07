@@ -1,6 +1,4 @@
 use std::io::{Cursor, Read};
-use std::sync::Mutex;
-use std::time::Instant;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -13,6 +11,7 @@ use crate::domain::scrutin::{
     MISSING_GROUP_SENTINEL,
 };
 
+use super::archive_fetcher::ArchiveFetcher;
 use super::scrutin_parsing::{
     count, is_true, non_empty, optional_count, votants_in, RawDecompte, RawGroupe, RawMiseAuPoint,
     RawScrutin, RawScrutinWrapper, RawVotant, RawVotantBlock,
@@ -21,70 +20,20 @@ use super::scrutin_parsing::{
 /// Archive complete des scrutins de la legislature. RM-01: il n'existe pas de
 /// sous-ensemble a demander, on prend tout.
 const SCRUTINS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/scrutins/Scrutins.json.zip";
-const CACHE_TTL_SECS: u64 = 3600;
-
-struct CachedZip {
-    data: Vec<u8>,
-    fetched_at: Instant,
-}
 
 pub struct ScrutinClient {
-    http: reqwest::Client,
-    cache: Mutex<Option<CachedZip>>,
+    archive: ArchiveFetcher,
 }
 
 impl ScrutinClient {
     pub fn new() -> Self {
-        let http = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .build()
-            .expect("failed to build HTTP client");
         Self {
-            http,
-            cache: Mutex::new(None),
+            archive: ArchiveFetcher::new(SCRUTINS_URL, "scrutins"),
         }
     }
 
     async fn get_zip(&self) -> Result<Vec<u8>, SourceError> {
-        {
-            let cache = self.cache.lock().unwrap();
-            if let Some(cached) = cache.as_ref() {
-                if cached.fetched_at.elapsed().as_secs() < CACHE_TTL_SECS {
-                    tracing::debug!("Using cached scrutins ZIP");
-                    return Ok(cached.data.clone());
-                }
-            }
-        }
-
-        tracing::info!("Downloading {SCRUTINS_URL}");
-        let response = self
-            .http
-            .get(SCRUTINS_URL)
-            .send()
-            .await
-            .map_err(|e| SourceError::Download(e.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(SourceError::Download(format!("HTTP {}", response.status())));
-        }
-
-        let data = response
-            .bytes()
-            .await
-            .map(|b| b.to_vec())
-            .map_err(|e| SourceError::Download(e.to_string()))?;
-
-        tracing::info!("Downloaded {} bytes of scrutins", data.len());
-
-        {
-            let mut cache = self.cache.lock().unwrap();
-            *cache = Some(CachedZip {
-                data: data.clone(),
-                fetched_at: Instant::now(),
-            });
-        }
-
-        Ok(data)
+        self.archive.fetch().await
     }
 
     pub(crate) fn parse_archive(

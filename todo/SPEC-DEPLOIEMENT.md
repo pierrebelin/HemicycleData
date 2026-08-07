@@ -428,6 +428,20 @@ pas pour suivre la source : l'open data de l'Assemblée n'est pas mis à jour à
 cette cadence. La plupart des passages ne réécrivent rien et se comptent en
 secondes.
 
+Un passage coûte **trois requêtes** — les trois archives ZIP de
+`data.assemblee-nationale.fr` — et rien de plus : tout le reste est parsé en
+local, il n'y a aucun appel par dossier. Ces trois requêtes sont
+conditionnelles (`If-None-Match` / `If-Modified-Since`) : quand l'archive n'a
+pas changé, la source répond `304 Not Modified` en quelques octets et la copie
+en mémoire est resservie sans être reparsée. Sur une archive republiée une fois
+par jour, onze passages sur douze ne téléchargent donc rien. C'est ce qui rend
+la cadence de deux heures tenable ; sans ce mécanisme, il faudrait l'espacer.
+
+Le client se nomme auprès de la source
+(`hemicycle.data/<version> (+<URL du dépôt>)`). Si l'Assemblée devait un jour
+resserrer l'accès, c'est ce qui permet de nous joindre plutôt que de nous
+couper.
+
 ```bash
 systemctl list-timers hemicycle-refresh.timer    # prochaine et dernière passe
 journalctl -u hemicycle-refresh -n 50 --no-pager # résumé du dernier passage
