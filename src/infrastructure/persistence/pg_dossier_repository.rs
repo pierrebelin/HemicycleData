@@ -1,12 +1,14 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use crate::application::ports::dossier_repository::{
-    DossierPage, DossierRepository, RepositoryError,
+    DossierPage, DossierRepository, RepositoryError, StoredDossierState,
 };
 use crate::domain::actor::{ActorRole, ActorUid, GroupUid, MembershipQuality};
-use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, InitiatorGroup, LegislativeAct, LegislativeDocument, LegislativeStage, LegislativeDossier, Score};
+use crate::domain::dossier::{Committee, CurationStatus, DossierOutcome, DossierUid, Initiator, InitiatorGroup, LawPublication, LegislativeAct, LegislativeDocument, LegislativeStage, LegislativeDossier, Score};
 
 pub struct PgDossierRepository {
     pool: PgPool,
@@ -67,10 +69,38 @@ impl PgDossierRepository {
         for dossier in dossiers {
             let stage_code = dossier.current_stage.map(|s| s.to_code().to_string());
 
+            let outcome = &dossier.outcome;
+            let (law_code, law_jo_date, law_url) = match outcome {
+                DossierOutcome::Promulgated { publication, .. } => (
+                    publication.law_code.clone(),
+                    publication.jo_date,
+                    publication.legifrance_url.clone(),
+                ),
+                _ => (None, None, None),
+            };
+            let (merged_into_uid, merge_cause) = match outcome {
+                DossierOutcome::MergedInto { dossier_uid, cause } => {
+                    (Some(dossier_uid.as_str().to_string()), cause.clone())
+                }
+                _ => (None, None),
+            };
+            let outcome_label = match outcome {
+                DossierOutcome::Rejected { label, .. } => Some(label.clone()),
+                _ => None,
+            };
+
             sqlx::query(
-                "INSERT INTO legislative_dossiers (uid, title, procedure_label, last_activity_date, last_activity_label, score_progress, score_magnitude, score_momentum, score_total, current_stage_code, committee, curation_status, legislature, url, summary, deposit_date)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                "INSERT INTO legislative_dossiers (uid, title, procedure_label, last_activity_date, last_activity_label, score_progress, score_magnitude, score_momentum, score_total, current_stage_code, committee, curation_status, legislature, url, summary, deposit_date, outcome_kind, outcome_date, outcome_label, law_code, law_jo_date, law_legifrance_url, merged_into_uid, merge_cause)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
                  ON CONFLICT (uid) DO UPDATE SET
+                    outcome_kind = EXCLUDED.outcome_kind,
+                    outcome_date = EXCLUDED.outcome_date,
+                    outcome_label = EXCLUDED.outcome_label,
+                    law_code = EXCLUDED.law_code,
+                    law_jo_date = EXCLUDED.law_jo_date,
+                    law_legifrance_url = EXCLUDED.law_legifrance_url,
+                    merged_into_uid = EXCLUDED.merged_into_uid,
+                    merge_cause = EXCLUDED.merge_cause,
                     title = EXCLUDED.title,
                     deposit_date = EXCLUDED.deposit_date,
                     procedure_label = EXCLUDED.procedure_label,
@@ -103,6 +133,14 @@ impl PgDossierRepository {
             .bind(&dossier.url)
             .bind(&dossier.summary)
             .bind(dossier.deposit_date)
+            .bind(outcome.kind())
+            .bind(outcome.date())
+            .bind(&outcome_label)
+            .bind(&law_code)
+            .bind(law_jo_date)
+            .bind(&law_url)
+            .bind(&merged_into_uid)
+            .bind(&merge_cause)
             .execute(&mut *tx)
             .await
             .map_err(|e| RepositoryError::Database(e.to_string()))?;
@@ -209,6 +247,40 @@ impl DossierRepository for PgDossierRepository {
         Ok(saved)
     }
 
+    /// Une seule requete pour toute la base: 3 035 lignes courtes valent mieux
+    /// que 3 035 dossiers reecrits.
+    async fn load_states(&self) -> Result<HashMap<String, StoredDossierState>, RepositoryError> {
+        let rows = sqlx::query_as::<_, StateRow>(
+            "SELECT d.uid, d.last_activity_date, d.outcome_kind, COUNT(a.id) AS act_count
+             FROM legislative_dossiers d
+             LEFT JOIN legislative_acts a ON a.dossier_uid = d.uid
+             GROUP BY d.uid, d.last_activity_date, d.outcome_kind",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| RepositoryError::Database(e.to_string()))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                // Le sort est reconstruit avec des champs vides: seule la
+                // variante compte ici, pas son contenu.
+                let outcome_is_final = matches!(
+                    r.outcome_kind.as_str(),
+                    "promulgated" | "withdrawn" | "merged_into"
+                );
+                (
+                    r.uid,
+                    StoredDossierState {
+                        last_activity_date: r.last_activity_date,
+                        act_count: r.act_count.max(0) as usize,
+                        outcome_is_final,
+                    },
+                )
+            })
+            .collect())
+    }
+
     async fn find_recent(
         &self,
         since: NaiveDate,
@@ -217,7 +289,10 @@ impl DossierRepository for PgDossierRepository {
             "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
                     score_progress, score_magnitude, score_momentum, score_total,
                     current_stage_code, committee, curation_status,
-                    legislature, url, summary, deposit_date
+                    legislature, url, summary, deposit_date,
+                    outcome_kind, outcome_date, outcome_label,
+                    law_code, law_jo_date, law_legifrance_url,
+                    merged_into_uid, merge_cause
              FROM legislative_dossiers
              WHERE last_activity_date >= $1
              ORDER BY last_activity_date DESC",
@@ -242,7 +317,10 @@ impl DossierRepository for PgDossierRepository {
             "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
                     score_progress, score_magnitude, score_momentum, score_total,
                     current_stage_code, committee, curation_status,
-                    legislature, url, summary, deposit_date
+                    legislature, url, summary, deposit_date,
+                    outcome_kind, outcome_date, outcome_label,
+                    law_code, law_jo_date, law_legifrance_url,
+                    merged_into_uid, merge_cause
              FROM legislative_dossiers
              ORDER BY last_activity_date DESC, uid DESC
              LIMIT $1 OFFSET $2",
@@ -270,7 +348,10 @@ impl DossierRepository for PgDossierRepository {
             "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
                     score_progress, score_magnitude, score_momentum, score_total,
                     current_stage_code, committee, curation_status,
-                    legislature, url, summary, deposit_date
+                    legislature, url, summary, deposit_date,
+                    outcome_kind, outcome_date, outcome_label,
+                    law_code, law_jo_date, law_legifrance_url,
+                    merged_into_uid, merge_cause
              FROM legislative_dossiers
              WHERE uid = $1",
         )
@@ -299,7 +380,10 @@ impl DossierRepository for PgDossierRepository {
             "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
                     score_progress, score_magnitude, score_momentum, score_total,
                     current_stage_code, committee, curation_status,
-                    legislature, url, summary, deposit_date
+                    legislature, url, summary, deposit_date,
+                    outcome_kind, outcome_date, outcome_label,
+                    law_code, law_jo_date, law_legifrance_url,
+                    merged_into_uid, merge_cause
              FROM legislative_dossiers
              WHERE curation_status = 'new'
              ORDER BY score_total DESC
@@ -332,6 +416,14 @@ impl DossierRepository for PgDossierRepository {
 }
 
 #[derive(sqlx::FromRow)]
+struct StateRow {
+    uid: String,
+    last_activity_date: NaiveDate,
+    outcome_kind: String,
+    act_count: i64,
+}
+
+#[derive(sqlx::FromRow)]
 struct DossierRow {
     uid: String,
     title: String,
@@ -349,10 +441,56 @@ struct DossierRow {
     url: Option<String>,
     summary: Option<String>,
     deposit_date: Option<NaiveDate>,
+    outcome_kind: String,
+    outcome_date: Option<NaiveDate>,
+    outcome_label: Option<String>,
+    law_code: Option<String>,
+    law_jo_date: Option<NaiveDate>,
+    law_legifrance_url: Option<String>,
+    merged_into_uid: Option<String>,
+    merge_cause: Option<String>,
 }
 
 impl DossierRow {
+    /// Un sort date sans date, ou une fusion sans dossier absorbant, est une
+    /// ligne incoherente: on retombe sur l'absence de conclusion plutot que
+    /// d'inventer la partie manquante.
+    fn outcome(&self) -> DossierOutcome {
+        match self.outcome_kind.as_str() {
+            "promulgated" => self
+                .outcome_date
+                .map(|date| DossierOutcome::Promulgated {
+                    date,
+                    publication: LawPublication {
+                        law_code: self.law_code.clone(),
+                        jo_date: self.law_jo_date,
+                        legifrance_url: self.law_legifrance_url.clone(),
+                    },
+                })
+                .unwrap_or(DossierOutcome::NoRecordedConclusion),
+            "withdrawn" => self
+                .outcome_date
+                .map(|date| DossierOutcome::Withdrawn { date })
+                .unwrap_or(DossierOutcome::NoRecordedConclusion),
+            "merged_into" => self
+                .merged_into_uid
+                .clone()
+                .and_then(|uid| DossierUid::new(uid).ok())
+                .map(|dossier_uid| DossierOutcome::MergedInto {
+                    dossier_uid,
+                    cause: self.merge_cause.clone(),
+                })
+                .unwrap_or(DossierOutcome::NoRecordedConclusion),
+            "rejected" => match (self.outcome_date, self.outcome_label.clone()) {
+                (Some(date), Some(label)) => DossierOutcome::Rejected { date, label },
+                _ => DossierOutcome::NoRecordedConclusion,
+            },
+            _ => DossierOutcome::NoRecordedConclusion,
+        }
+    }
+
     fn into_dossier(self, acts: Vec<LegislativeAct>, initiators: Vec<Initiator>, documents: Vec<LegislativeDocument>) -> LegislativeDossier {
+        let outcome = self.outcome();
         LegislativeDossier {
             uid: DossierUid::new(self.uid).expect("DB uid is non-empty"),
             title: self.title,
@@ -379,6 +517,7 @@ impl DossierRow {
             initiators,
             committee: self.committee.map(|c| Committee::new(c).expect("DB committee is non-empty")),
             curation_status: CurationStatus::parse(&self.curation_status).unwrap_or(CurationStatus::New),
+            outcome,
         }
     }
 }

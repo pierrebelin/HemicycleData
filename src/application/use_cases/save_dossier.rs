@@ -63,7 +63,7 @@ mod tests {
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::dossier_repository::RepositoryError;
     use crate::application::use_cases::refresh_dossiers::tests::InMemoryActorRepository;
-    use crate::domain::dossier::{CurationStatus, LegislativeDossier, Score};
+    use crate::domain::dossier::{CurationStatus, DossierOutcome, LegislativeDossier, Score};
 
     struct FakeSource {
         dossiers: Mutex<HashMap<String, (LegislativeDossier, Vec<String>)>>,
@@ -107,6 +107,17 @@ mod tests {
 
     #[async_trait]
     impl DossierRepository for InMemoryDossierRepository {
+        async fn load_states(
+            &self,
+        ) -> Result<
+            std::collections::HashMap<
+                String,
+                crate::application::ports::dossier_repository::StoredDossierState,
+            >,
+            RepositoryError,
+        > {
+            unreachable!()
+        }
         async fn save_all(
             &self,
             dossiers: &[LegislativeDossier],
@@ -180,6 +191,7 @@ mod tests {
                     initiators: vec![],
                     committee: None,
                     curation_status: CurationStatus::New,
+            outcome: DossierOutcome::NoRecordedConclusion,
                 },
                 vec!["PA111111".into()],
             ),

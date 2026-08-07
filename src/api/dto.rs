@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 use crate::application::use_cases::browse_dossiers::DEFAULT_PER_PAGE;
-use crate::domain::dossier::{CurationStatus, LegislativeDossier};
+use crate::domain::dossier::{CurationStatus, DossierOutcome, LegislativeDossier};
 
 #[derive(Deserialize)]
 pub struct RecentActivityQuery {
@@ -28,11 +28,73 @@ pub struct DossierDto {
     pub current_stage: Option<StageDto>,
     pub committee: Option<String>,
     pub curation_status: String,
+    pub outcome: OutcomeDto,
+}
+
+/// Sort du dossier tel qu'il s'affiche.
+///
+/// `label` est libelle pour etre lu tel quel: quand la source ne conclut rien,
+/// il le dit, il ne comble pas (PROJECT.md §6). Le dernier acte du dossier
+/// reste la seule information disponible dans ce cas.
+#[derive(Serialize)]
+pub struct OutcomeDto {
+    pub kind: String,
+    pub label: String,
+    pub date: Option<NaiveDate>,
+    /// Vrai quand le sort ne peut plus changer. Un rejet n'en est pas un: la
+    /// navette peut reprendre.
+    pub is_final: bool,
+    pub law_code: Option<String>,
+    pub law_jo_date: Option<NaiveDate>,
+    pub legifrance_url: Option<String>,
+    pub merged_into_uid: Option<String>,
+}
+
+impl From<&DossierOutcome> for OutcomeDto {
+    fn from(o: &DossierOutcome) -> Self {
+        let mut dto = Self {
+            kind: o.kind().to_string(),
+            label: String::new(),
+            date: o.date(),
+            is_final: o.is_final(),
+            law_code: None,
+            law_jo_date: None,
+            legifrance_url: None,
+            merged_into_uid: None,
+        };
+
+        match o {
+            DossierOutcome::Promulgated { publication, .. } => {
+                dto.label = "Promulgu\u{00e9}e".into();
+                dto.law_code = publication.law_code.clone();
+                dto.law_jo_date = publication.jo_date;
+                dto.legifrance_url = publication.legifrance_url.clone();
+            }
+            DossierOutcome::Withdrawn { .. } => {
+                dto.label = "Initiative retir\u{00e9}e".into();
+            }
+            DossierOutcome::MergedInto { dossier_uid, .. } => {
+                dto.label = "Absorb\u{00e9} par un autre dossier".into();
+                dto.merged_into_uid = Some(dossier_uid.as_str().to_string());
+            }
+            // Le libelle vient de la source, mot pour mot: « rejete »,
+            // « considere comme rejete en application de l'article 49-3 »...
+            DossierOutcome::Rejected { label, .. } => {
+                dto.label = label.clone();
+            }
+            DossierOutcome::NoRecordedConclusion => {
+                dto.label = "Sans conclusion enregistr\u{00e9}e".into();
+            }
+        }
+
+        dto
+    }
 }
 
 impl From<LegislativeDossier> for DossierDto {
     fn from(d: LegislativeDossier) -> Self {
         Self {
+            outcome: OutcomeDto::from(&d.outcome),
             uid: d.uid.as_str().to_string(),
             title: d.title,
             procedure: d.procedure,
@@ -184,9 +246,44 @@ impl From<crate::application::ports::actor_repository::RegistrySummary> for Regi
     }
 }
 
+/// `?full=true` reecrit tous les dossiers au lieu des seuls qui ont bouge.
+#[derive(Deserialize)]
+pub struct RefreshQuery {
+    #[serde(default)]
+    pub full: bool,
+}
+
+#[derive(Serialize)]
+pub struct DossiersRefreshResponse {
+    /// Dossiers lus dans la source.
+    pub seen: usize,
+    /// Dossiers reecrits en base.
+    pub written: usize,
+    /// Sautes parce que leur sort est definitif.
+    pub skipped_final: usize,
+    /// Sautes parce que rien n'a bouge depuis la derniere ingestion.
+    pub skipped_unchanged: usize,
+}
+
+impl From<crate::application::use_cases::refresh_dossiers::DossiersSummary>
+    for DossiersRefreshResponse
+{
+    fn from(s: crate::application::use_cases::refresh_dossiers::DossiersSummary) -> Self {
+        Self {
+            seen: s.seen,
+            written: s.written,
+            skipped_final: s.skipped_final,
+            skipped_unchanged: s.skipped_unchanged,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct RefreshResponse {
+    /// Dossiers presents dans la source. Le detail de ce qui a ete reecrit est
+    /// dans `dossiers`.
     pub count: usize,
+    pub dossiers: DossiersRefreshResponse,
     pub registry: Option<RegistryResponse>,
     /// Renseigne quand le referentiel n'a pas pu etre rafraichi: les
     /// rattachements reposent alors sur la version precedente.
@@ -200,7 +297,8 @@ pub struct RefreshResponse {
 impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for RefreshResponse {
     fn from(o: crate::application::use_cases::refresh_all::RefreshOutcome) -> Self {
         Self {
-            count: o.dossiers,
+            count: o.dossiers.seen,
+            dossiers: DossiersRefreshResponse::from(o.dossiers),
             registry: o.registry.map(RegistryResponse::from),
             registry_anomaly: o.registry_anomaly,
             scrutins: o
@@ -230,6 +328,7 @@ pub struct DossierDetailDto {
     pub initiators: Vec<InitiatorDto>,
     pub committee: Option<String>,
     pub curation_status: String,
+    pub outcome: OutcomeDto,
 }
 
 impl DossierDetailDto {
@@ -238,6 +337,7 @@ impl DossierDetailDto {
     ) -> Self {
         let d = result.dossier;
         Self {
+            outcome: OutcomeDto::from(&d.outcome),
             uid: d.uid.as_str().to_string(),
             title: d.title,
             procedure: d.procedure,

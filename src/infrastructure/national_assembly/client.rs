@@ -14,7 +14,7 @@ use super::committees::resolve_committee;
 use super::parsing::{
     collect_all_acts, extract_document_refs, extract_initiator_refs,
     find_committee_organe_ref, find_current_stage, find_deposit_date, find_latest_act,
-    RawDocumentWrapper, RawDossierWrapper,
+    find_outcome, RawDocumentWrapper, RawDossierWrapper,
 };
 
 const DOSSIERS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/dossiers_legislatifs/Dossiers_Legislatifs.json.zip";
@@ -152,6 +152,7 @@ impl NationalAssemblyClient {
 
         let score = compute_score(&raw.dossier_title.titre, &act_info.label, all_acts.len());
         let current_stage = find_current_stage(&raw.legislative_acts);
+        let outcome = find_outcome(&raw.legislative_acts, raw.fusion.as_ref());
         let committee = find_committee_organe_ref(&raw.legislative_acts)
             .and_then(|ref_id| resolve_committee(&ref_id).map(String::from))
             .and_then(|c| Committee::new(c).ok());
@@ -183,6 +184,7 @@ impl NationalAssemblyClient {
                 initiators,
                 committee,
                 curation_status: CurationStatus::New,
+                outcome,
             },
             initiator_refs,
         ))

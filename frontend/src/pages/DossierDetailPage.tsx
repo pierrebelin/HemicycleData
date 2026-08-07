@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DossierScrutins from '../components/DossierScrutins'
+import { OutcomePanel } from '../components/OutcomeBadge'
+import type { OutcomeDto } from '../types/dossiers'
 
 /** Actes visibles avant dépliage. Un dossier peut en porter des dizaines. */
 const VISIBLE_ACTS = 3
@@ -53,6 +55,7 @@ interface DossierDetailDto {
   initiators: InitiatorDto[]
   committee: string | null
   curation_status?: string
+  outcome: OutcomeDto
 }
 
 const curationLabels: Record<string, { label: string; classes: string }> = {
@@ -238,6 +241,14 @@ export default function DossierDetailPage() {
             </button>
           )}
         </div>
+      </div>
+
+      <div className="mb-6">
+        <OutcomePanel
+          outcome={data.outcome}
+          lastActivityLabel={data.last_activity_label}
+          lastActivityDate={data.last_activity_date}
+        />
       </div>
 
       {data.curation_status && (
