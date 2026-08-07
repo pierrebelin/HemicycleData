@@ -36,7 +36,7 @@ export function PageHeader({
           {title}
         </h2>
         {lede && (
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-soft">
+          <p className="mt-1 text-sm leading-relaxed text-ink-soft">
             {lede}
           </p>
         )}
