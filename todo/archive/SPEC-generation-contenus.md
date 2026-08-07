@@ -4,7 +4,7 @@
 
 ## 1. Contexte
 
-La curation s'arrête aujourd'hui à « Selected » : la rédaction du contenu est entièrement manuelle. La génération transforme un dossier riche (titre, étape, initiateurs, votes) en brouillon fidèle et neutre ; l'humain contrôle le choix du sujet et l'exactitude factuelle, pas la rédaction (PROJECT.md §3).
+La curation s'arrête aujourd'hui à « Selected » : la rédaction du contenu est entièrement manuelle. La génération transforme un dossier riche (titre, étape, initiateurs, votes) en brouillon fidèle et neutre ; l'humain contrôle le choix du sujet et l'exactitude factuelle, pas la rédaction (README.md §3).
 
 ## 2. Vocabulaire
 
@@ -49,26 +49,26 @@ La curation s'arrête aujourd'hui à « Selected » : la rédaction du contenu e
 ## 4. Règles métier
 
 ### RM-01 — Faits uniquement
-- **Énoncé** : le contenu rapporte : quel texte, ce qu'il prévoit, qui le porte, résultat des votes, étape courante. Aucune évaluation (bon/mauvais, juste/injuste, efficace/non). · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : le contenu rapporte : quel texte, ce qu'il prévoit, qui le porte, résultat des votes, étape courante. Aucune évaluation (bon/mauvais, juste/injuste, efficace/non). · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-02 — Des nombres, pas d'adverbes
-- **Énoncé** : résultats de vote en chiffres bruts, jamais qualifiés. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : résultats de vote en chiffres bruts, jamais qualifiés. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
 - **Exemple conforme** : « rejeté par 280 voix contre 250 ». **Non conforme** : « massivement rejeté ».
 
 ### RM-03 — Positions attribuées et on-record uniquement
-- **Énoncé** : toute position rapportée est attribuée et issue de sources officielles (exposé des motifs, position de vote par groupe). Format « les défenseurs avancent X / les opposants Y ». Jamais de commentaire média ni de synthèse libre. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : toute position rapportée est attribuée et issue de sources officielles (exposé des motifs, position de vote par groupe). Format « les défenseurs avancent X / les opposants Y ». Jamais de commentaire média ni de synthèse libre. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-04 — Chiffres lus, jamais générés
-- **Énoncé** : chaque chiffre de vote du contenu provient des scrutins ingérés (spec SCRUTINS). Dossier sans scrutin → le contenu dit « adopté » / « rejeté » sans chiffres. · **Origine** : PROJECT.md §7 · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : chaque chiffre de vote du contenu provient des scrutins ingérés (spec SCRUTINS). Dossier sans scrutin → le contenu dit « adopté » / « rejeté » sans chiffres. · **Origine** : README.md §7 · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-05 — Lien source officielle
-- **Énoncé** : chaque contenu inclut le lien vers la source officielle (dossier, scrutin ou compte rendu). · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
+- **Énoncé** : chaque contenu inclut le lien vers la source officielle (dossier, scrutin ou compte rendu). · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-06 — Format du script
 - **Énoncé** : script structuré accroche → faits → votes → où ça en est → source, durée de lecture 60-90 s. · **Origine** : choix produit (format vidéo courte) · **Sévérité** : bloquant · **Applies to** : CU-01
 
 ### RM-07 — Validation manuelle obligatoire
-- **Énoncé** : aucun contenu n'est validé sans action humaine explicite. Toute édition ou régénération d'un contenu validé le repasse brouillon. · **Origine** : PROJECT.md §3 (point de contrôle humain) · **Sévérité** : bloquant · **Applies to** : CU-02
+- **Énoncé** : aucun contenu n'est validé sans action humaine explicite. Toute édition ou régénération d'un contenu validé le repasse brouillon. · **Origine** : README.md §3 (point de contrôle humain) · **Sévérité** : bloquant · **Applies to** : CU-02
 
 ### RM-08 — Génération réservée aux dossiers Selected
 - **Énoncé** : la génération n'est proposée que sur un dossier au statut Selected. · **Origine** : choix produit (la sélection précède la production) · **Sévérité** : bloquant · **Applies to** : CU-01

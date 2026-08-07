@@ -10,7 +10,7 @@ pub use super::RepositoryError;
 ///
 /// Aucun groupe n'est ecarte, meme sans une seule ligne de vote: le referentiel
 /// est publie en entier, et la couverture nulle est affichee comme telle
-/// (PROJECT.md §2).
+/// (README.md §2).
 #[derive(Debug, Clone)]
 pub struct GroupRecord {
     pub uid: String,

@@ -163,7 +163,7 @@ function SectionView({
 }
 
 /**
- * Guide de lecture, en questions — PROJECT.md §2, §3, §7, §9.
+ * Guide de lecture, en questions — README.md §2, §3, §7, §9.
  *
  * Page entièrement statique : aucun chiffre n'y est affiché, donc aucune
  * requête. Les volumétries vivent sur les pages qui les servent depuis la base.

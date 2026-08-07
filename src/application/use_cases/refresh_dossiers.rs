@@ -10,7 +10,7 @@ use crate::domain::dossier::{InitiatorAttachment, LegislativeDossier};
 
 /// Ce qu'un rafraichissement a ecrit, et ce qu'il a volontairement laisse de
 /// cote. Les deux sont comptes: un dossier saute doit rester explicable
-/// (PROJECT.md §2).
+/// (README.md §2).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct DossiersSummary {
     /// Dossiers lus dans la source.

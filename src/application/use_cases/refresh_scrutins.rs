@@ -17,7 +17,7 @@ pub enum RefreshScrutinsError {
 }
 
 /// Ce qu'un rafraichissement a produit. Les lacunes y figurent explicitement:
-/// un chiffre reconstruit ou une position sans groupe doit se voir (PROJECT.md §2).
+/// un chiffre reconstruit ou une position sans groupe doit se voir (README.md §2).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ScrutinsSummary {
     pub scrutins: usize,

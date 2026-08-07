@@ -1,6 +1,6 @@
 # SPEC — Déploiement VPS Debian 13 + Nginx
 
-Cible : `https://hemicycle.pierrebelin.fr`, VPS Debian 13 (trixie) déjà en service
+Cible : `https://<DOMAINE_PUBLIC>`, VPS Debian 13 (trixie) déjà en service
 (Nginx installé, une application Node déjà hébergée). Déploiement automatique à
 chaque merge sur `main` via GitHub Actions.
 
@@ -212,11 +212,23 @@ et les `proxy_pass` des deux vhosts de façon cohérente.
 
 ### 4.7 Installation des unités
 
+Le vhost public livré porte le marqueur `__DOMAINE_PUBLIC__` au lieu du domaine :
+le dépôt est public, l'adresse de l'instance n'a pas à y figurer. La substitution
+se fait à l'installation, jamais dans le dépôt.
+
 ```bash
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle.service /etc/systemd/system/
-install -m 644 /home/hemicycle/app/deploy/nginx/hemicycle.pierrebelin.fr.conf /etc/nginx/sites-available/
 install -m 644 /home/hemicycle/app/deploy/nginx/hemicycle-admin.conf /etc/nginx/sites-available/
-ln -sf /etc/nginx/sites-available/hemicycle.pierrebelin.fr.conf /etc/nginx/sites-enabled/
+
+# Vhost public : domaine injecté à la volée.
+sed 's/__DOMAINE_PUBLIC__/<DOMAINE_PUBLIC>/' \
+    /home/hemicycle/app/deploy/nginx/hemicycle-public.conf \
+    > /etc/nginx/sites-available/hemicycle-public.conf
+chmod 644 /etc/nginx/sites-available/hemicycle-public.conf
+grep -q '__DOMAINE_PUBLIC__' /etc/nginx/sites-available/hemicycle-public.conf \
+    && { echo 'Substitution ratée : nginx refusera le fichier' >&2; exit 1; }
+
+ln -sf /etc/nginx/sites-available/hemicycle-public.conf /etc/nginx/sites-enabled/
 ln -sf /etc/nginx/sites-available/hemicycle-admin.conf /etc/nginx/sites-enabled/
 systemctl daemon-reload
 systemctl enable hemicycle
@@ -233,8 +245,8 @@ systemctl status hemicycle
 ### 4.8 TLS
 
 Le vhost public livré écoute en HTTP sur le port 80. Poser d'abord
-l'enregistrement DNS `A` de `hemicycle.pierrebelin.fr` vers l'IP du VPS, attendre
-sa propagation (`dig +short hemicycle.pierrebelin.fr`).
+l'enregistrement DNS `A` de `<DOMAINE_PUBLIC>` vers l'IP du VPS, attendre
+sa propagation (`dig +short <DOMAINE_PUBLIC>`).
 
 Méthode **webroot**, pas le plugin `--nginx` en authentificateur : tant que
 `www/` est vide, le fallback SPA `try_files … /index.html` renvoie `404` et le
@@ -251,13 +263,13 @@ Vérifier que le chemin est servi avant d'appeler l'autorité :
 
 ```bash
 echo ok > /var/www/certbot/.well-known/acme-challenge/probe
-curl -i http://hemicycle.pierrebelin.fr/.well-known/acme-challenge/probe   # 200 attendu
+curl -i http://<DOMAINE_PUBLIC>/.well-known/acme-challenge/probe   # 200 attendu
 ```
 
 Puis émettre et installer le certificat :
 
 ```bash
-certbot run -a webroot -w /var/www/certbot -i nginx -d hemicycle.pierrebelin.fr --redirect --agree-tos -m contact@pierrebelin.fr
+certbot run -a webroot -w /var/www/certbot -i nginx -d <DOMAINE_PUBLIC> --redirect --agree-tos -m <EMAIL_CERTBOT>
 rm /var/www/certbot/.well-known/acme-challenge/probe
 ```
 
@@ -267,7 +279,7 @@ par le timer `certbot.timer` (`systemctl list-timers certbot.timer` pour
 vérifier).
 
 **Conséquence sur les mises à jour** : ne jamais réinstaller
-`hemicycle.pierrebelin.fr.conf` par-dessus la version modifiée par Certbot sans
+`hemicycle-public.conf` par-dessus la version modifiée par Certbot sans
 rejouer `certbot --nginx` derrière. Le déploiement automatique ne touche pas aux
 fichiers Nginx — seule une intervention manuelle peut casser cela.
 
@@ -346,6 +358,12 @@ colonne nullable, nouvelle table), jamais de `DROP` ni de `ALTER` réducteur san
 | `VPS_HOST` | IP ou nom d'hôte du VPS |
 | `VPS_SSH_KEY` | clé privée de §4.3.a, contenu intégral y compris les lignes `-----BEGIN/END-----` |
 | `VPS_KNOWN_HOSTS` | sortie de `ssh-keyscan <IP_DU_VPS>` |
+| `PUBLIC_BASE_URL` | URL publique du site, avec le schéma et sans barre finale (`https://exemple.tld`) |
+
+`PUBLIC_BASE_URL` n'est pas un secret au sens cryptographique : c'est un secret
+de dépôt, pour que le domaine de l'instance ne soit pas écrit dans un dépôt
+public. Sans lui, l'étape « Vérification publique » interroge `/api/health` et
+échoue.
 
 `VPS_KNOWN_HOSTS` n'est pas cosmétique : sans lui, le workflow accepterait
 n'importe quelle clé d'hôte et livrerait la clé de déploiement au premier
@@ -358,12 +376,12 @@ intercepteur venu. Aucun secret applicatif ne transite par GitHub.
 | `.github/workflows/deploy.yml` | verrou de tests + déploiement SSH |
 | `deploy/deploy.sh` | script exécuté sur le VPS (build, publication, restart, health check) |
 | `deploy/systemd/hemicycle.service` | unité systemd, à installer dans `/etc/systemd/system/` |
-| `deploy/nginx/hemicycle.pierrebelin.fr.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
+| `deploy/nginx/hemicycle-public.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
 | `deploy/nginx/hemicycle-admin.conf` | vhost d'administration sur `127.0.0.1:8080` |
 
 Ordre de mise en service : §4 en entier (dont `certbot`, §4.8) **avant** le
 premier merge sur `main`. L'étape « Vérification publique » du workflow
-interroge `https://hemicycle.pierrebelin.fr` et échoue tant que le certificat
+interroge `https://<DOMAINE_PUBLIC>` et échoue tant que le certificat
 n'est pas posé.
 
 ## 6. Exploitation
@@ -378,12 +396,12 @@ curl -s 127.0.0.1:8085/api/health        # santé côté serveur
 Vérification du filtre d'écriture depuis l'extérieur — doit répondre `403` :
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://hemicycle.pierrebelin.fr/api/refresh
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/refresh
 ```
 
 ## 7. Recette
 
-- [ ] `https://hemicycle.pierrebelin.fr` répond en 200, certificat valide
+- [ ] `https://<DOMAINE_PUBLIC>` répond en 200, certificat valide
 - [ ] Une route SPA profonde rechargée directement (F5) renvoie l'application, pas un 404
 - [ ] `GET /api/health` répond via HTTPS
 - [ ] `POST /api/refresh` depuis Internet renvoie `403`

@@ -6,7 +6,7 @@
 
 Le site montre aujourd'hui des dossiers sans leurs votes. La promesse — « voici comment chaque groupe a voté » — n'est pas tenue.
 
-La source officielle publie 8 434 scrutins pour la législature 17, tous avec décompte nominatif. 69 % ne portent aucun dossier : les écarter viderait le site des deux tiers des votes (PROJECT.md §7).
+La source officielle publie 8 434 scrutins pour la législature 17, tous avec décompte nominatif. 69 % ne portent aucun dossier : les écarter viderait le site des deux tiers des votes (README.md §7).
 
 Le référentiel des acteurs (spec ACTEURS, livrée) fournit noms et libellés de groupe. Sans lui, un scrutin n'affiche que des identifiants.
 
@@ -81,38 +81,38 @@ Le référentiel des acteurs (spec ACTEURS, livrée) fournit noms et libellés d
 ## 4. Règles métier
 
 ### RM-01 — Exhaustivité
-- **Énoncé** : tout scrutin publié par la source entre en base et reste consultable. Aucun filtre sur le sort, le type, le lieu ou la présence d'un dossier. · **Origine** : PROJECT.md §2 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
+- **Énoncé** : tout scrutin publié par la source entre en base et reste consultable. Aucun filtre sur le sort, le type, le lieu ou la présence d'un dossier. · **Origine** : README.md §2 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-02
 
 ### RM-02 — Chiffres de la source, jamais recalculés
-- **Énoncé** : synthèse et répartition par groupe sont affichées telles que publiées. Aucun total recalculé, arrondi ou corrigé, même quand la source se contredit. · **Origine** : PROJECT.md §6-7 · **Sévérité** : bloquant · **Applies to** : transverse
+- **Énoncé** : synthèse et répartition par groupe sont affichées telles que publiées. Aucun total recalculé, arrondi ou corrigé, même quand la source se contredit. · **Origine** : README.md §6-7 · **Sévérité** : bloquant · **Applies to** : transverse
 - **Non conforme** : remplacer un décompte publié par la somme des positions nominales.
 
 ### RM-03 — Répartition reconstituée signalée
-- **Énoncé** : quand la source ne nomme pas les groupes d'un scrutin, la répartition est reconstruite depuis les positions nominales et le référentiel, et porte la mention « répartition reconstituée à partir du décompte nominatif — la source ne publie pas les groupes sur ce scrutin ». · **Origine** : ACTEURS Q4, PROJECT.md §2 et §9 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
+- **Énoncé** : quand la source ne nomme pas les groupes d'un scrutin, la répartition est reconstruite depuis les positions nominales et le référentiel, et porte la mention « répartition reconstituée à partir du décompte nominatif — la source ne publie pas les groupes sur ce scrutin ». · **Origine** : ACTEURS Q4, README.md §2 et §9 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
 - **Conforme** : chiffre affiché avec mention. **Non conforme** : chiffre reconstruit présenté comme publié par l'Assemblée.
 
 ### RM-04 — Groupe = ligne publiée du scrutin
-- **Énoncé** : le groupe d'une position nominale est celui sous lequel la source range le votant dans ce scrutin. Jamais l'appartenance courante. · **Origine** : PROJECT.md §3.2, choix produit · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
+- **Énoncé** : le groupe d'une position nominale est celui sous lequel la source range le votant dans ce scrutin. Jamais l'appartenance courante. · **Origine** : README.md §3.2, choix produit · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
 - La ligne de groupe est datée par construction : elle appartient au scrutin. L'appartenance datée ne sert qu'à la reconstruction (RM-03).
 
 ### RM-05 — Mise au point sans effet sur les décomptes
 - **Énoncé** : une mise au point est affichée à part, attribuée et datée. Elle ne modifie ni la synthèse, ni la répartition, ni les positions nominales. · **Origine** : convention Assemblée nationale · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
 
 ### RM-06 — Lacune des votes à main levée affichée
-- **Énoncé** : les pages de scrutins portent la mention que les votes à main levée ne figurent pas dans la source et que le site n'en rend pas compte. · **Origine** : PROJECT.md §2 et §7 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
+- **Énoncé** : les pages de scrutins portent la mention que les votes à main levée ne figurent pas dans la source et que le site n'en rend pas compte. · **Origine** : README.md §2 et §7 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
 
 ### RM-07 — Lien source sur chaque scrutin
-- **Énoncé** : chaque scrutin affiché porte le lien vers sa page officielle. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03, CU-04
+- **Énoncé** : chaque scrutin affiché porte le lien vers sa page officielle. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03, CU-04
 
 ### RM-08 — Aucun agrégat comparatif entre groupes
-- **Énoncé** : aucun cumul, taux ou classement qui compare les groupes entre eux. Les chiffres restent attachés à un scrutin. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : transverse
+- **Énoncé** : aucun cumul, taux ou classement qui compare les groupes entre eux. Les chiffres restent attachés à un scrutin. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : transverse
 - **Non conforme** : « taux de participation du groupe X sur la législature », « cohérence de vote ».
 
 ### RM-09 — Libellés de la source conservés
-- **Énoncé** : sort, type de vote, majorité requise, annonce, cause de non-vote sont affichés avec le libellé publié. Aucune reformulation, aucun code traduit sans libellé officiel. · **Origine** : PROJECT.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
+- **Énoncé** : sort, type de vote, majorité requise, annonce, cause de non-vote sont affichés avec le libellé publié. Aucune reformulation, aucun code traduit sans libellé officiel. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-03
 
 ### RM-10 — Scrutin sans dossier conservé
-- **Énoncé** : l'absence de dossier ne retire ni n'altère un scrutin. Le rattachement est enregistré quand la source le publie, ignoré sinon. · **Origine** : PROJECT.md §7 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
+- **Énoncé** : l'absence de dossier ne retire ni n'altère un scrutin. Le rattachement est enregistré quand la source le publie, ignoré sinon. · **Origine** : README.md §7 · **Sévérité** : bloquant · **Applies to** : CU-01, CU-03
 
 ### RM-11 — Ordre de rafraîchissement
 - **Énoncé** : référentiel des acteurs rafraîchi avant les scrutins. Sinon la reconstruction (RM-03) et les noms affichés portent sur des données périmées. · **Origine** : ACTEURS §7 · **Sévérité** : bloquant · **Applies to** : CU-01
@@ -149,7 +149,7 @@ Le référentiel des acteurs (spec ACTEURS, livrée) fournit noms et libellés d
 | Archive officielle des scrutins AN | Scrutins, répartitions, positions nominales |
 | Référentiel acteurs et groupes (spec ACTEURS) | Noms et libellés affichés, reconstruction RM-03 |
 | Scrutins | Section scrutins d'un dossier |
-| Scrutins | Pages thème × groupe × période (PROJECT.md §8.1, Phase 5) |
+| Scrutins | Pages thème × groupe × période (README.md §8.1, Phase 5) |
 
 ## 8. Hors périmètre
 
@@ -157,9 +157,9 @@ Le référentiel des acteurs (spec ACTEURS, livrée) fournit noms et libellés d
 |---|---|
 | Votes à main levée | Absents de la source (RM-06) |
 | Votes en commission | Jeu de données distinct |
-| Scrutins du Sénat | Sénat hors périmètre (PROJECT.md §10) |
+| Scrutins du Sénat | Sénat hors périmètre (README.md §10) |
 | Législatures antérieures | Choix produit (ACTEURS RM-07) |
-| Fiche par député, historique de vote d'une personne | PROJECT.md §3.3 : le site présente les votes d'un groupe, pas la position d'une personne |
+| Fiche par député, historique de vote d'une personne | README.md §3.3 : le site présente les votes d'un groupe, pas la position d'une personne |
 | Agrégats multi-scrutins par groupe | RM-08 |
 | Thématisation des scrutins | Phase 4 |
 

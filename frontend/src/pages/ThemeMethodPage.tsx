@@ -11,7 +11,7 @@ function Row({ label, value }: { label: string; value: number | string }) {
   )
 }
 
-/** CU-06 — Méthode publiée (PROJECT.md §5, §9). */
+/** CU-06 — Méthode publiée (README.md §5, §9). */
 export default function ThemeMethodPage() {
   const method = useQuery({
     queryKey: ['themes', 'method'],

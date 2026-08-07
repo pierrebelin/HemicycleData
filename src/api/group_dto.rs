@@ -5,26 +5,26 @@ use crate::application::use_cases::browse_groups::{GroupListView, GroupSummary};
 use crate::application::use_cases::get_group_detail::GroupProfileView;
 use crate::domain::group_profile::{MemberCountRange, ParticipationCounts, QualityCount};
 
-/// Ce que le groupe parlementaire est, et ce qu'il n'est pas (PROJECT.md §3.1).
+/// Ce que le groupe parlementaire est, et ce qu'il n'est pas (README.md §3.1).
 pub const PARTY_NOTE: &str = "L'Assemblée publie des groupes parlementaires, pas des partis. \
      Certains groupes rassemblent plusieurs partis, des députés y sont rattachés sans en être \
      membres, et certains partis n'ont aucun groupe. Le libellé affiché est celui du groupe.";
 
 /// Formule du taux, publiée avec le chiffre pour qu'il soit refaisable
-/// (PROJECT.md §9).
+/// (README.md §9).
 pub const RATE_NOTE: &str = "Les taux rapportent les positions que l'Assemblée publie pour ce \
      groupe : pour + contre + abstention + non-votants + non-votants volontaires. « Voix \
      exprimées » réunit les pour et les contre sans les distinguer — le sens du vote se lit \
      scrutin par scrutin, jamais cumulé.";
 
 /// H3 et H4 en une phrase: sans elle, deux fiches ouvertes cote a cote se
-/// lisent comme un classement, ce que PROJECT.md §6 interdit.
+/// lisent comme un classement, ce que README.md §6 interdit.
 pub const COMPARISON_NOTE: &str = "Ces taux ne se comparent pas d'un groupe à l'autre. Les \
      groupes ne siègent pas sur les mêmes scrutins ni sur les mêmes périodes, et l'effectif d'un \
      groupe change en cours de législature : les dénominateurs sont différents. Le site ne classe \
      pas les groupes et n'en note aucun.";
 
-/// Lacune de la source, affichee plutot que subie (PROJECT.md §7, RM-14).
+/// Lacune de la source, affichee plutot que subie (README.md §7, RM-14).
 pub const HAND_VOTE_NOTE: &str = "Les votes à main levée ne sont pas publiés par l'Assemblée : \
      ils sont absents de ces chiffres, comme du reste du site.";
 
@@ -141,7 +141,7 @@ impl From<MemberCountRange> for MemberCountRangeDto {
 }
 
 /// Comptes bruts servis à côté des taux : le pourcentage ne remplace jamais le
-/// chiffre (PROJECT.md §6).
+/// chiffre (README.md §6).
 ///
 /// `expressed` réunit les pour et les contre. Les deux ne sont pas exposés
 /// séparément : cumulés sur toute la législature, dont 86 % de scrutins

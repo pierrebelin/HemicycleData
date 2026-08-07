@@ -106,7 +106,7 @@ impl VotePosition {
 /// Cause publiee d'un non-vote, conservee sous forme de code.
 ///
 /// La source ne publie pas de libelle: le traduire serait produire un fait
-/// (PROJECT.md §6). Le code est affiche tel quel tant que le libelle officiel
+/// (README.md §6). Le code est affiche tel quel tant que le libelle officiel
 /// n'est pas source (SPEC-scrutins Q2).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct NonVotingCause(String);

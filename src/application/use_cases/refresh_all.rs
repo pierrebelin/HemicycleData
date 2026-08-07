@@ -81,7 +81,7 @@ impl<'a> RefreshAll<'a> {
         .await?;
 
         // Meme regle que pour le referentiel: une source indisponible ne fait
-        // pas echouer le reste, elle se signale (PROJECT.md §2).
+        // pas echouer le reste, elle se signale (README.md §2).
         let (scrutins, scrutins_anomaly) = match RefreshScrutins::new(
             self.scrutin_source,
             self.scrutin_repository,

@@ -11,7 +11,7 @@ CREATE TABLE theme_families (
     display_order SMALLINT NOT NULL
 );
 
--- Referentiel ferme (RM-08). Libelles repris de PROJECT.md §5.
+-- Referentiel ferme (RM-08). Libelles repris de README.md §5.
 INSERT INTO theme_families (code, label, scope, display_order) VALUES
     ('pouvoir-achat-fiscalite', 'Pouvoir d''achat / fiscalité',
      'Impôts, taxes, prestations monétaires, prix, budget de l''État.', 1),
