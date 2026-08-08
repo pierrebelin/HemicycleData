@@ -1,19 +1,23 @@
 [Unit]
-Description=hemicycle.data — rafraichissement des donnees toutes les deux heures
+Description=hemicycle.data — ingestion toutes les deux heures
 Documentation=https://github.com/pierrebelin/HemicycleData
 
 [Timer]
-Unit=hemicycle-refresh.service
+Unit=hemicycle-ingest.service
 
 # Douze passages par jour, a 00:07, 02:07, 04:07... Pas a l'heure pile : l'open
 # data de l'Assemblee n'a pas besoin de recevoir tous ses lecteurs en meme
 # temps, et le journal se lit mieux quand le job ne se melange pas aux taches
 # systeme de l'heure ronde.
+#
+# Cette cadence ne tient que parce que les archives sont revalidees et non
+# retelechargees (ArchiveFetcher, GET conditionnel) : un passage sur une source
+# inchangee coute trois `304`. Sans cela, il faudrait l'espacer.
 OnCalendar=*-*-* 00/2:07:00
 RandomizedDelaySec=5min
 AccuracySec=1min
 
-# Un redemarrage ou un deploiement long ne doit pas coûter une fenetre : la
+# Un redemarrage ou un deploiement long ne doit pas couter une fenetre : la
 # passe manquee est rejouee au retour.
 Persistent=true
 
