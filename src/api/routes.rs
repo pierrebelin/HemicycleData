@@ -1,9 +1,10 @@
 use axum::extract::State;
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{middleware, Json, Router};
 use serde_json::{json, Value};
 use tower_http::cors::CorsLayer;
 
+use crate::api::security::{require_admin_token, AdminGuard};
 use crate::AppState;
 
 use super::handlers::{
@@ -11,7 +12,17 @@ use super::handlers::{
     theme_handlers,
 };
 
-pub fn create_router(state: AppState) -> Router {
+pub fn create_router(state: AppState, guard: AdminGuard) -> Router {
+    read_routes()
+        .merge(write_routes(guard))
+        .layer(cors_layer())
+        .with_state(state)
+}
+
+/// Consultation. Ouverte : le site publie de la donnee publique de
+/// l'Assemblee nationale, et un jeton dans un bundle JavaScript public ne
+/// protegerait rien (README.md §2).
+fn read_routes() -> Router<AppState> {
     Router::new()
         .route("/api/health", get(health))
         // Liste principale : tous les dossiers, paginés (README.md §2).
@@ -25,18 +36,7 @@ pub fn create_router(state: AppState) -> Router {
             "/api/dossiers/{uid}",
             get(dossier_handlers::get_dossier_detail),
         )
-        .route(
-            "/api/dossiers/{uid}/save",
-            post(dossier_handlers::save_dossier),
-        )
-        .route(
-            "/api/suggestions",
-            get(dossier_handlers::get_suggestions),
-        )
-        .route(
-            "/api/dossiers/{uid}/curate",
-            post(dossier_handlers::curate_dossier),
-        )
+        .route("/api/suggestions", get(dossier_handlers::get_suggestions))
         .route(
             "/api/dossiers/{uid}/scrutins",
             get(scrutin_handlers::get_dossier_scrutins),
@@ -50,10 +50,9 @@ pub fn create_router(state: AppState) -> Router {
         // Groupes parlementaires: liste et fiche. Un groupe repond a son
         // identifiant comme a son sigle, ancien ou courant (README.md §8.1).
         .route("/api/groupes", get(group_handlers::list_groups))
-        .route("/api/groupes/{group}", get(group_handlers::get_group_detail))
         .route(
-            "/api/scrutins/refresh",
-            post(scrutin_handlers::refresh_scrutins),
+            "/api/groupes/{group}",
+            get(group_handlers::get_group_detail),
         )
         .route(
             "/api/scrutins/{uid}",
@@ -68,25 +67,78 @@ pub fn create_router(state: AppState) -> Router {
             "/api/themes/unassigned",
             get(theme_handlers::list_unassigned_texts),
         )
-        .route("/api/themes/extract", post(theme_handlers::extract_texts))
-        .route("/api/themes/propose", post(theme_handlers::propose_families))
-        .route("/api/themes/arbitrate", post(theme_handlers::arbitrate))
         .route("/api/themes/{code}", get(theme_handlers::list_family_texts))
         .route("/api/texts/{key}", get(theme_handlers::get_text_detail))
+}
+
+/// Administration. Ingestion depuis l'Assemblee nationale, curation,
+/// thematisation LLM : aucune n'est appelee par un parcours de consultation,
+/// toutes coutent du temps machine ou de la cle Anthropic. Jeton du jour
+/// obligatoire (`api::security`).
+fn write_routes(guard: AdminGuard) -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/dossiers/{uid}/save",
+            post(dossier_handlers::save_dossier),
+        )
+        .route(
+            "/api/dossiers/{uid}/curate",
+            post(dossier_handlers::curate_dossier),
+        )
+        .route(
+            "/api/scrutins/refresh",
+            post(scrutin_handlers::refresh_scrutins),
+        )
+        .route("/api/themes/extract", post(theme_handlers::extract_texts))
+        .route(
+            "/api/themes/propose",
+            post(theme_handlers::propose_families),
+        )
+        .route("/api/themes/arbitrate", post(theme_handlers::arbitrate))
         .route("/api/refresh", post(dossier_handlers::refresh_dossiers))
         .route(
             "/api/registry/refresh",
             post(dossier_handlers::refresh_actor_registry),
         )
-        .layer(CorsLayer::permissive())
-        .with_state(state)
+        // `route_layer` et non `layer` : une methode inconnue sur un chemin
+        // connu doit rendre 405, sans passer par la garde.
+        .route_layer(middleware::from_fn_with_state(guard, require_admin_token))
+}
+
+/// CORS. Le front est servi par le meme hote que l'API en production, et par
+/// le proxy Vite en developpement : aucune requete inter-origines legitime
+/// n'existe. `ALLOWED_ORIGINS` (liste separee par des virgules) ouvre une
+/// exception quand une origine tierce apparait ; sans elle, rien n'est
+/// autorise. Remplace `CorsLayer::permissive()`, qui laissait n'importe quelle
+/// page du web lire les reponses de l'API avec les identifiants du visiteur.
+fn cors_layer() -> CorsLayer {
+    let raw = std::env::var("ALLOWED_ORIGINS").unwrap_or_default();
+    let origins: Vec<_> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|origin| !origin.is_empty())
+        .filter_map(|origin| match origin.parse() {
+            Ok(value) => Some(value),
+            Err(_) => {
+                tracing::warn!(%origin, "ALLOWED_ORIGINS: origine ignorée, valeur illisible");
+                None
+            }
+        })
+        .collect();
+
+    if origins.is_empty() {
+        CorsLayer::new()
+    } else {
+        tracing::info!(count = origins.len(), "CORS: origines tierces autorisées");
+        CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods([axum::http::Method::GET, axum::http::Method::HEAD])
+            .allow_headers([axum::http::header::CONTENT_TYPE])
+    }
 }
 
 async fn health(State(state): State<AppState>) -> Json<Value> {
-    let db_ok = sqlx::query("SELECT 1")
-        .execute(&state.db)
-        .await
-        .is_ok();
+    let db_ok = sqlx::query("SELECT 1").execute(&state.db).await.is_ok();
 
     Json(json!({
         "status": "ok",
