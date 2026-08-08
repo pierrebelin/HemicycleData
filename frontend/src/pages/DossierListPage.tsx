@@ -68,6 +68,19 @@ export default function DossierListPage() {
             ? `Les ${data.total.toLocaleString('fr-FR')} dossiers ouverts sous cette législature, du plus récemment actif au plus ancien. Rien n'est écarté.`
             : 'Tous les dossiers ouverts sous cette législature, du plus récemment actif au plus ancien.'
         }
+        /*
+          Les scrutins sont le détail d'un dossier avant d'être une rubrique :
+          leur porte d'entrée est ici, à côté du titre, plutôt qu'en septième
+          onglet de la barre de navigation.
+        */
+        aside={
+          <Link
+            to="/scrutins"
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            Accéder à tous les scrutins →
+          </Link>
+        }
       />
 
       {isLoading && <Loading>Chargement des dossiers…</Loading>}
