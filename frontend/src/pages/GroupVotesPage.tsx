@@ -216,6 +216,10 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
  * Sélecteur des groupes comparés. Une pastille par groupe du référentiel :
  * l'offre reste entière et visible, et la limite est annoncée avant d'être
  * atteinte plutôt que signalée par une erreur du serveur.
+ *
+ * Le renvoi vers les fiches de groupes est posé ici plutôt que dans la barre de
+ * navigation : c'est en choisissant les sigles qu'on se demande qui ils
+ * recouvrent, pas trois pages plus tôt.
  */
 function GroupPicker({
   groups,
@@ -258,6 +262,14 @@ function GroupPicker({
           )
         })}
       </div>
+      {groups.length > 0 && (
+        <Link
+          to="/groupes"
+          className="text-xs font-medium text-accent hover:underline"
+        >
+          Qui est qui : effectifs et composition des {groups.length} groupes →
+        </Link>
+      )}
     </div>
   )
 }
@@ -368,7 +380,7 @@ export default function GroupVotesPage() {
   return (
     <>
       <PageHeader
-        title="Votes par groupe"
+        title="Comparer les votes des groupes"
         lede="Choisissez les groupes à mettre côte à côte : chaque vote sur l'ensemble d'un texte affiche leur position, en pourcentage et en voix."
         aside={
           <label className="flex items-center gap-2 text-xs text-ink-faint">
@@ -447,6 +459,18 @@ export default function GroupVotesPage() {
             comparaison qui mérite d'être faite. Sélectionnez ci-dessus les
             groupes que vous voulez lire côte à côte — {maxGroups} au maximum —
             pour afficher les votes sur l'ensemble.
+          </p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-soft">
+            Les sigles ne vous parlent pas ? La{' '}
+            <Link to="/groupes" className="text-accent underline">
+              liste des groupes
+            </Link>{' '}
+            donne pour chacun son intitulé complet, son effectif et ses dates
+            d'existence. Un groupe parlementaire n'est pas un parti :{' '}
+            <Link to="/comprendre#q-groupe" className="text-accent underline">
+              pourquoi cette distinction
+            </Link>
+            .
           </p>
         </Card>
       )}
