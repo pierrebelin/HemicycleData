@@ -1,0 +1,41 @@
+[Unit]
+Description=hemicycle.data — ingestion (referentiel, scrutins, dossiers, textes)
+Documentation=https://github.com/pierrebelin/HemicycleData
+# Le job appelle l'API sur la boucle locale : sans le service, rien a appeler.
+Requires=hemicycle.service
+After=hemicycle.service
+
+[Service]
+Type=oneshot
+User=hemicycle
+Group=hemicycle
+WorkingDirectory=/home/hemicycle/app
+# Porte ADMIN_TOKEN_SECRET, dont le script derive le jeton du jour, et PORT.
+# `-` : fichier absent, l'unite echoue proprement dans le script plutot qu'au
+# demarrage.
+EnvironmentFile=-/home/hemicycle/shared/.env
+ExecStart=/home/hemicycle/app/deploy/cron/hemicycle-ingest.sh
+
+# Au-dela, l'ingestion est bloquee, pas lente : tuer et laisser le declenchement
+# suivant repartir proprement. Superieur a la somme des `--max-time` du script.
+TimeoutStartSec=2700
+
+# Durcissement, aligne sur hemicycle.service. Le job n'ecrit que dans /tmp, que
+# PrivateTmp lui reserve.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hemicycle-ingest

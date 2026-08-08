@@ -34,9 +34,11 @@ chaque merge sur `main` via GitHub Actions.
     .env                     → secrets, mode 600
   bin/
     deploy.sh                → script de déploiement (copié depuis app/deploy/)
-  shared/
-    ingest.log               → journal de la tâche CRON d'ingestion (§3.3)
 ```
+
+L'ingestion périodique ne pose aucun fichier : elle est déclenchée par un timer
+systemd et journalise dans journald (§3.3). Un `shared/ingest.log` n'apparaît
+que si l'on choisit le repli par crontab.
 
 `www/` est distinct de `app/frontend/dist/` pour que Nginx n'ait à lire que ce
 dossier : le reste du home reste en `750`, le code source n'est jamais exposé.
@@ -57,6 +59,11 @@ systemd (hemicycle.service, User=hemicycle)
    └─ /home/hemicycle/app/target/release/hemicycle-data
          EnvironmentFile=/home/hemicycle/shared/.env
          PORT=8085
+
+systemd (hemicycle-ingest.timer → .service, toutes les 2 h)
+   └─ /home/hemicycle/app/deploy/cron/hemicycle-ingest.sh
+         POST 127.0.0.1:8085/api/{registry/refresh,scrutins/refresh,refresh,themes/extract}
+         en-tête x-admin-token : jeton du jour
 ```
 
 ### 3.1 Pourquoi ce découpage pour l'écriture
@@ -142,20 +149,34 @@ consultation. Le site publie de la donnée publique (README.md §2) ; un jeton
 embarqué dans un bundle JavaScript public serait lisible par n'importe qui et ne
 protégerait rien.
 
-### 3.3 Ingestion quotidienne
+### 3.3 Ingestion périodique
 
-`deploy/cron/hemicycle-ingest.sh`, dans la crontab de l'utilisateur
-`hemicycle` :
+`deploy/cron/hemicycle-ingest.sh` enchaîne `registry/refresh`,
+`scrutins/refresh`, `refresh` puis `themes/extract`, dans cet ordre : sans
+acteurs à jour un scrutin référence des députés inconnus, et sans scrutins
+l'extraction ne voit rien. `POST /api/themes/propose` en est volontairement
+absent — il consomme la clé Anthropic, il reste une action délibérée de
+l'opérateur.
 
-```
-17 4 * * * /home/hemicycle/app/deploy/cron/hemicycle-ingest.sh >> /home/hemicycle/shared/ingest.log 2>&1
-```
+**Le déclencheur est `hemicycle-ingest.timer`, toutes les deux heures.** Le
+timer est préféré à une ligne de crontab pour trois raisons : la sortie part
+dans journald plutôt que dans un `ingest.log` que personne ne fait tourner,
+`Persistent=true` rejoue la passe manquée après un redémarrage, et systemd
+n'exécute jamais deux instances de la même unité en parallèle.
 
-Il enchaîne `registry/refresh`, `scrutins/refresh`, `refresh` puis
-`themes/extract`, dans cet ordre : sans acteurs à jour un scrutin référence des
-députés inconnus, et sans scrutins l'extraction ne voit rien.
-`POST /api/themes/propose` en est volontairement absent — il consomme la clé
-Anthropic, il reste une action délibérée de l'opérateur.
+> **Les deux mécanismes s'excluent.** Si le timer est activé, il ne faut *pas*
+> installer la ligne de crontab, sinon l'ingestion tourne deux fois sur deux
+> horaires. La ligne reste documentée en tête du script comme repli.
+
+Deux heures plutôt qu'une fois par jour : le script attaque des routes locales,
+et côté Assemblée nationale un passage coûte trois requêtes conditionnelles
+(§6.2) qui se résolvent en `304 Not Modified` tant que les archives n'ont pas
+changé. La cadence est donc quasi gratuite pour la source comme pour le VPS.
+Sans la revalidation conditionnelle, il faudrait l'espacer.
+
+Le changement de jeton à minuit n'est pas un obstacle : le serveur accepte le
+jeton du jour **et** celui de la veille (§3.2), quelle que soit l'heure du
+passage.
 
 ## 4. Préparation du serveur (une seule fois, en root)
 
@@ -273,6 +294,8 @@ se fait à l'installation, jamais dans le dépôt.
 
 ```bash
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle.service /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.service /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.timer /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/nginx/hemicycle-admin.conf /etc/nginx/sites-available/
 
 # Vhost public : domaine injecté à la volée.
@@ -287,6 +310,9 @@ ln -sf /etc/nginx/sites-available/hemicycle-public.conf /etc/nginx/sites-enabled
 ln -sf /etc/nginx/sites-available/hemicycle-admin.conf /etc/nginx/sites-enabled/
 systemctl daemon-reload
 systemctl enable hemicycle
+# Le timer seul est activé : le service d'ingestion est déclenché par lui,
+# jamais au démarrage (§6.2). Ne pas ajouter en plus la ligne de crontab.
+systemctl enable --now hemicycle-ingest.timer
 ```
 
 Premier build manuel avant le premier démarrage (sinon le binaire n'existe pas) :
@@ -431,6 +457,9 @@ intercepteur venu. Aucun secret applicatif ne transite par GitHub.
 | `.github/workflows/deploy.yml` | verrou de tests + déploiement SSH |
 | `deploy/deploy.sh` | script exécuté sur le VPS (build, publication, restart, health check) |
 | `deploy/systemd/hemicycle.service` | unité systemd, à installer dans `/etc/systemd/system/` |
+| `deploy/systemd/hemicycle-ingest.service` | job d'ingestion (`oneshot`), déclenché par le timer |
+| `deploy/systemd/hemicycle-ingest.timer` | cadence de l'ingestion, toutes les 2 h |
+| `deploy/cron/hemicycle-ingest.sh` | script appelé par le job : les quatre routes d'ingestion, avec le jeton du jour |
 | `deploy/nginx/hemicycle-public.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
 | `deploy/nginx/hemicycle-admin.conf` | vhost d'administration sur `127.0.0.1:8080` |
 | `deploy/bin/admin-token.sh` | affiche le jeton du jour (§3.2) |
@@ -442,6 +471,8 @@ interroge `https://<DOMAINE_PUBLIC>` et échoue tant que le certificat
 n'est pas posé.
 
 ## 6. Exploitation
+
+### 6.1 Commandes
 
 ```bash
 sudo systemctl status hemicycle          # état
@@ -456,6 +487,64 @@ Vérification du filtre d'écriture depuis l'extérieur — doit répondre `403`
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/refresh
+```
+
+### 6.2 Ingestion périodique
+
+`hemicycle-ingest.timer` déclenche `deploy/cron/hemicycle-ingest.sh` toutes les
+deux heures (00:07, 02:07, 04:07… plus un décalage aléatoire de 5 min au plus).
+Le script attend que `/api/health` réponde — un redémarrage laisse les
+migrations sqlx et le réveil à froid de Neon en cours — puis appelle les quatre
+routes d'ingestion avec le jeton du jour (§3.3).
+
+Côté dossiers, `POST /api/refresh` enchaîne référentiel des acteurs, dossiers,
+scrutins. Un dossier nouveau est écrit avec le sort dérivé de ses actes ; un
+dossier dont la source a bougé est réécrit, sort compris ; un dossier au sort
+définitif (promulgation, retrait, fusion) est sauté, plus rien ne peut le
+changer.
+
+Deux heures est un rythme choisi pour rester sous le seuil de perceptibilité,
+pas pour suivre la source : l'open data de l'Assemblée n'est pas mis à jour à
+cette cadence. La plupart des passages ne réécrivent rien et se comptent en
+secondes.
+
+Un passage coûte **trois requêtes** — les trois archives ZIP de
+`data.assemblee-nationale.fr` — et rien de plus : tout le reste est parsé en
+local, il n'y a aucun appel par dossier. Ces trois requêtes sont
+conditionnelles (`If-None-Match` / `If-Modified-Since`) : quand l'archive n'a
+pas changé, la source répond `304 Not Modified` en quelques octets et la copie
+en mémoire est resservie sans être reparsée. Sur une archive republiée une fois
+par jour, onze passages sur douze ne téléchargent donc rien. C'est ce qui rend
+la cadence de deux heures tenable ; sans ce mécanisme, il faudrait l'espacer.
+
+Le client se nomme auprès de la source
+(`hemicycle.data/<version> (+<URL du dépôt>)`). Si l'Assemblée devait un jour
+resserrer l'accès, c'est ce qui permet de nous joindre plutôt que de nous
+couper.
+
+```bash
+systemctl list-timers hemicycle-ingest.timer     # prochaine et dernière passe
+journalctl -u hemicycle-ingest -n 50 --no-pager  # résumé du dernier passage
+sudo systemctl start hemicycle-ingest.service    # déclenchement immédiat
+sudo systemctl disable --now hemicycle-ingest.timer   # suspendre la cadence
+```
+
+Les deux dernières sont des commandes root : le `sudoers` de `hemicycle` (§4.2)
+ne couvre que le service principal, et le timer n'a besoin d'aucun droit `sudo`
+pour tourner — c'est systemd qui le déclenche.
+
+Le script journalise une ligne par route, avec son code HTTP. Une route en échec
+n'empêche pas les suivantes de tourner, mais le code de sortie du job la
+reflète : l'unité passe en `failed` et `systemctl list-timers` le montre.
+
+Une réécriture complète (`?full=true`), nécessaire après un changement de règle
+de dérivation (score, sort, rattachement), reste manuelle et n'a pas sa place
+dans le timer. Elle exige le jeton du jour :
+
+```bash
+sudo -u hemicycle bash -c 'curl -sS -X POST \
+  -H "x-admin-token: $(~/app/deploy/bin/admin-token.sh)" \
+  "http://127.0.0.1:8085/api/refresh?full=true"'
 ```
 
 ## 7. Recette
@@ -474,3 +563,6 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/re
 - [ ] Le même appel avec le jeton du jour aboutit
 - [ ] `deploy/cron/hemicycle-ingest.sh` lancé à la main sort en `0`
 - [ ] `ss -ltnp | grep 8085` montre une écoute sur `127.0.0.1`, pas sur `0.0.0.0`
+- [ ] `systemctl list-timers hemicycle-ingest.timer` annonce une prochaine passe à moins de 2 h
+- [ ] `crontab -l` sous `hemicycle` ne contient **pas** de ligne `hemicycle-ingest.sh` (le timer et la crontab s'excluent, §3.3)
+- [ ] Après un `systemctl restart hemicycle`, le job attend la reprise au lieu d'échouer
