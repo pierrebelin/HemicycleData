@@ -1,7 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{Cursor, Read};
-use std::sync::Mutex;
-use std::time::Instant;
 
 use async_trait::async_trait;
 
@@ -11,6 +9,7 @@ use crate::domain::actor::{
     MembershipQuality, ParliamentaryGroup,
 };
 
+use super::archive_fetcher::ArchiveFetcher;
 use super::actor_parsing::{
     mandates, parse_date, text, RawActorWrapper, RawOrganeWrapper, ASSEMBLY_MANDATE_CODE,
     GROUP_ORGANE_CODE, MINISTRY_MANDATE_CODE, SENATE_MANDATE_CODE,
@@ -22,73 +21,23 @@ use super::actor_parsing::{
 /// laisse sans reponse les acteurs qui ont quitte l'Assemblee en cours de
 /// legislature.
 const REGISTRY_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/amo/tous_acteurs_mandats_organes_xi_legislature/AMO30_tous_acteurs_tous_mandats_tous_organes_historique.json.zip";
-const CACHE_TTL_SECS: u64 = 3600;
 
 const ACTOR_PATH: &str = "acteur/";
 const ORGANE_PATH: &str = "organe/";
 
-struct CachedZip {
-    data: Vec<u8>,
-    fetched_at: Instant,
-}
-
 pub struct AmoActorClient {
-    http: reqwest::Client,
-    cache: Mutex<Option<CachedZip>>,
+    archive: ArchiveFetcher,
 }
 
 impl AmoActorClient {
     pub fn new() -> Self {
-        let http = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .build()
-            .expect("failed to build HTTP client");
         Self {
-            http,
-            cache: Mutex::new(None),
+            archive: ArchiveFetcher::new(REGISTRY_URL, "actor registry"),
         }
     }
 
     async fn get_zip(&self) -> Result<Vec<u8>, SourceError> {
-        {
-            let cache = self.cache.lock().unwrap();
-            if let Some(cached) = cache.as_ref() {
-                if cached.fetched_at.elapsed().as_secs() < CACHE_TTL_SECS {
-                    tracing::debug!("Using cached actor registry ZIP");
-                    return Ok(cached.data.clone());
-                }
-            }
-        }
-
-        tracing::info!("Downloading {REGISTRY_URL}");
-        let response = self
-            .http
-            .get(REGISTRY_URL)
-            .send()
-            .await
-            .map_err(|e| SourceError::Download(e.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(SourceError::Download(format!("HTTP {}", response.status())));
-        }
-
-        let data = response
-            .bytes()
-            .await
-            .map(|b| b.to_vec())
-            .map_err(|e| SourceError::Download(e.to_string()))?;
-
-        tracing::info!("Downloaded {} bytes of actor registry", data.len());
-
-        {
-            let mut cache = self.cache.lock().unwrap();
-            *cache = Some(CachedZip {
-                data: data.clone(),
-                fetched_at: Instant::now(),
-            });
-        }
-
-        Ok(data)
+        self.archive.fetch().await
     }
 
     /// Groupes parlementaires de la legislature demandee (RM-07).

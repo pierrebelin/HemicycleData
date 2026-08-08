@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
-use std::sync::Mutex;
-use std::time::Instant;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -10,6 +8,7 @@ use crate::application::ports::assembly_source::{AssemblySource, SourceError};
 use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, LegislativeAct, LegislativeDocument, LegislativeDossier};
 use crate::domain::scoring::compute_score;
 
+use super::archive_fetcher::ArchiveFetcher;
 use super::committees::resolve_committee;
 use super::parsing::{
     collect_all_acts, extract_document_refs, extract_initiator_refs,
@@ -18,7 +17,6 @@ use super::parsing::{
 };
 
 const DOSSIERS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/dossiers_legislatifs/Dossiers_Legislatifs.json.zip";
-const CACHE_TTL_SECS: u64 = 3600;
 
 struct DocumentMeta {
     title: String,
@@ -27,71 +25,19 @@ struct DocumentMeta {
     date: Option<NaiveDate>,
 }
 
-struct CachedZip {
-    data: Vec<u8>,
-    fetched_at: Instant,
-}
-
 pub struct NationalAssemblyClient {
-    http: reqwest::Client,
-    cache: Mutex<Option<CachedZip>>,
+    archive: ArchiveFetcher,
 }
 
 impl NationalAssemblyClient {
     pub fn new() -> Self {
-        let http = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .build()
-            .expect("failed to build HTTP client");
         Self {
-            http,
-            cache: Mutex::new(None),
+            archive: ArchiveFetcher::new(DOSSIERS_URL, "dossiers"),
         }
     }
 
     async fn get_zip(&self) -> Result<Vec<u8>, SourceError> {
-        {
-            let cache = self.cache.lock().unwrap();
-            if let Some(cached) = cache.as_ref() {
-                if cached.fetched_at.elapsed().as_secs() < CACHE_TTL_SECS {
-                    tracing::debug!("Using cached dossiers ZIP");
-                    return Ok(cached.data.clone());
-                }
-            }
-        }
-
-        tracing::info!("Downloading {DOSSIERS_URL}");
-        let response = self
-            .http
-            .get(DOSSIERS_URL)
-            .send()
-            .await
-            .map_err(|e| SourceError::Download(e.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(SourceError::Download(format!(
-                "HTTP {}",
-                response.status()
-            )));
-        }
-
-        let data = response
-            .bytes()
-            .await
-            .map(|b| b.to_vec())
-            .map_err(|e| SourceError::Download(e.to_string()))?;
-
-        tracing::info!("Downloaded {} bytes", data.len());
-
-        {
-            let mut cache = self.cache.lock().unwrap();
-            *cache = Some(CachedZip {
-                data: data.clone(),
-                fetched_at: Instant::now(),
-            });
-        }
-
-        Ok(data)
+        self.archive.fetch().await
     }
 
     fn parse_raw_dossier(
