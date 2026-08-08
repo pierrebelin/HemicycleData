@@ -6,6 +6,12 @@ edition = "2021"
 # lance le serveur.
 default-run = "hemicycle-data"
 
+# Outil d'exploitation, pas un binaire jetable : le CRON et l'operateur en
+# dependent pour deriver le jeton du jour.
+[[bin]]
+name = "admin-token"
+path = "src/bin/admin_token.rs"
+
 [dependencies]
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
@@ -30,3 +36,14 @@ zip = "2"
 chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"
 thiserror = "2"
+# Derivation du jeton d'administration du jour (voir
+# src/infrastructure/security.rs). Implementations Rust pures : ni openssl-sys
+# ni pkg-config a l'installation, comme le reste du projet.
+hmac = "0.12"
+sha2 = "0.10"
+
+[dev-dependencies]
+# `oneshot` sur le routeur : les tests d'integration de l'API appellent les
+# routes sans ouvrir de socket.
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

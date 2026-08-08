@@ -17,6 +17,7 @@ chaque merge sur `main` via GitHub Actions.
 | Secrets | posés à la main une fois dans `/home/hemicycle/shared/.env`, jamais dans GitHub |
 | Port backend | `8085` en local (le `3000` par défaut est supposé pris par l'application Node) |
 | Écriture publique | tous les `POST /api/` renvoient `403` sur le vhost public |
+| Écriture applicative | jeton du jour obligatoire, dérivé de `ADMIN_TOKEN_SECRET` (§3.2) |
 
 ## 2. Arborescence cible
 
@@ -34,6 +35,10 @@ chaque merge sur `main` via GitHub Actions.
   bin/
     deploy.sh                → script de déploiement (copié depuis app/deploy/)
 ```
+
+L'ingestion périodique ne pose aucun fichier : elle est déclenchée par un timer
+systemd et journalise dans journald (§3.3). Un `shared/ingest.log` n'apparaît
+que si l'on choisit le repli par crontab.
 
 `www/` est distinct de `app/frontend/dist/` pour que Nginx n'ait à lire que ce
 dossier : le reste du home reste en `750`, le code source n'est jamais exposé.
@@ -55,9 +60,10 @@ systemd (hemicycle.service, User=hemicycle)
          EnvironmentFile=/home/hemicycle/shared/.env
          PORT=8085
 
-systemd (hemicycle-refresh.timer → .service, toutes les 2 h)
-   └─ /home/hemicycle/app/deploy/refresh.sh
-         POST 127.0.0.1:8085/api/refresh
+systemd (hemicycle-ingest.timer → .service, toutes les 2 h)
+   └─ /home/hemicycle/app/deploy/cron/hemicycle-ingest.sh
+         POST 127.0.0.1:8085/api/{registry/refresh,scrutins/refresh,refresh,themes/extract}
+         en-tête x-admin-token : jeton du jour
 ```
 
 ### 3.1 Pourquoi ce découpage pour l'écriture
@@ -78,7 +84,7 @@ d'administration :
 | `POST /api/dossiers/{uid}/save` | `DossierDetailPage` |
 | `POST /api/themes/extract` | aucun front (outil) |
 | `POST /api/themes/propose` | aucun front (outil) |
-| `POST /api/themes/arbitrate` | `ThemeArbitrationPage` (déjà protégée par `x-admin-token`) |
+| `POST /api/themes/arbitrate` | `ThemeArbitrationPage` |
 
 Aucun parcours de consultation n'écrit. Le vhost public renvoie donc `403` sur
 toute méthode autre que `GET`/`HEAD`/`OPTIONS` sous `/api/`. Sans cela,
@@ -94,20 +100,83 @@ ssh -N -L 8080:127.0.0.1:8080 hemicycle@<IP_DU_VPS>
 puis `http://localhost:8080` dans le navigateur. Le vhost admin n'écoute que sur
 la boucle locale, il n'est joignable d'aucune façon depuis Internet.
 
-**Dette identifiée, hors périmètre de cette spec** : la protection est
-périmétrique (Nginx), pas applicative. Si un jour un autre service du VPS peut
-émettre des requêtes vers `127.0.0.1:8085`, il contourne le filtre. Le correctif
-propre est un middleware Axum exigeant `ADMIN_TOKEN` sur toutes les routes
-d'écriture — `POST /api/themes/arbitrate` montre déjà le motif.
+### 3.2 Garde applicative et jeton du jour
 
-**Deuxième dette** : le binaire écoute sur `0.0.0.0:8085` (`src/main.rs`). Le
-pare-feu est donc la seule chose qui empêche d'atteindre l'API en direct sur le
-port 8085. Vérifier que `ufw` bloque tout sauf 22/80/443. Correctif propre :
-binder `127.0.0.1`.
+Les trois dettes que portait cette section sont soldées.
 
-**Troisième dette** : `CorsLayer::permissive()`. Sans effet ici (front et API
-partagent l'origine), conservé tel quel, à resserrer le jour où une origine
-tierce existe.
+**Le filtre n'est plus seulement périmétrique.** Un middleware Axum
+(`src/api/security.rs`) exige un jeton sur les huit routes d'écriture. Le
+`limit_except` du vhost public reste en place : deux barrières, dont une qui
+tient même si un autre service du VPS atteint `127.0.0.1:8085` en direct.
+
+**Le jeton change tous les jours.** Il n'est pas posé dans le `.env` et n'est
+stocké nulle part — il est dérivé du secret et de la date UTC :
+
+```text
+jeton(jour) = hex(HMAC-SHA256(ADMIN_TOKEN_SECRET, "AAAA-MM-JJ"))[..32]
+```
+
+Le serveur accepte le jour courant et la veille. Sans cette tolérance, une tâche
+CRON lancée à 23 h 59 s'authentifierait avec un jeton périmé à 00 h 00, et
+l'opérateur serait déconnecté en plein arbitrage au passage de minuit. Fenêtre
+d'exposition d'un jeton qui fuite : 48 h au plus. Révocation immédiate :
+changer `ADMIN_TOKEN_SECRET` et redémarrer.
+
+Les deux appelants légitimes le dérivent du même secret :
+
+| Appelant | Comment |
+|---|---|
+| Écran d'administration (tunnel SSH) | l'opérateur colle le jeton du jour dans le champ prévu |
+| Tâche CRON du VPS | `deploy/cron/hemicycle-ingest.sh` appelle `deploy/bin/admin-token.sh` |
+
+```bash
+ssh hemicycle@<IP_DU_VPS> '~/app/deploy/bin/admin-token.sh'
+```
+
+Le secret ne transite jamais par `argv` — `ps` l'exposerait à tout utilisateur
+de la machine. `admin-token.sh` charge `~/shared/.env` puis exécute le binaire
+`admin-token`, qui lit l'environnement.
+
+**Écoute sur la boucle locale.** `BIND_ADDR` vaut `127.0.0.1` par défaut : le
+pare-feu n'est plus la seule chose qui empêche d'atteindre l'API en direct sur
+le port 8085. `ufw` reste à vérifier, il n'est simplement plus seul.
+
+**CORS explicite.** `CorsLayer::permissive()` est remplacé par une liste
+d'origines lue dans `ALLOWED_ORIGINS`, vide par défaut.
+
+**Ce qui n'est pas protégé, et ne peut pas l'être** : les routes de
+consultation. Le site publie de la donnée publique (README.md §2) ; un jeton
+embarqué dans un bundle JavaScript public serait lisible par n'importe qui et ne
+protégerait rien.
+
+### 3.3 Ingestion périodique
+
+`deploy/cron/hemicycle-ingest.sh` enchaîne `registry/refresh`,
+`scrutins/refresh`, `refresh` puis `themes/extract`, dans cet ordre : sans
+acteurs à jour un scrutin référence des députés inconnus, et sans scrutins
+l'extraction ne voit rien. `POST /api/themes/propose` en est volontairement
+absent — il consomme la clé Anthropic, il reste une action délibérée de
+l'opérateur.
+
+**Le déclencheur est `hemicycle-ingest.timer`, toutes les deux heures.** Le
+timer est préféré à une ligne de crontab pour trois raisons : la sortie part
+dans journald plutôt que dans un `ingest.log` que personne ne fait tourner,
+`Persistent=true` rejoue la passe manquée après un redémarrage, et systemd
+n'exécute jamais deux instances de la même unité en parallèle.
+
+> **Les deux mécanismes s'excluent.** Si le timer est activé, il ne faut *pas*
+> installer la ligne de crontab, sinon l'ingestion tourne deux fois sur deux
+> horaires. La ligne reste documentée en tête du script comme repli.
+
+Deux heures plutôt qu'une fois par jour : le script attaque des routes locales,
+et côté Assemblée nationale un passage coûte trois requêtes conditionnelles
+(§6.2) qui se résolvent en `304 Not Modified` tant que les archives n'ont pas
+changé. La cadence est donc quasi gratuite pour la source comme pour le VPS.
+Sans la revalidation conditionnelle, il faudrait l'espacer.
+
+Le changement de jeton à minuit n'est pas un obstacle : le serveur accepte le
+jeton du jour **et** celui de la veille (§3.2), quelle que soit l'heure du
+passage.
 
 ## 4. Préparation du serveur (une seule fois, en root)
 
@@ -194,14 +263,17 @@ Fichier `/home/hemicycle/shared/.env`, propriétaire `hemicycle`, mode `600`,
 ```
 DATABASE_URL=postgresql://user:password@host.neon.tech/neondb?sslmode=require
 ANTHROPIC_API_KEY=sk-ant-...
-ADMIN_TOKEN=<chaîne aléatoire longue, ex. openssl rand -hex 32>
+ADMIN_TOKEN_SECRET=<openssl rand -hex 32>
+BIND_ADDR=127.0.0.1
 PORT=8085
 RUST_LOG=info
 ```
 
-`ANTHROPIC_API_KEY` et `ADMIN_TOKEN` sont facultatifs : sans clé, la
-thématisation ne propose rien et le site tourne (RM-01) ; sans jeton, l'écran
-d'arbitrage est fermé. Les poser tous les deux.
+`ANTHROPIC_API_KEY` est facultative : sans clé, la thématisation ne propose rien
+et le site tourne (RM-01). `ADMIN_TOKEN_SECRET` ne l'est pas en pratique : sans
+lui, les huit routes d'écriture répondent `403` et l'ingestion devient
+impossible, CRON compris. Moins de 32 caractères : refusé au démarrage, écriture
+fermée de la même façon.
 
 ### 4.6 Port libre
 
@@ -222,8 +294,8 @@ se fait à l'installation, jamais dans le dépôt.
 
 ```bash
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle.service /etc/systemd/system/
-install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-refresh.service /etc/systemd/system/
-install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-refresh.timer /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.service /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.timer /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/nginx/hemicycle-admin.conf /etc/nginx/sites-available/
 
 # Vhost public : domaine injecté à la volée.
@@ -238,9 +310,9 @@ ln -sf /etc/nginx/sites-available/hemicycle-public.conf /etc/nginx/sites-enabled
 ln -sf /etc/nginx/sites-available/hemicycle-admin.conf /etc/nginx/sites-enabled/
 systemctl daemon-reload
 systemctl enable hemicycle
-# Le timer seul est activé : le service de rafraîchissement est déclenché par
-# lui, jamais au démarrage (§6.2).
-systemctl enable --now hemicycle-refresh.timer
+# Le timer seul est activé : le service d'ingestion est déclenché par lui,
+# jamais au démarrage (§6.2). Ne pas ajouter en plus la ligne de crontab.
+systemctl enable --now hemicycle-ingest.timer
 ```
 
 Premier build manuel avant le premier démarrage (sinon le binaire n'existe pas) :
@@ -385,11 +457,13 @@ intercepteur venu. Aucun secret applicatif ne transite par GitHub.
 | `.github/workflows/deploy.yml` | verrou de tests + déploiement SSH |
 | `deploy/deploy.sh` | script exécuté sur le VPS (build, publication, restart, health check) |
 | `deploy/systemd/hemicycle.service` | unité systemd, à installer dans `/etc/systemd/system/` |
-| `deploy/systemd/hemicycle-refresh.service` | job de rafraîchissement (`oneshot`), déclenché par le timer |
-| `deploy/systemd/hemicycle-refresh.timer` | cadence du rafraîchissement, toutes les 2 h |
-| `deploy/refresh.sh` | script appelé par le job : `POST /api/refresh` sur la boucle locale |
+| `deploy/systemd/hemicycle-ingest.service` | job d'ingestion (`oneshot`), déclenché par le timer |
+| `deploy/systemd/hemicycle-ingest.timer` | cadence de l'ingestion, toutes les 2 h |
+| `deploy/cron/hemicycle-ingest.sh` | script appelé par le job : les quatre routes d'ingestion, avec le jeton du jour |
 | `deploy/nginx/hemicycle-public.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
 | `deploy/nginx/hemicycle-admin.conf` | vhost d'administration sur `127.0.0.1:8080` |
+| `deploy/bin/admin-token.sh` | affiche le jeton du jour (§3.2) |
+| `deploy/cron/hemicycle-ingest.sh` | ingestion quotidienne, à poser dans la crontab (§3.3) |
 
 Ordre de mise en service : §4 en entier (dont `certbot`, §4.8) **avant** le
 premier merge sur `main`. L'étape « Vérification publique » du workflow
@@ -405,6 +479,8 @@ sudo systemctl status hemicycle          # état
 journalctl -u hemicycle -f               # logs en direct
 journalctl -u hemicycle --since "1 hour ago" -p err
 curl -s 127.0.0.1:8085/api/health        # santé côté serveur
+~/app/deploy/bin/admin-token.sh          # jeton d'écriture du jour
+tail -f ~/shared/ingest.log              # dernière ingestion CRON
 ```
 
 Vérification du filtre d'écriture depuis l'extérieur — doit répondre `403` :
@@ -413,15 +489,19 @@ Vérification du filtre d'écriture depuis l'extérieur — doit répondre `403`
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/refresh
 ```
 
-### 6.2 Rafraîchissement périodique
+### 6.2 Ingestion périodique
 
-`hemicycle-refresh.timer` déclenche `deploy/refresh.sh` toutes les deux heures
-(00:07, 02:07, 04:07… plus un décalage aléatoire de 5 min au plus). Le script
-appelle `POST 127.0.0.1:<PORT>/api/refresh`, qui enchaîne dans cet ordre :
-référentiel des acteurs, dossiers, scrutins. Un dossier nouveau est écrit avec
-le sort dérivé de ses actes ; un dossier dont la source a bougé est réécrit,
-sort compris ; un dossier au sort définitif (promulgation, retrait, fusion) est
-sauté, plus rien ne peut le changer.
+`hemicycle-ingest.timer` déclenche `deploy/cron/hemicycle-ingest.sh` toutes les
+deux heures (00:07, 02:07, 04:07… plus un décalage aléatoire de 5 min au plus).
+Le script attend que `/api/health` réponde — un redémarrage laisse les
+migrations sqlx et le réveil à froid de Neon en cours — puis appelle les quatre
+routes d'ingestion avec le jeton du jour (§3.3).
+
+Côté dossiers, `POST /api/refresh` enchaîne référentiel des acteurs, dossiers,
+scrutins. Un dossier nouveau est écrit avec le sort dérivé de ses actes ; un
+dossier dont la source a bougé est réécrit, sort compris ; un dossier au sort
+définitif (promulgation, retrait, fusion) est sauté, plus rien ne peut le
+changer.
 
 Deux heures est un rythme choisi pour rester sous le seuil de perceptibilité,
 pas pour suivre la source : l'open data de l'Assemblée n'est pas mis à jour à
@@ -443,26 +523,28 @@ resserrer l'accès, c'est ce qui permet de nous joindre plutôt que de nous
 couper.
 
 ```bash
-systemctl list-timers hemicycle-refresh.timer    # prochaine et dernière passe
-journalctl -u hemicycle-refresh -n 50 --no-pager # résumé du dernier passage
-sudo systemctl start hemicycle-refresh.service   # déclenchement immédiat
-sudo systemctl disable --now hemicycle-refresh.timer  # suspendre la cadence
+systemctl list-timers hemicycle-ingest.timer     # prochaine et dernière passe
+journalctl -u hemicycle-ingest -n 50 --no-pager  # résumé du dernier passage
+sudo systemctl start hemicycle-ingest.service    # déclenchement immédiat
+sudo systemctl disable --now hemicycle-ingest.timer   # suspendre la cadence
 ```
 
 Les deux dernières sont des commandes root : le `sudoers` de `hemicycle` (§4.2)
 ne couvre que le service principal, et le timer n'a besoin d'aucun droit `sudo`
 pour tourner — c'est systemd qui le déclenche.
 
-Le résumé JSON de chaque passage est journalisé tel quel : nombre de dossiers
-vus, écrits, sautés, et les deux anomalies possibles. Une source indisponible
-ne fait pas échouer l'unité — le référentiel ou les scrutins précédents restent
-en place, et la ligne `ANOMALIE :` le signale dans le journal (README.md §2).
+Le script journalise une ligne par route, avec son code HTTP. Une route en échec
+n'empêche pas les suivantes de tourner, mais le code de sortie du job la
+reflète : l'unité passe en `failed` et `systemctl list-timers` le montre.
 
 Une réécriture complète (`?full=true`), nécessaire après un changement de règle
-de dérivation, reste manuelle et n'a pas sa place dans le timer :
+de dérivation (score, sort, rattachement), reste manuelle et n'a pas sa place
+dans le timer. Elle exige le jeton du jour :
 
 ```bash
-sudo -u hemicycle /home/hemicycle/app/deploy/refresh.sh --full
+sudo -u hemicycle bash -c 'curl -sS -X POST \
+  -H "x-admin-token: $(~/app/deploy/bin/admin-token.sh)" \
+  "http://127.0.0.1:8085/api/refresh?full=true"'
 ```
 
 ## 7. Recette
@@ -476,6 +558,11 @@ sudo -u hemicycle /home/hemicycle/app/deploy/refresh.sh --full
 - [ ] `systemctl restart hemicycle` remonte le service et rejoue les migrations sans erreur
 - [ ] Un merge sur `main` déclenche le workflow et le site sert bien le nouveau code
 - [ ] `sudo -l` sous `hemicycle` ne liste que les trois commandes `systemctl`
-- [ ] `systemctl list-timers hemicycle-refresh.timer` annonce une prochaine passe à moins de 2 h
-- [ ] `sudo -u hemicycle /home/hemicycle/app/deploy/refresh.sh` répond `OK` et journalise un résumé JSON
-- [ ] Après un `systemctl restart hemicycle`, le script attend la reprise au lieu d'échouer
+- [ ] `~/app/deploy/bin/admin-token.sh` affiche 32 caractères hexadécimaux
+- [ ] `POST /api/refresh` sans jeton, depuis le tunnel admin, renvoie `401`
+- [ ] Le même appel avec le jeton du jour aboutit
+- [ ] `deploy/cron/hemicycle-ingest.sh` lancé à la main sort en `0`
+- [ ] `ss -ltnp | grep 8085` montre une écoute sur `127.0.0.1`, pas sur `0.0.0.0`
+- [ ] `systemctl list-timers hemicycle-ingest.timer` annonce une prochaine passe à moins de 2 h
+- [ ] `crontab -l` sous `hemicycle` ne contient **pas** de ligne `hemicycle-ingest.sh` (le timer et la crontab s'excluent, §3.3)
+- [ ] Après un `systemctl restart hemicycle`, le job attend la reprise au lieu d'échouer

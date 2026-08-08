@@ -1,5 +1,5 @@
 use axum::extract::{Path, Query, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::StatusCode;
 use axum::Json;
 use chrono::Utc;
 
@@ -22,30 +22,6 @@ type ApiError = (StatusCode, String);
 
 fn server_error(e: impl std::fmt::Display) -> ApiError {
     (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-}
-
-/// Ecran d'arbitrage et commandes d'ingestion: acces par jeton partage (CU-03).
-/// Sans `ADMIN_TOKEN`, l'arbitrage est ferme plutot qu'ouvert.
-fn authorize(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
-    let Some(expected) = state.admin_token.as_deref() else {
-        return Err((
-            StatusCode::FORBIDDEN,
-            "arbitrage fermé : ADMIN_TOKEN absent".to_string(),
-        ));
-    };
-    let provided = headers
-        .get("x-admin-token")
-        .and_then(|v| v.to_str().ok())
-        .or_else(|| {
-            headers
-                .get("authorization")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.strip_prefix("Bearer "))
-        });
-    match provided {
-        Some(token) if token == expected => Ok(()),
-        _ => Err((StatusCode::UNAUTHORIZED, "jeton invalide".to_string())),
-    }
 }
 
 /// CU-06 — Referentiel des familles, servi tel quel.
@@ -119,9 +95,7 @@ pub async fn get_text_detail(
 /// CU-01 — Extraire les textes debattus des objets de scrutin.
 pub async fn extract_texts(
     State(state): State<AppState>,
-    headers: HeaderMap,
 ) -> Result<Json<ExtractionResponse>, ApiError> {
-    authorize(&state, &headers)?;
     let report = ExtractDebatedTexts::new(state.theme_repository.as_ref())
         .execute()
         .await
@@ -132,10 +106,8 @@ pub async fn extract_texts(
 /// CU-02 — Soumettre au modele les textes en attente.
 pub async fn propose_families(
     State(state): State<AppState>,
-    headers: HeaderMap,
     body: Option<Json<ProposalRequest>>,
 ) -> Result<Json<ProposalRunResponse>, ApiError> {
-    authorize(&state, &headers)?;
     let batch = body
         .and_then(|Json(request)| request.batch)
         .unwrap_or(25)
@@ -155,16 +127,12 @@ pub async fn propose_families(
 /// CU-03 — Arbitrer une proposition.
 pub async fn arbitrate(
     State(state): State<AppState>,
-    headers: HeaderMap,
     Json(request): Json<ArbitrationRequest>,
 ) -> Result<Json<ArbitrationResponse>, ApiError> {
-    authorize(&state, &headers)?;
-
     let mut families = Vec::with_capacity(request.families.len());
     for code in &request.families {
-        families.push(
-            FamilyCode::parse(code).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?,
-        );
+        families
+            .push(FamilyCode::parse(code).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?);
     }
 
     let command = ArbitrationCommand {
