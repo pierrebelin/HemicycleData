@@ -17,6 +17,7 @@ chaque merge sur `main` via GitHub Actions.
 | Secrets | posés à la main une fois dans `/home/hemicycle/shared/.env`, jamais dans GitHub |
 | Port backend | `8085` en local (le `3000` par défaut est supposé pris par l'application Node) |
 | Écriture publique | tous les `POST /api/` renvoient `403` sur le vhost public |
+| Écriture applicative | jeton du jour obligatoire, dérivé de `ADMIN_TOKEN_SECRET` (§3.2) |
 
 ## 2. Arborescence cible
 
@@ -33,6 +34,8 @@ chaque merge sur `main` via GitHub Actions.
     .env                     → secrets, mode 600
   bin/
     deploy.sh                → script de déploiement (copié depuis app/deploy/)
+  shared/
+    ingest.log               → journal de la tâche CRON d'ingestion (§3.3)
 ```
 
 `www/` est distinct de `app/frontend/dist/` pour que Nginx n'ait à lire que ce
@@ -74,7 +77,7 @@ d'administration :
 | `POST /api/dossiers/{uid}/save` | `DossierDetailPage` |
 | `POST /api/themes/extract` | aucun front (outil) |
 | `POST /api/themes/propose` | aucun front (outil) |
-| `POST /api/themes/arbitrate` | `ThemeArbitrationPage` (déjà protégée par `x-admin-token`) |
+| `POST /api/themes/arbitrate` | `ThemeArbitrationPage` |
 
 Aucun parcours de consultation n'écrit. Le vhost public renvoie donc `403` sur
 toute méthode autre que `GET`/`HEAD`/`OPTIONS` sous `/api/`. Sans cela,
@@ -90,20 +93,69 @@ ssh -N -L 8080:127.0.0.1:8080 hemicycle@<IP_DU_VPS>
 puis `http://localhost:8080` dans le navigateur. Le vhost admin n'écoute que sur
 la boucle locale, il n'est joignable d'aucune façon depuis Internet.
 
-**Dette identifiée, hors périmètre de cette spec** : la protection est
-périmétrique (Nginx), pas applicative. Si un jour un autre service du VPS peut
-émettre des requêtes vers `127.0.0.1:8085`, il contourne le filtre. Le correctif
-propre est un middleware Axum exigeant `ADMIN_TOKEN` sur toutes les routes
-d'écriture — `POST /api/themes/arbitrate` montre déjà le motif.
+### 3.2 Garde applicative et jeton du jour
 
-**Deuxième dette** : le binaire écoute sur `0.0.0.0:8085` (`src/main.rs`). Le
-pare-feu est donc la seule chose qui empêche d'atteindre l'API en direct sur le
-port 8085. Vérifier que `ufw` bloque tout sauf 22/80/443. Correctif propre :
-binder `127.0.0.1`.
+Les trois dettes que portait cette section sont soldées.
 
-**Troisième dette** : `CorsLayer::permissive()`. Sans effet ici (front et API
-partagent l'origine), conservé tel quel, à resserrer le jour où une origine
-tierce existe.
+**Le filtre n'est plus seulement périmétrique.** Un middleware Axum
+(`src/api/security.rs`) exige un jeton sur les huit routes d'écriture. Le
+`limit_except` du vhost public reste en place : deux barrières, dont une qui
+tient même si un autre service du VPS atteint `127.0.0.1:8085` en direct.
+
+**Le jeton change tous les jours.** Il n'est pas posé dans le `.env` et n'est
+stocké nulle part — il est dérivé du secret et de la date UTC :
+
+```text
+jeton(jour) = hex(HMAC-SHA256(ADMIN_TOKEN_SECRET, "AAAA-MM-JJ"))[..32]
+```
+
+Le serveur accepte le jour courant et la veille. Sans cette tolérance, une tâche
+CRON lancée à 23 h 59 s'authentifierait avec un jeton périmé à 00 h 00, et
+l'opérateur serait déconnecté en plein arbitrage au passage de minuit. Fenêtre
+d'exposition d'un jeton qui fuite : 48 h au plus. Révocation immédiate :
+changer `ADMIN_TOKEN_SECRET` et redémarrer.
+
+Les deux appelants légitimes le dérivent du même secret :
+
+| Appelant | Comment |
+|---|---|
+| Écran d'administration (tunnel SSH) | l'opérateur colle le jeton du jour dans le champ prévu |
+| Tâche CRON du VPS | `deploy/cron/hemicycle-ingest.sh` appelle `deploy/bin/admin-token.sh` |
+
+```bash
+ssh hemicycle@<IP_DU_VPS> '~/app/deploy/bin/admin-token.sh'
+```
+
+Le secret ne transite jamais par `argv` — `ps` l'exposerait à tout utilisateur
+de la machine. `admin-token.sh` charge `~/shared/.env` puis exécute le binaire
+`admin-token`, qui lit l'environnement.
+
+**Écoute sur la boucle locale.** `BIND_ADDR` vaut `127.0.0.1` par défaut : le
+pare-feu n'est plus la seule chose qui empêche d'atteindre l'API en direct sur
+le port 8085. `ufw` reste à vérifier, il n'est simplement plus seul.
+
+**CORS explicite.** `CorsLayer::permissive()` est remplacé par une liste
+d'origines lue dans `ALLOWED_ORIGINS`, vide par défaut.
+
+**Ce qui n'est pas protégé, et ne peut pas l'être** : les routes de
+consultation. Le site publie de la donnée publique (README.md §2) ; un jeton
+embarqué dans un bundle JavaScript public serait lisible par n'importe qui et ne
+protégerait rien.
+
+### 3.3 Ingestion quotidienne
+
+`deploy/cron/hemicycle-ingest.sh`, dans la crontab de l'utilisateur
+`hemicycle` :
+
+```
+17 4 * * * /home/hemicycle/app/deploy/cron/hemicycle-ingest.sh >> /home/hemicycle/shared/ingest.log 2>&1
+```
+
+Il enchaîne `registry/refresh`, `scrutins/refresh`, `refresh` puis
+`themes/extract`, dans cet ordre : sans acteurs à jour un scrutin référence des
+députés inconnus, et sans scrutins l'extraction ne voit rien.
+`POST /api/themes/propose` en est volontairement absent — il consomme la clé
+Anthropic, il reste une action délibérée de l'opérateur.
 
 ## 4. Préparation du serveur (une seule fois, en root)
 
@@ -190,14 +242,17 @@ Fichier `/home/hemicycle/shared/.env`, propriétaire `hemicycle`, mode `600`,
 ```
 DATABASE_URL=postgresql://user:password@host.neon.tech/neondb?sslmode=require
 ANTHROPIC_API_KEY=sk-ant-...
-ADMIN_TOKEN=<chaîne aléatoire longue, ex. openssl rand -hex 32>
+ADMIN_TOKEN_SECRET=<openssl rand -hex 32>
+BIND_ADDR=127.0.0.1
 PORT=8085
 RUST_LOG=info
 ```
 
-`ANTHROPIC_API_KEY` et `ADMIN_TOKEN` sont facultatifs : sans clé, la
-thématisation ne propose rien et le site tourne (RM-01) ; sans jeton, l'écran
-d'arbitrage est fermé. Les poser tous les deux.
+`ANTHROPIC_API_KEY` est facultative : sans clé, la thématisation ne propose rien
+et le site tourne (RM-01). `ADMIN_TOKEN_SECRET` ne l'est pas en pratique : sans
+lui, les huit routes d'écriture répondent `403` et l'ingestion devient
+impossible, CRON compris. Moins de 32 caractères : refusé au démarrage, écriture
+fermée de la même façon.
 
 ### 4.6 Port libre
 
@@ -378,6 +433,8 @@ intercepteur venu. Aucun secret applicatif ne transite par GitHub.
 | `deploy/systemd/hemicycle.service` | unité systemd, à installer dans `/etc/systemd/system/` |
 | `deploy/nginx/hemicycle-public.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
 | `deploy/nginx/hemicycle-admin.conf` | vhost d'administration sur `127.0.0.1:8080` |
+| `deploy/bin/admin-token.sh` | affiche le jeton du jour (§3.2) |
+| `deploy/cron/hemicycle-ingest.sh` | ingestion quotidienne, à poser dans la crontab (§3.3) |
 
 Ordre de mise en service : §4 en entier (dont `certbot`, §4.8) **avant** le
 premier merge sur `main`. L'étape « Vérification publique » du workflow
@@ -391,6 +448,8 @@ sudo systemctl status hemicycle          # état
 journalctl -u hemicycle -f               # logs en direct
 journalctl -u hemicycle --since "1 hour ago" -p err
 curl -s 127.0.0.1:8085/api/health        # santé côté serveur
+~/app/deploy/bin/admin-token.sh          # jeton d'écriture du jour
+tail -f ~/shared/ingest.log              # dernière ingestion CRON
 ```
 
 Vérification du filtre d'écriture depuis l'extérieur — doit répondre `403` :
@@ -410,3 +469,8 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/re
 - [ ] `systemctl restart hemicycle` remonte le service et rejoue les migrations sans erreur
 - [ ] Un merge sur `main` déclenche le workflow et le site sert bien le nouveau code
 - [ ] `sudo -l` sous `hemicycle` ne liste que les trois commandes `systemctl`
+- [ ] `~/app/deploy/bin/admin-token.sh` affiche 32 caractères hexadécimaux
+- [ ] `POST /api/refresh` sans jeton, depuis le tunnel admin, renvoie `401`
+- [ ] Le même appel avec le jeton du jour aboutit
+- [ ] `deploy/cron/hemicycle-ingest.sh` lancé à la main sort en `0`
+- [ ] `ss -ltnp | grep 8085` montre une écoute sur `127.0.0.1`, pas sur `0.0.0.0`
