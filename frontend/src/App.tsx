@@ -2,12 +2,20 @@ import { Outlet, Link, NavLink } from 'react-router'
 import Logo from './components/Logo'
 import ThemeToggle from './components/ThemeToggle'
 
+/*
+ * Quatre entrées, pas sept. « Accueil » est déjà porté par le logo ; les
+ * scrutins s'atteignent depuis les dossiers, dont ils sont le détail ; les
+ * fiches de groupes depuis la page qui compare leurs votes, où l'on va
+ * justement chercher qui est qui. Une barre qui liste les tables du modèle
+ * fait porter au lecteur le travail de savoir laquelle le concerne.
+ */
 const NAV = [
-  { to: '/', label: 'Accueil', end: true },
   { to: '/dossiers', label: 'Dossiers', end: false },
-  { to: '/scrutins', label: 'Scrutins', end: false },
-  { to: '/groupes', label: 'Groupes', end: false },
-  { to: '/votes-par-groupe', label: 'Votes par groupe', end: false },
+  {
+    to: '/votes-par-groupe',
+    label: 'Comparer les votes des groupes',
+    end: false,
+  },
   { to: '/themes', label: 'Thèmes', end: false },
   { to: '/comprendre', label: 'Comprendre', end: false },
 ]
