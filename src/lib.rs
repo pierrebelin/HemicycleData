@@ -29,6 +29,4 @@ pub struct AppState {
     pub group_repository: Arc<dyn GroupRepository>,
     pub theme_repository: Arc<dyn ThemeRepository>,
     pub theme_classifier: Arc<dyn ThemeClassifier>,
-    /// Jeton de l'ecran d'arbitrage (CU-03). Absent = arbitrage ferme.
-    pub admin_token: Option<String>,
 }

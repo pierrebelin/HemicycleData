@@ -12,6 +12,8 @@ import {
   type PillTone,
 } from '../components/ui'
 import type { OutcomeDto } from '../types/dossiers'
+import { AdminTokenField } from '../components/AdminTokenField'
+import { adminFetch } from '../lib/adminToken'
 
 /** Actes visibles avant dépliage. Un dossier peut en porter des dizaines. */
 const VISIBLE_ACTS = 3
@@ -125,14 +127,13 @@ export default function DossierDetailPage() {
   })
 
   const curateMutation = useMutation({
-    mutationFn: (status: string) =>
-      fetch(`/api/dossiers/${uid}/curate`, {
+    mutationFn: async (status: string) => {
+      await adminFetch(`/api/dossiers/${uid}/curate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
-      }).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      }),
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dossier', uid] })
       queryClient.invalidateQueries({ queryKey: ['suggestions'] })
@@ -140,10 +141,9 @@ export default function DossierDetailPage() {
   })
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      fetch(`/api/dossiers/${uid}/save`, { method: 'POST' }).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      }),
+    mutationFn: async () => {
+      await adminFetch(`/api/dossiers/${uid}/save`, { method: 'POST' })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dossier', uid] })
     },
@@ -327,6 +327,21 @@ export default function DossierDetailPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Curation et mise de côté écrivent : jeton du jour requis. */}
+      <div className="mb-4 max-w-md">
+        <AdminTokenField />
+      </div>
+
+      {(curateMutation.isError || saveMutation.isError) && (
+        <div className="mb-4 rounded-lg border border-no/25 bg-no-soft px-3 py-2">
+          <p className="text-no text-sm">
+            {(curateMutation.error ?? saveMutation.error) instanceof Error
+              ? (curateMutation.error ?? saveMutation.error)!.message
+              : 'Erreur inconnue'}
+          </p>
         </div>
       )}
 

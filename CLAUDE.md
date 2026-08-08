@@ -47,7 +47,7 @@ cargo run                      # lancer le serveur
 Ce dépôt a vocation à être public. Tout commit est définitif : réécrire l'historique après une fuite ne suffit pas, un secret poussé est un secret à révoquer.
 
 **Ne jamais versionner :**
-- Secrets et identifiants : `DATABASE_URL` réel, `ANTHROPIC_API_KEY`, `ADMIN_TOKEN`, clés SSH/TLS, tokens GitHub ou npm. Ils vivent dans `.env` en local (ignoré), dans `/home/hemicycle/shared/.env` en production, dans les *GitHub Secrets* pour la CI.
+- Secrets et identifiants : `DATABASE_URL` réel, `ANTHROPIC_API_KEY`, `ADMIN_TOKEN_SECRET`, clés SSH/TLS, tokens GitHub ou npm. Ils vivent dans `.env` en local (ignoré), dans `/home/hemicycle/shared/.env` en production, dans les *GitHub Secrets* pour la CI.
 - Infrastructure nominative : IP du VPS, empreintes d'hôtes, chemins absolus de la machine de dev (`/Users/...`). La documentation utilise des placeholders — `<IP_DU_VPS>` — et rien d'autre.
 - Données personnelles : adresses e-mail privées, dumps de base, exports contenant autre chose que de la donnée publique de l'Assemblée nationale.
 - Artefacts locaux : `.DS_Store`, `target/`, `node_modules/`, `dist/`.

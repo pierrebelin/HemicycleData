@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use hemicycle_data::api;
+use hemicycle_data::api::security::AdminGuard;
 use hemicycle_data::application::ports::actor_repository::ActorRepository;
 use hemicycle_data::application::ports::actor_source::ActorSource;
 use hemicycle_data::application::ports::assembly_source::AssemblySource;
@@ -23,6 +24,7 @@ use hemicycle_data::infrastructure::persistence::pg_final_vote_repository::PgFin
 use hemicycle_data::infrastructure::persistence::pg_group_repository::PgGroupRepository;
 use hemicycle_data::infrastructure::persistence::pg_scrutin_repository::PgScrutinRepository;
 use hemicycle_data::infrastructure::persistence::pg_theme_repository::PgThemeRepository;
+use hemicycle_data::infrastructure::security::AdminTokenSecret;
 use hemicycle_data::AppState;
 
 #[tokio::main]
@@ -61,10 +63,26 @@ async fn main() {
         }
     };
 
-    let admin_token = std::env::var("ADMIN_TOKEN").ok().filter(|t| !t.is_empty());
-    if admin_token.is_none() {
-        tracing::warn!("ADMIN_TOKEN absent: arbitration screen closed");
-    }
+    // Le jeton d'ecriture n'est pas pose dans l'environnement: il est derive
+    // du secret et de la date du jour, cote serveur comme cote client
+    // (src/infrastructure/security.rs).
+    let admin_guard = match std::env::var("ADMIN_TOKEN_SECRET") {
+        Ok(raw) => match AdminTokenSecret::new(raw) {
+            Ok(secret) => {
+                tracing::info!("Admin write routes protected by daily token");
+                AdminGuard::new(Some(secret))
+            }
+            // Un secret refuse ferme l'ecriture, il ne la laisse pas ouverte.
+            Err(error) => {
+                tracing::error!("ADMIN_TOKEN_SECRET rejected ({error}): write routes closed");
+                AdminGuard::closed()
+            }
+        },
+        Err(_) => {
+            tracing::warn!("ADMIN_TOKEN_SECRET absent: write routes closed");
+            AdminGuard::closed()
+        }
+    };
 
     let state = AppState {
         db,
@@ -78,15 +96,18 @@ async fn main() {
         group_repository,
         theme_repository,
         theme_classifier,
-        admin_token,
     };
 
-    let app = api::routes::create_router(state);
+    let app = api::routes::create_router(state, admin_guard);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    let addr = format!("0.0.0.0:{port}");
+    // Boucle locale par defaut: en production Nginx est le seul client du
+    // backend, et le pare-feu n'a plus a etre la seule chose qui empeche
+    // d'atteindre l'API en direct. `BIND_ADDR=0.0.0.0` pour un conteneur.
+    let host = std::env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let addr = format!("{host}:{port}");
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
 
-    tracing::info!("Server running on http://localhost:{port}");
+    tracing::info!("Server running on http://{addr}");
     axum::serve(listener, app).await.unwrap();
 }

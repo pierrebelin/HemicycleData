@@ -214,8 +214,30 @@ Variables reconnues :
 |---|---|
 | `DATABASE_URL` | connexion Postgres (obligatoire) |
 | `PORT` | port d'écoute de l'API (défaut `3000`) |
-| `ADMIN_TOKEN` | ouvre l'écran d'arbitrage des thèmes ; absent, l'arbitrage est fermé |
+| `BIND_ADDR` | adresse d'écoute (défaut `127.0.0.1`) |
+| `ADMIN_TOKEN_SECRET` | secret maître des routes d'écriture ; absent, toute écriture est fermée |
+| `ALLOWED_ORIGINS` | origines tierces autorisées par CORS, séparées par des virgules ; vide par défaut |
 | `ANTHROPIC_API_KEY` | propositions de thématisation ; absente, la fonction est désactivée |
+
+### Routes d'écriture
+
+Les routes de consultation sont ouvertes : le site publie de la donnée
+publique, et un jeton embarqué dans un bundle JavaScript public ne protégerait
+rien — pas plus que `Origin` ou `Referer`, qu'un `curl` falsifie.
+
+Les huit routes d'écriture (ingestion, curation, thématisation) exigent en
+revanche un jeton, présenté en `x-admin-token` ou en `Authorization: Bearer`.
+Ce jeton **change chaque jour** : il est dérivé de `ADMIN_TOKEN_SECRET` et de la
+date UTC, jamais stocké. Le serveur accepte celui du jour et celui de la veille,
+pour qu'une tâche lancée avant minuit ne tombe pas en 401 après.
+
+```bash
+# jeton du jour, à coller dans l'écran d'administration
+ADMIN_TOKEN_SECRET=... cargo run --bin admin-token
+```
+
+Un jeton qui fuite meurt en 48 h au plus. Pour révoquer immédiatement : changer
+`ADMIN_TOKEN_SECRET` et redémarrer.
 
 Backend :
 
