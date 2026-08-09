@@ -4,6 +4,8 @@ use hemicycle_data::api;
 use hemicycle_data::api::security::AdminGuard;
 use hemicycle_data::application::ports::actor_repository::ActorRepository;
 use hemicycle_data::application::ports::actor_source::ActorSource;
+use hemicycle_data::application::ports::amendment_repository::AmendmentRepository;
+use hemicycle_data::application::ports::amendment_source::AmendmentSource;
 use hemicycle_data::application::ports::assembly_source::AssemblySource;
 use hemicycle_data::application::ports::dossier_repository::DossierRepository;
 use hemicycle_data::application::ports::final_vote_repository::FinalVoteRepository;
@@ -16,9 +18,11 @@ use hemicycle_data::infrastructure::config;
 use hemicycle_data::infrastructure::llm::anthropic_classifier::AnthropicThemeClassifier;
 use hemicycle_data::infrastructure::llm::unavailable_classifier::UnavailableClassifier;
 use hemicycle_data::infrastructure::national_assembly::actor_client::AmoActorClient;
+use hemicycle_data::infrastructure::national_assembly::amendment_client::AmendmentClient;
 use hemicycle_data::infrastructure::national_assembly::client::NationalAssemblyClient;
 use hemicycle_data::infrastructure::national_assembly::scrutin_client::ScrutinClient;
 use hemicycle_data::infrastructure::persistence::pg_actor_repository::PgActorRepository;
+use hemicycle_data::infrastructure::persistence::pg_amendment_repository::PgAmendmentRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_repository::PgDossierRepository;
 use hemicycle_data::infrastructure::persistence::pg_final_vote_repository::PgFinalVoteRepository;
 use hemicycle_data::infrastructure::persistence::pg_group_repository::PgGroupRepository;
@@ -45,6 +49,9 @@ async fn main() {
     let scrutin_source: Arc<dyn ScrutinSource> = Arc::new(ScrutinClient::new());
     let scrutin_repository: Arc<dyn ScrutinRepository> =
         Arc::new(PgScrutinRepository::new(db.clone()));
+    let amendment_source: Arc<dyn AmendmentSource> = Arc::new(AmendmentClient::new());
+    let amendment_repository: Arc<dyn AmendmentRepository> =
+        Arc::new(PgAmendmentRepository::new(db.clone()));
     let final_vote_repository: Arc<dyn FinalVoteRepository> =
         Arc::new(PgFinalVoteRepository::new(db.clone()));
     let group_repository: Arc<dyn GroupRepository> = Arc::new(PgGroupRepository::new(db.clone()));
@@ -91,7 +98,9 @@ async fn main() {
         actor_source,
         actor_repository,
         scrutin_source,
+        amendment_source,
         scrutin_repository,
+        amendment_repository,
         final_vote_repository,
         group_repository,
         theme_repository,

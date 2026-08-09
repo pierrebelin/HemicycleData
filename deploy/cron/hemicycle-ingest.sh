@@ -25,6 +25,14 @@
 #
 # `POST /api/themes/propose` reste disponible pour rattraper un arriere a la
 # main, hors cadence.
+#
+# `POST /api/amendements/refresh` ingere les amendements. Deux garde-fous, sans
+# lesquels une passe deborderait la fenetre du timer : l'archive republiee a
+# l'identique est reconnue par son ETag et n'est pas reparcourue, et le volume
+# ecrit par passe est plafonne par `AMENDMENT_BATCH_PER_REFRESH` (40 000 par
+# defaut). Le premier chargement complet s'etale donc sur plusieurs passes ; le
+# lancer a la main avec `AMENDMENT_BATCH_PER_REFRESH=0` evite d'occuper la
+# cadence pendant une journee.
 
 set -uo pipefail
 
@@ -58,6 +66,7 @@ TOKEN="$("$APP_DIR/deploy/bin/admin-token.sh")" || {
 ROUTES=(
     /api/registry/refresh
     /api/scrutins/refresh
+    /api/amendements/refresh
     /api/refresh
 )
 
@@ -65,7 +74,7 @@ failures=0
 
 for route in "${ROUTES[@]}"; do
     status="$(curl --silent --show-error --output /tmp/hemicycle-ingest.body \
-        --write-out '%{http_code}' --max-time 600 \
+        --write-out '%{http_code}' --max-time 900 \
         --request POST "$API$route" \
         --header "x-admin-token: $TOKEN" \
         --header 'content-type: application/json' \

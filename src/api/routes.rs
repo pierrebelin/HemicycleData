@@ -8,8 +8,8 @@ use crate::api::security::{require_admin_token, AdminGuard};
 use crate::AppState;
 
 use super::handlers::{
-    dossier_handlers, final_vote_handlers, group_handlers, guide_handlers, scrutin_handlers,
-    theme_handlers,
+    amendment_handlers, dossier_handlers, final_vote_handlers, group_handlers, guide_handlers,
+    scrutin_handlers, theme_handlers,
 };
 
 pub fn create_router(state: AppState, guard: AdminGuard) -> Router {
@@ -40,6 +40,12 @@ fn read_routes() -> Router<AppState> {
         .route(
             "/api/dossiers/{uid}/scrutins",
             get(scrutin_handlers::get_dossier_scrutins),
+        )
+        // Amendements d'un dossier: route fille, comme les scrutins. Un dossier
+        // budgetaire en porte des milliers (SPEC-amendements RM-07).
+        .route(
+            "/api/dossiers/{uid}/amendements",
+            get(amendment_handlers::get_dossier_amendments),
         )
         .route("/api/scrutins", get(scrutin_handlers::list_scrutins))
         // Votes sur l'ensemble d'un texte, groupe par groupe (CU-07).
@@ -88,6 +94,10 @@ fn write_routes(guard: AdminGuard) -> Router<AppState> {
         .route(
             "/api/scrutins/refresh",
             post(scrutin_handlers::refresh_scrutins),
+        )
+        .route(
+            "/api/amendements/refresh",
+            post(amendment_handlers::refresh_amendments),
         )
         .route("/api/themes/extract", post(theme_handlers::extract_texts))
         .route(
