@@ -12,7 +12,10 @@ pub struct UnavailableClassifier;
 
 #[async_trait]
 impl ThemeClassifier for UnavailableClassifier {
-    async fn propose(&self, _text_label: &str) -> Result<Vec<ProposedFamily>, ClassifierError> {
+    async fn propose_batch(
+        &self,
+        _labels: &[String],
+    ) -> Result<Vec<Option<Vec<ProposedFamily>>>, ClassifierError> {
         Err(ClassifierError::Unavailable(
             "ANTHROPIC_API_KEY absent".to_string(),
         ))
@@ -24,5 +27,9 @@ impl ThemeClassifier for UnavailableClassifier {
 
     fn prompt_version(&self) -> &str {
         "aucune"
+    }
+
+    fn batch_size(&self) -> usize {
+        1
     }
 }

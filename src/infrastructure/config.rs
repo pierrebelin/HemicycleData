@@ -3,6 +3,20 @@ use std::time::Duration;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
+/// Objets soumis au rattachement thematique a chaque rafraichissement.
+///
+/// Plafond, pas objectif: le reliquat est repris au rafraichissement suivant
+/// (RM-14). Les 322 textes de la legislature sont rattrapes en quelques passes,
+/// et un rafraichissement de routine n'en trouve qu'une poignee de nouveaux.
+/// `THEME_BATCH_PER_REFRESH=0` suspend la categorisation sans toucher au reste.
+pub fn theme_batch_per_refresh() -> i64 {
+    std::env::var("THEME_BATCH_PER_REFRESH")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<i64>().ok())
+        .unwrap_or(100)
+        .clamp(0, 2_000)
+}
+
 pub async fn try_connect_database() -> Result<PgPool, String> {
     let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?;
 

@@ -33,28 +33,46 @@ pub enum ThemeError {
 }
 
 /// Referentiel ferme des familles (RM-08). Le modele n'en cree aucune.
+///
+/// Treize familles depuis le 9 aout 2026. Les huit precedentes concentraient
+/// justice, securite, immigration, education et culture dans « societe /
+/// libertes », et n'accueillaient ni l'international ni la defense: un visiteur
+/// cherchant l'immigration ouvrait un bac contenant aussi l'ecole. Le
+/// decoupage porte sur l'objet des textes, jamais sur leur orientation
+/// (README.md §5, §6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FamilyCode {
     PouvoirAchatFiscalite,
     Logement,
     TravailEmploi,
-    EnvironnementEnergie,
-    Numerique,
     SanteSocial,
+    EnvironnementEnergie,
+    AgricultureAlimentation,
+    Numerique,
+    JusticeSecurite,
+    Immigration,
+    EducationCulture,
     SocieteLibertes,
+    InternationalDefense,
     InstitutionsProcedure,
 }
 
 impl FamilyCode {
-    pub const ALL: [FamilyCode; 8] = [
+    /// Ordre d'affichage publie. Sert aussi d'ordre de presentation au modele.
+    pub const ALL: [FamilyCode; 13] = [
         Self::PouvoirAchatFiscalite,
         Self::Logement,
         Self::TravailEmploi,
-        Self::EnvironnementEnergie,
-        Self::Numerique,
         Self::SanteSocial,
+        Self::EnvironnementEnergie,
+        Self::AgricultureAlimentation,
+        Self::Numerique,
+        Self::JusticeSecurite,
+        Self::Immigration,
+        Self::EducationCulture,
         Self::SocieteLibertes,
+        Self::InternationalDefense,
         Self::InstitutionsProcedure,
     ];
 
@@ -63,10 +81,15 @@ impl FamilyCode {
             Self::PouvoirAchatFiscalite => "pouvoir-achat-fiscalite",
             Self::Logement => "logement",
             Self::TravailEmploi => "travail-emploi",
-            Self::EnvironnementEnergie => "environnement-energie",
-            Self::Numerique => "numerique",
             Self::SanteSocial => "sante-social",
+            Self::EnvironnementEnergie => "environnement-energie",
+            Self::AgricultureAlimentation => "agriculture-alimentation",
+            Self::Numerique => "numerique",
+            Self::JusticeSecurite => "justice-securite",
+            Self::Immigration => "immigration",
+            Self::EducationCulture => "education-culture",
             Self::SocieteLibertes => "societe-libertes",
+            Self::InternationalDefense => "international-defense",
             Self::InstitutionsProcedure => "institutions-procedure",
         }
     }
@@ -77,10 +100,15 @@ impl FamilyCode {
             Self::PouvoirAchatFiscalite => "Pouvoir d'achat / fiscalité",
             Self::Logement => "Logement",
             Self::TravailEmploi => "Travail / emploi",
-            Self::EnvironnementEnergie => "Environnement / énergie",
-            Self::Numerique => "Numérique",
             Self::SanteSocial => "Santé / social",
+            Self::EnvironnementEnergie => "Environnement / énergie",
+            Self::AgricultureAlimentation => "Agriculture / alimentation",
+            Self::Numerique => "Numérique",
+            Self::JusticeSecurite => "Justice / sécurité",
+            Self::Immigration => "Immigration",
+            Self::EducationCulture => "Éducation / culture",
             Self::SocieteLibertes => "Société / libertés",
+            Self::InternationalDefense => "International / défense",
             Self::InstitutionsProcedure => "Institutions / procédure",
         }
     }
@@ -91,12 +119,23 @@ impl FamilyCode {
             Self::PouvoirAchatFiscalite => "Impôts, taxes, prestations monétaires, prix, budget de l'État.",
             Self::Logement => "Loyers, accès à la propriété, construction, locations de courte durée, urbanisme.",
             Self::TravailEmploi => "Droit du travail, chômage, retraites, indépendants, dialogue social.",
-            Self::EnvironnementEnergie => "Prix de l'énergie, transition, transports, agriculture, eau, biodiversité.",
+            Self::SanteSocial => "Remboursements, accès aux soins, hôpital, handicap, action sociale, politique familiale.",
+            Self::EnvironnementEnergie => "Prix de l'énergie, transition, transports, eau, biodiversité, déchets.",
+            Self::AgricultureAlimentation => "Revenu agricole, pêche, produits phytosanitaires, alimentation, foncier agricole.",
             Self::Numerique => "Données personnelles, intelligence artificielle, réseaux sociaux, fraude en ligne.",
-            Self::SanteSocial => "Remboursements, accès aux soins, hôpital, congés, handicap, action sociale.",
-            Self::SocieteLibertes => "Justice, sécurité, immigration, égalité, fin de vie, éducation, culture. Rattachement sur l'objet du texte, jamais sur son orientation.",
+            Self::JusticeSecurite => "Droit pénal, police, gendarmerie, prisons, terrorisme, procédure judiciaire.",
+            Self::Immigration => "Entrée et séjour des étrangers, asile, éloignement, nationalité. Rattachement sur l'objet du texte, jamais sur son orientation.",
+            Self::EducationCulture => "École, université, recherche, sport, culture, médias, audiovisuel.",
+            Self::SocieteLibertes => "Égalité, droits des personnes, fin de vie, bioéthique, laïcité, libertés publiques. Rattachement sur l'objet du texte, jamais sur son orientation.",
+            Self::InternationalDefense => "Ratification de traités, armées, aide au développement, affaires européennes.",
             Self::InstitutionsProcedure => "Motions de censure, révisions constitutionnelles, lois de finances dans leur volet procédural, collectivités, élections.",
         }
+    }
+
+    /// Familles ou le rattachement se fait sur l'objet seul, jamais sur
+    /// l'orientation du texte (RM-11).
+    pub fn is_sensitive(&self) -> bool {
+        matches!(self, Self::SocieteLibertes | Self::Immigration)
     }
 
     pub fn parse(raw: &str) -> Result<Self, ThemeError> {
@@ -331,6 +370,8 @@ impl SubjectRef {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssignmentOrigin {
+    /// Produit par une regle publiee, sans modele de langage (RM-13).
+    DeterministicRule,
     /// Propose par le modele, publie tel quel, pas encore arbitre.
     Proposal,
     /// Retenu, corrige ou ajoute par un humain.
@@ -340,6 +381,7 @@ pub enum AssignmentOrigin {
 impl AssignmentOrigin {
     pub fn as_str(&self) -> &'static str {
         match self {
+            Self::DeterministicRule => "deterministic_rule",
             Self::Proposal => "proposal",
             Self::HumanArbitration => "human_arbitration",
         }
@@ -347,6 +389,7 @@ impl AssignmentOrigin {
 
     pub fn parse(raw: &str) -> Option<Self> {
         match raw {
+            "deterministic_rule" => Some(Self::DeterministicRule),
             "proposal" => Some(Self::Proposal),
             "human_arbitration" => Some(Self::HumanArbitration),
             _ => None,
@@ -356,6 +399,7 @@ impl AssignmentOrigin {
     /// Mention affichee a cote du rattachement (RM-09).
     pub fn notice(&self) -> &'static str {
         match self {
+            Self::DeterministicRule => "règle déterministe publiée, non arbitrée",
             Self::Proposal => "proposition automatique, non arbitrée",
             Self::HumanArbitration => "arbitrage humain",
         }

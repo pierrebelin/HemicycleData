@@ -8,11 +8,13 @@ use crate::application::use_cases::browse_themes::{FamilyDescription, TextDetail
 use crate::application::use_cases::extract_debated_texts::ExtractionReport;
 use crate::application::use_cases::propose_theme_families::ProposalRun;
 use crate::domain::theme::{ThemeAssignment, ThemeProposal, MAX_FAMILIES};
+use crate::domain::theme_rules::{ThemeRule, RULES};
 
 /// Mention portee par les pages de theme (RM-09, README.md §2).
 pub const METHOD_NOTE: &str = "Le rattachement d'un texte à une famille est le seul jugement du \
-     site. Un modèle de langage propose, un humain peut corriger, et l'origine de chaque \
-     rattachement est affichée. Les textes non rattachés restent consultables.";
+     site. Une règle publiée tranche quand la nature du texte suffit, un modèle de langage \
+     propose sinon, un humain peut corriger, et l'origine de chaque rattachement est affichée. \
+     Les textes non rattachés restent consultables.";
 
 #[derive(Debug, Serialize)]
 pub struct FamilyDto {
@@ -259,8 +261,12 @@ impl From<FamilyCoverage> for FamilyCoverageDto {
 pub struct MethodResponse {
     pub families: Vec<FamilyCoverageDto>,
     pub max_families_per_text: usize,
+    /// Table des règles publiée telle qu'elle s'applique (RM-13).
+    pub rules: Vec<ThemeRuleDto>,
     pub texts_total: i64,
     pub texts_assigned: i64,
+    /// Rattachés par règle publiée, sans appel au modèle.
+    pub texts_ruled: i64,
     pub texts_arbitrated: i64,
     pub texts_awaiting_arbitration: i64,
     pub texts_without_family: i64,
@@ -274,9 +280,43 @@ pub struct MethodResponse {
     pub dossiers_total: i64,
     pub dossiers_linked_to_text: i64,
     pub dossiers_assigned: i64,
+    /// Dossiers qu'aucun scrutin ne relie à un texte : ils sont classés sur
+    /// leur propre titre, et restent consultables en attendant (RM-01).
+    pub dossiers_without_text: i64,
     pub extraction_rule: &'static str,
     pub model_scope: &'static str,
+    pub rule_scope: &'static str,
     pub method_note: &'static str,
+}
+
+/// Une règle du référentiel publié, servie telle que le domaine la porte.
+#[derive(Debug, Serialize)]
+pub struct ThemeRuleDto {
+    pub id: &'static str,
+    /// Fragment cherché dans le libellé normalisé du texte.
+    pub marker: &'static str,
+    pub families: Vec<FamilyDto>,
+    /// Énoncé publié, conservé comme justification du rattachement.
+    pub statement: &'static str,
+}
+
+impl From<&'static ThemeRule> for ThemeRuleDto {
+    fn from(rule: &'static ThemeRule) -> Self {
+        Self {
+            id: rule.id(),
+            marker: rule.marker(),
+            families: rule
+                .families()
+                .iter()
+                .map(|family| FamilyDto {
+                    code: family.as_str().to_string(),
+                    label: family.label().to_string(),
+                    scope: family.scope().to_string(),
+                })
+                .collect(),
+            statement: rule.statement(),
+        }
+    }
 }
 
 const EXTRACTION_RULE: &str = "Le texte débattu est extrait de l'objet du scrutin par une règle \
@@ -290,13 +330,22 @@ const MODEL_SCOPE: &str = "Le modèle ne reçoit que le libellé du texte : ni d
      une justification. Il ne produit aucun chiffre : tous les nombres de cette page sont lus \
      en base.";
 
+const RULE_SCOPE: &str = "Certains textes portent leur famille dans leur nature juridique : un \
+     projet de loi de finances est un texte budgétaire, un projet de loi autorisant la \
+     ratification d'un accord est un texte international. Ceux-là sont rattachés par les règles \
+     ci-dessous, sans passer par le modèle. Chaque règle porte sur l'objet du texte, jamais sur \
+     son orientation ; son rattachement s'affiche comme tel et reste révisable par arbitrage \
+     humain, comme n'importe quel autre.";
+
 impl From<MethodReport> for MethodResponse {
     fn from(report: MethodReport) -> Self {
         Self {
             families: report.families.into_iter().map(FamilyCoverageDto::from).collect(),
             max_families_per_text: MAX_FAMILIES,
+            rules: RULES.iter().map(ThemeRuleDto::from).collect(),
             texts_total: report.texts_total,
             texts_assigned: report.texts_assigned,
+            texts_ruled: report.texts_ruled,
             texts_arbitrated: report.texts_arbitrated,
             texts_awaiting_arbitration: report.texts_awaiting_arbitration,
             texts_without_family: report.texts_without_family,
@@ -309,8 +358,10 @@ impl From<MethodReport> for MethodResponse {
             dossiers_total: report.dossiers_total,
             dossiers_linked_to_text: report.dossiers_linked_to_text,
             dossiers_assigned: report.dossiers_assigned,
+            dossiers_without_text: report.dossiers_without_text,
             extraction_rule: EXTRACTION_RULE,
             model_scope: MODEL_SCOPE,
+            rule_scope: RULE_SCOPE,
             method_note: METHOD_NOTE,
         }
     }
@@ -359,18 +410,25 @@ pub struct ProposalRequest {
 #[derive(Debug, Serialize)]
 pub struct ProposalRunResponse {
     pub attempted: usize,
+    /// Rattachés par règle publiée, sans appel au modèle (RM-13).
+    pub ruled: usize,
     pub proposed: usize,
     pub without_family: usize,
     pub failed: usize,
+    /// Appels au modèle réellement passés sur la passe. Une passe qui en compte
+    /// peu pour beaucoup d'objets est une passe qui a bien travaillé (RM-14).
+    pub model_calls: usize,
 }
 
 impl From<ProposalRun> for ProposalRunResponse {
     fn from(run: ProposalRun) -> Self {
         Self {
             attempted: run.attempted,
+            ruled: run.ruled,
             proposed: run.proposed,
             without_family: run.without_family,
             failed: run.failed,
+            model_calls: run.model_calls,
         }
     }
 }

@@ -19,6 +19,14 @@ export function FamilyBadges({
     <div className="flex flex-wrap gap-1">
       {families.map((family) => {
         const arbitrated = family.origin === 'human_arbitration'
+        // Une règle publiée se vérifie à la lecture, une proposition de modèle
+        // non : les deux ne se présentent pas de la même façon.
+        const mark =
+          family.origin === 'human_arbitration'
+            ? 'arbitré'
+            : family.origin === 'deterministic_rule'
+              ? 'règle'
+              : 'auto'
         const content = (
           <>
             {family.label}
@@ -28,7 +36,7 @@ export function FamilyBadges({
               }`}
               title={family.origin_note}
             >
-              {arbitrated ? 'arbitré' : 'auto'}
+              {mark}
             </span>
           </>
         )

@@ -72,15 +72,35 @@ export default function ThemeMethodPage() {
         <Block title="Ce que fait le modèle">
           <p className="text-sm text-ink-soft">{data.model_scope}</p>
           <p className="mt-1.5 text-sm text-ink-soft">
-            Un texte porte {data.max_families_per_text} familles au plus. La
-            famille « Société / libertés » rattache sur l'objet du texte, jamais
-            sur son orientation.
+            Un texte porte {data.max_families_per_text} familles au plus. Les
+            familles « Société / libertés » et « Immigration » rattachent sur
+            l'objet du texte, jamais sur son orientation.
           </p>
+        </Block>
+
+        <Block title="Ce que tranchent les règles">
+          <p className="text-sm text-ink-soft">{data.rule_scope}</p>
+          <ul className="mt-2 space-y-1.5">
+            {data.rules.map((rule) => (
+              <li key={rule.id} className="border-b border-line pb-1.5 last:border-0">
+                <div className="flex flex-wrap items-baseline gap-x-1.5">
+                  <code className="rounded bg-surface-soft px-1 py-0.5 text-[11px] text-ink-soft">
+                    {rule.marker}
+                  </code>
+                  <span className="text-xs text-ink-faint">
+                    → {rule.families.map((f) => f.label).join(', ')}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-ink-soft">{rule.statement}</p>
+              </li>
+            ))}
+          </ul>
         </Block>
 
         <Block title="Couverture">
           <Row label="Textes débattus" value={data.texts_total} />
           <Row label="Textes rattachés à au moins une famille" value={data.texts_assigned} />
+          <Row label="dont rattachés par une règle publiée" value={data.texts_ruled} />
           <Row label="dont arbitrés par un humain" value={data.texts_arbitrated} />
           <Row
             label="Rattachements automatiques non encore arbitrés"
@@ -118,7 +138,16 @@ export default function ThemeMethodPage() {
         <Block title="Dossiers">
           <Row label="Dossiers ingérés" value={data.dossiers_total} />
           <Row label="Dossiers reliés à un texte voté" value={data.dossiers_linked_to_text} />
+          <Row
+            label="Dossiers sans scrutin, classés sur leur titre"
+            value={data.dossiers_without_text}
+          />
           <Row label="Dossiers portant une famille" value={data.dossiers_assigned} />
+          <p className="mt-1.5 text-xs text-ink-faint">
+            Un dossier relié à un texte voté reçoit les familles de ce texte : il
+            n'est jamais soumis séparément. Seuls les dossiers qu'aucun scrutin ne
+            relie à un texte sont classés sur leur propre titre.
+          </p>
         </Block>
       </div>
     </div>

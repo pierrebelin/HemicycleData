@@ -5,9 +5,10 @@ use chrono::NaiveDate;
 use sqlx::{PgPool, Row};
 
 use crate::application::ports::theme_repository::{
-    AssignedFamily, AttemptOutcome, FamilyCoverage, MethodReport, RepositoryError, ScrutinSubject,
-    TextLink, TextPage, TextScrutin, TextSummary, ThemeRepository,
+    AssignedFamily, AttemptOutcome, FamilyCoverage, MethodReport, PendingDossier, RepositoryError,
+    ScrutinSubject, TextLink, TextPage, TextScrutin, TextSummary, ThemeRepository,
 };
+use crate::domain::dossier::DossierUid;
 use crate::domain::theme::{
     AssignmentOrigin, DebatedText, FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment,
     ThemeProposal,
@@ -242,23 +243,82 @@ impl ThemeRepository for PgThemeRepository {
             .collect())
     }
 
+    async fn dossiers_awaiting_proposal(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<PendingDossier>, RepositoryError> {
+        // Un dossier relie a un texte herite de ses familles (RM-06): le
+        // soumettre en plus serait payer deux fois le meme rattachement.
+        let rows = sqlx::query(
+            "SELECT d.uid, d.title
+             FROM legislative_dossiers d
+             LEFT JOIN dossier_theme_attempts a ON a.dossier_uid = d.uid
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM dossier_debated_texts l WHERE l.dossier_uid = d.uid
+             )
+             AND NOT EXISTS (
+                 SELECT 1 FROM theme_assignments t
+                 WHERE t.subject_kind = 'dossier' AND t.subject_id = d.uid
+                   AND t.closed_on IS NULL
+             )
+             AND (a.last_attempt_outcome IS NULL OR a.last_attempt_outcome = 'failed')
+             ORDER BY d.uid
+             LIMIT $1",
+        )
+        .bind(limit)
+        .persistent(false)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db)?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                Some(PendingDossier {
+                    uid: DossierUid::new(row.get("uid")).ok()?,
+                    title: row.get("title"),
+                })
+            })
+            .collect())
+    }
+
     async fn record_attempt(
         &self,
-        key: &TextKey,
+        subject: &SubjectRef,
         on: NaiveDate,
         outcome: AttemptOutcome,
     ) -> Result<(), RepositoryError> {
-        sqlx::query(
-            "UPDATE debated_texts SET last_attempt_on = $2, last_attempt_outcome = $3,
-                    updated_at = NOW()
-             WHERE text_key = $1",
-        )
-        .bind(key.as_str())
-        .bind(on)
-        .bind(outcome.as_str())
-        .execute(&self.pool)
-        .await
-        .map_err(db)?;
+        match subject {
+            SubjectRef::Text(key) => {
+                sqlx::query(
+                    "UPDATE debated_texts SET last_attempt_on = $2, last_attempt_outcome = $3,
+                            updated_at = NOW()
+                     WHERE text_key = $1",
+                )
+                .bind(key.as_str())
+                .bind(on)
+                .bind(outcome.as_str())
+                .execute(&self.pool)
+                .await
+                .map_err(db)?;
+            }
+            SubjectRef::Dossier(uid) => {
+                sqlx::query(
+                    "INSERT INTO dossier_theme_attempts
+                         (dossier_uid, last_attempt_on, last_attempt_outcome)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (dossier_uid) DO UPDATE
+                         SET last_attempt_on = EXCLUDED.last_attempt_on,
+                             last_attempt_outcome = EXCLUDED.last_attempt_outcome",
+                )
+                .bind(uid.as_str())
+                .bind(on)
+                .bind(outcome.as_str())
+                .execute(&self.pool)
+                .await
+                .map_err(db)?;
+            }
+        }
         Ok(())
     }
 
@@ -666,6 +726,13 @@ impl ThemeRepository for PgThemeRepository {
                     "SELECT count(*) FROM debated_texts t WHERE EXISTS ({current_text_assignment})"
                 ))
                 .await?,
+            texts_ruled: self
+                .count(
+                    "SELECT count(DISTINCT subject_id) FROM theme_assignments
+                     WHERE subject_kind = 'text' AND closed_on IS NULL
+                       AND origin = 'deterministic_rule'",
+                )
+                .await?,
             texts_arbitrated: self
                 .count(
                     "SELECT count(DISTINCT subject_id) FROM theme_assignments
@@ -676,7 +743,8 @@ impl ThemeRepository for PgThemeRepository {
             texts_awaiting_arbitration: self
                 .count(
                     "SELECT count(DISTINCT subject_id) FROM theme_assignments a
-                     WHERE a.subject_kind = 'text' AND a.closed_on IS NULL AND a.origin = 'proposal'
+                     WHERE a.subject_kind = 'text' AND a.closed_on IS NULL
+                       AND a.origin IN ('proposal', 'deterministic_rule')
                        AND NOT EXISTS (
                            SELECT 1 FROM theme_assignments b
                            WHERE b.subject_kind = 'text' AND b.subject_id = a.subject_id
@@ -711,13 +779,31 @@ impl ThemeRepository for PgThemeRepository {
             dossiers_linked_to_text: self
                 .count("SELECT count(DISTINCT dossier_uid) FROM dossier_debated_texts")
                 .await?,
+            // Un dossier est rattache soit par le texte que ses scrutins
+            // nomment, soit — a defaut de scrutin — sur son propre titre
+            // (RM-06). Les deux comptent.
             dossiers_assigned: self
                 .count(
-                    "SELECT count(DISTINCT d.dossier_uid) FROM dossier_debated_texts d
+                    "SELECT count(*) FROM legislative_dossiers d
                      WHERE EXISTS (
+                         SELECT 1 FROM dossier_debated_texts l
+                         JOIN theme_assignments a
+                           ON a.subject_kind = 'text' AND a.subject_id = l.text_key
+                          AND a.closed_on IS NULL
+                         WHERE l.dossier_uid = d.uid
+                     )
+                     OR EXISTS (
                          SELECT 1 FROM theme_assignments a
-                         WHERE a.subject_kind = 'text' AND a.subject_id = d.text_key
+                         WHERE a.subject_kind = 'dossier' AND a.subject_id = d.uid
                            AND a.closed_on IS NULL
+                     )",
+                )
+                .await?,
+            dossiers_without_text: self
+                .count(
+                    "SELECT count(*) FROM legislative_dossiers d
+                     WHERE NOT EXISTS (
+                         SELECT 1 FROM dossier_debated_texts l WHERE l.dossier_uid = d.uid
                      )",
                 )
                 .await?,
