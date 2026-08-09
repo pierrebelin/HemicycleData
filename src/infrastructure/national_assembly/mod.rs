@@ -1,5 +1,7 @@
 pub mod actor_client;
 mod actor_parsing;
+pub mod amendment_client;
+mod amendment_parsing;
 mod archive_fetcher;
 pub mod client;
 pub mod committees;
