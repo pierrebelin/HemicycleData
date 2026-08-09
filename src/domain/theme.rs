@@ -33,28 +33,46 @@ pub enum ThemeError {
 }
 
 /// Referentiel ferme des familles (RM-08). Le modele n'en cree aucune.
+///
+/// Treize familles depuis le 9 aout 2026. Les huit precedentes concentraient
+/// justice, securite, immigration, education et culture dans « societe /
+/// libertes », et n'accueillaient ni l'international ni la defense: un visiteur
+/// cherchant l'immigration ouvrait un bac contenant aussi l'ecole. Le
+/// decoupage porte sur l'objet des textes, jamais sur leur orientation
+/// (README.md §5, §6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FamilyCode {
     PouvoirAchatFiscalite,
     Logement,
     TravailEmploi,
-    EnvironnementEnergie,
-    Numerique,
     SanteSocial,
+    EnvironnementEnergie,
+    AgricultureAlimentation,
+    Numerique,
+    JusticeSecurite,
+    Immigration,
+    EducationCulture,
     SocieteLibertes,
+    InternationalDefense,
     InstitutionsProcedure,
 }
 
 impl FamilyCode {
-    pub const ALL: [FamilyCode; 8] = [
+    /// Ordre d'affichage publie. Sert aussi d'ordre de presentation au modele.
+    pub const ALL: [FamilyCode; 13] = [
         Self::PouvoirAchatFiscalite,
         Self::Logement,
         Self::TravailEmploi,
-        Self::EnvironnementEnergie,
-        Self::Numerique,
         Self::SanteSocial,
+        Self::EnvironnementEnergie,
+        Self::AgricultureAlimentation,
+        Self::Numerique,
+        Self::JusticeSecurite,
+        Self::Immigration,
+        Self::EducationCulture,
         Self::SocieteLibertes,
+        Self::InternationalDefense,
         Self::InstitutionsProcedure,
     ];
 
@@ -63,10 +81,15 @@ impl FamilyCode {
             Self::PouvoirAchatFiscalite => "pouvoir-achat-fiscalite",
             Self::Logement => "logement",
             Self::TravailEmploi => "travail-emploi",
-            Self::EnvironnementEnergie => "environnement-energie",
-            Self::Numerique => "numerique",
             Self::SanteSocial => "sante-social",
+            Self::EnvironnementEnergie => "environnement-energie",
+            Self::AgricultureAlimentation => "agriculture-alimentation",
+            Self::Numerique => "numerique",
+            Self::JusticeSecurite => "justice-securite",
+            Self::Immigration => "immigration",
+            Self::EducationCulture => "education-culture",
             Self::SocieteLibertes => "societe-libertes",
+            Self::InternationalDefense => "international-defense",
             Self::InstitutionsProcedure => "institutions-procedure",
         }
     }
@@ -77,10 +100,15 @@ impl FamilyCode {
             Self::PouvoirAchatFiscalite => "Pouvoir d'achat / fiscalité",
             Self::Logement => "Logement",
             Self::TravailEmploi => "Travail / emploi",
-            Self::EnvironnementEnergie => "Environnement / énergie",
-            Self::Numerique => "Numérique",
             Self::SanteSocial => "Santé / social",
+            Self::EnvironnementEnergie => "Environnement / énergie",
+            Self::AgricultureAlimentation => "Agriculture / alimentation",
+            Self::Numerique => "Numérique",
+            Self::JusticeSecurite => "Justice / sécurité",
+            Self::Immigration => "Immigration",
+            Self::EducationCulture => "Éducation / culture",
             Self::SocieteLibertes => "Société / libertés",
+            Self::InternationalDefense => "International / défense",
             Self::InstitutionsProcedure => "Institutions / procédure",
         }
     }
@@ -91,12 +119,23 @@ impl FamilyCode {
             Self::PouvoirAchatFiscalite => "Impôts, taxes, prestations monétaires, prix, budget de l'État.",
             Self::Logement => "Loyers, accès à la propriété, construction, locations de courte durée, urbanisme.",
             Self::TravailEmploi => "Droit du travail, chômage, retraites, indépendants, dialogue social.",
-            Self::EnvironnementEnergie => "Prix de l'énergie, transition, transports, agriculture, eau, biodiversité.",
+            Self::SanteSocial => "Remboursements, accès aux soins, hôpital, handicap, action sociale, politique familiale.",
+            Self::EnvironnementEnergie => "Prix de l'énergie, transition, transports, eau, biodiversité, déchets.",
+            Self::AgricultureAlimentation => "Revenu agricole, pêche, produits phytosanitaires, alimentation, foncier agricole.",
             Self::Numerique => "Données personnelles, intelligence artificielle, réseaux sociaux, fraude en ligne.",
-            Self::SanteSocial => "Remboursements, accès aux soins, hôpital, congés, handicap, action sociale.",
-            Self::SocieteLibertes => "Justice, sécurité, immigration, égalité, fin de vie, éducation, culture. Rattachement sur l'objet du texte, jamais sur son orientation.",
+            Self::JusticeSecurite => "Droit pénal, police, gendarmerie, prisons, terrorisme, procédure judiciaire.",
+            Self::Immigration => "Entrée et séjour des étrangers, asile, éloignement, nationalité. Rattachement sur l'objet du texte, jamais sur son orientation.",
+            Self::EducationCulture => "École, université, recherche, sport, culture, médias, audiovisuel.",
+            Self::SocieteLibertes => "Égalité, droits des personnes, fin de vie, bioéthique, laïcité, libertés publiques. Rattachement sur l'objet du texte, jamais sur son orientation.",
+            Self::InternationalDefense => "Ratification de traités, armées, aide au développement, affaires européennes.",
             Self::InstitutionsProcedure => "Motions de censure, révisions constitutionnelles, lois de finances dans leur volet procédural, collectivités, élections.",
         }
+    }
+
+    /// Familles ou le rattachement se fait sur l'objet seul, jamais sur
+    /// l'orientation du texte (RM-11).
+    pub fn is_sensitive(&self) -> bool {
+        matches!(self, Self::SocieteLibertes | Self::Immigration)
     }
 
     pub fn parse(raw: &str) -> Result<Self, ThemeError> {
@@ -327,50 +366,21 @@ impl SubjectRef {
     }
 }
 
-/// D'ou vient le rattachement affiche (RM-09).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AssignmentOrigin {
-    /// Propose par le modele, publie tel quel, pas encore arbitre.
-    Proposal,
-    /// Retenu, corrige ou ajoute par un humain.
-    HumanArbitration,
-}
-
-impl AssignmentOrigin {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Proposal => "proposal",
-            Self::HumanArbitration => "human_arbitration",
-        }
-    }
-
-    pub fn parse(raw: &str) -> Option<Self> {
-        match raw {
-            "proposal" => Some(Self::Proposal),
-            "human_arbitration" => Some(Self::HumanArbitration),
-            _ => None,
-        }
-    }
-
-    /// Mention affichee a cote du rattachement (RM-09).
-    pub fn notice(&self) -> &'static str {
-        match self {
-            Self::Proposal => "proposition automatique, non arbitrée",
-            Self::HumanArbitration => "arbitrage humain",
-        }
-    }
-}
-
 /// Rattachement date d'un objet a une famille.
 ///
 /// `closed_on` renseigne = rattachement historique: il a valu jusqu'a cette
 /// date et reste lisible (RM-07).
+///
+/// Le rattachement ne porte pas de categorie d'auteur — regle, modele, humain.
+/// Un rattachement vaut par ce qu'il rattache, pas par qui l'a ouvert: dire au
+/// lecteur qu'un texte est « logement selon un modele » plutot que « logement »
+/// deplace son attention sans rien lui apprendre sur le vote. `author` reste
+/// renseigne, en clair, pour que l'historique dise qui a ouvert la ligne
+/// (RM-07, README.md §9).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemeAssignment {
     subject: SubjectRef,
     family: FamilyCode,
-    origin: AssignmentOrigin,
     opened_on: NaiveDate,
     closed_on: Option<NaiveDate>,
     author: String,
@@ -381,7 +391,6 @@ impl ThemeAssignment {
     pub fn open(
         subject: SubjectRef,
         family: FamilyCode,
-        origin: AssignmentOrigin,
         opened_on: NaiveDate,
         author: String,
         motive: Option<String>,
@@ -392,7 +401,6 @@ impl ThemeAssignment {
         Ok(Self {
             subject,
             family,
-            origin,
             opened_on,
             closed_on: None,
             author,
@@ -422,9 +430,6 @@ impl ThemeAssignment {
     }
     pub fn family(&self) -> FamilyCode {
         self.family
-    }
-    pub fn origin(&self) -> AssignmentOrigin {
-        self.origin
     }
     pub fn opened_on(&self) -> NaiveDate {
         self.opened_on
@@ -511,7 +516,7 @@ impl ThemeProposal {
         })
     }
 
-    /// Rattachements a ouvrir depuis la proposition, publies tels quels (RM-09).
+    /// Rattachements a ouvrir depuis la proposition.
     pub fn into_assignments(&self) -> Result<Vec<ThemeAssignment>, ThemeError> {
         self.families
             .iter()
@@ -519,7 +524,6 @@ impl ThemeProposal {
                 ThemeAssignment::open(
                     self.subject.clone(),
                     proposed.family,
-                    AssignmentOrigin::Proposal,
                     self.produced_on,
                     self.model.clone(),
                     Some(proposed.justification.clone()),
@@ -690,16 +694,18 @@ mod tests {
     }
 
     #[test]
-    fn a_proposal_opens_assignments_marked_as_proposals() {
+    fn a_proposal_opens_one_assignment_per_family() {
         let subject = SubjectRef::Text(TextKey("texte".into()));
         let families = vec![ProposedFamily::new(FamilyCode::Logement, "motif".into()).unwrap()];
         let proposal =
             ThemeProposal::new(subject, families, "modele".into(), "v1".into(), date()).unwrap();
         let assignments = proposal.into_assignments().unwrap();
         assert_eq!(assignments.len(), 1);
-        assert_eq!(assignments[0].origin(), AssignmentOrigin::Proposal);
         assert!(assignments[0].is_current());
         assert_eq!(assignments[0].motive(), Some("motif"));
+        // L'historique dit qui a ouvert la ligne, sans la ranger dans une
+        // categorie d'auteur (RM-07).
+        assert_eq!(assignments[0].author(), "modele");
     }
 
     #[test]
@@ -708,7 +714,6 @@ mod tests {
         let mut assignment = ThemeAssignment::open(
             subject,
             FamilyCode::Logement,
-            AssignmentOrigin::Proposal,
             date(),
             "modele".into(),
             None,
@@ -727,7 +732,6 @@ mod tests {
         let mut assignment = ThemeAssignment::open(
             subject,
             FamilyCode::Logement,
-            AssignmentOrigin::Proposal,
             date(),
             "modele".into(),
             None,
@@ -736,6 +740,21 @@ mod tests {
         let earlier = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         assert!(assignment.close(earlier).is_err());
         assert!(assignment.is_current());
+    }
+
+    #[test]
+    fn an_assignment_without_an_author_is_refused() {
+        assert_eq!(
+            ThemeAssignment::open(
+                SubjectRef::Text(TextKey("texte".into())),
+                FamilyCode::Logement,
+                date(),
+                "  ".into(),
+                None,
+            )
+            .unwrap_err(),
+            ThemeError::EmptyAuthor
+        );
     }
 
     #[test]

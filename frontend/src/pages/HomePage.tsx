@@ -61,7 +61,7 @@ const PRINCIPE = [
   {
     titre: 'Les textes sont rattachés à des thèmes',
     texte:
-      'La méthode est publiée, chaque rattachement porte son origine — modèle ou arbitrage humain — et il reste révisable.',
+      'La méthode est publiée, chaque rattachement est révisable et son historique est conservé.',
     jugement: true,
   },
   {

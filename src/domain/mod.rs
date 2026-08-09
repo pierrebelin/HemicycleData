@@ -6,3 +6,4 @@ pub mod group_profile;
 pub mod scoring;
 pub mod scrutin;
 pub mod theme;
+pub mod theme_rules;

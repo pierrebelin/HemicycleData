@@ -659,7 +659,6 @@ mod tests {
         let mut themed = record("S2", Vec::new());
         themed.families = vec![AssignedFamily {
             family: FamilyCode::Logement,
-            origin: crate::domain::theme::AssignmentOrigin::HumanArbitration,
             opened_on: NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
             motive: None,
         }];

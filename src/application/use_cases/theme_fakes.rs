@@ -11,8 +11,8 @@ use chrono::NaiveDate;
 
 use crate::application::ports::theme_classifier::{ClassifierError, ThemeClassifier};
 use crate::application::ports::theme_repository::{
-    AssignedFamily, AttemptOutcome, MethodReport, RepositoryError, ScrutinSubject, TextLink,
-    TextPage, TextScrutin, TextSummary, ThemeRepository,
+    AssignedFamily, AttemptOutcome, MethodReport, PendingDossier, RepositoryError, ScrutinSubject,
+    TextLink, TextPage, TextScrutin, TextSummary, ThemeRepository,
 };
 use crate::domain::theme::{
     DebatedText, FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment, ThemeProposal,
@@ -27,6 +27,7 @@ pub struct InMemoryThemeRepository {
     pub proposals: Mutex<Vec<ThemeProposal>>,
     pub assignments: Mutex<Vec<ThemeAssignment>>,
     pub awaiting: Mutex<Vec<DebatedText>>,
+    pub awaiting_dossiers: Mutex<Vec<PendingDossier>>,
 }
 
 impl InMemoryThemeRepository {
@@ -87,16 +88,24 @@ impl ThemeRepository for InMemoryThemeRepository {
         Ok(awaiting.iter().take(limit as usize).cloned().collect())
     }
 
+    async fn dossiers_awaiting_proposal(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<PendingDossier>, RepositoryError> {
+        let awaiting = self.awaiting_dossiers.lock().unwrap();
+        Ok(awaiting.iter().take(limit as usize).cloned().collect())
+    }
+
     async fn record_attempt(
         &self,
-        key: &TextKey,
+        subject: &SubjectRef,
         on: NaiveDate,
         outcome: AttemptOutcome,
     ) -> Result<(), RepositoryError> {
         self.attempts
             .lock()
             .unwrap()
-            .push((key.as_str().to_string(), on, outcome));
+            .push((subject.identifier().to_string(), on, outcome));
         Ok(())
     }
 
@@ -222,42 +231,64 @@ impl ThemeRepository for InMemoryThemeRepository {
 }
 
 /// Doublure du port d'effet: rend la reponse programmee pour chaque libelle.
+///
+/// `calls` retient les libelles soumis, dans l'ordre; `batches` retient la
+/// taille de chaque appel, ce qui est la grandeur a surveiller — c'est le
+/// nombre d'appels, pas le nombre de libelles, qui fait la facture (RM-14).
 pub struct StubClassifier {
-    answers: Mutex<HashMap<String, Result<Vec<ProposedFamily>, String>>>,
-    default: Mutex<Option<Result<Vec<ProposedFamily>, String>>>,
+    answers: Mutex<HashMap<String, Vec<ProposedFamily>>>,
+    /// Libelles pour lesquels le modele ne rend rien du tout.
+    skipped: Mutex<Vec<String>>,
+    default: Mutex<Option<Vec<ProposedFamily>>>,
+    failing: Mutex<bool>,
+    batch_size: Mutex<usize>,
     pub calls: Mutex<Vec<String>>,
+    pub batches: Mutex<Vec<usize>>,
 }
 
 impl StubClassifier {
     pub fn new() -> Self {
         Self {
             answers: Mutex::new(HashMap::new()),
+            skipped: Mutex::new(vec![]),
             default: Mutex::new(None),
+            failing: Mutex::new(false),
+            batch_size: Mutex::new(20),
             calls: Mutex::new(vec![]),
+            batches: Mutex::new(vec![]),
         }
     }
 
     pub fn answering(self, label: &str, families: Vec<(FamilyCode, &str)>) -> Self {
         self.answers.lock().unwrap().insert(
             label.to_string(),
-            Ok(families
+            families
                 .into_iter()
                 .map(|(family, why)| ProposedFamily::new(family, why.to_string()).unwrap())
-                .collect()),
+                .collect(),
         );
         self
     }
 
-    pub fn failing(self, label: &str) -> Self {
-        self.answers
-            .lock()
-            .unwrap()
-            .insert(label.to_string(), Err("modèle injoignable".to_string()));
+    /// Le modele repond au lot, mais omet ce libelle.
+    pub fn skipping(self, label: &str) -> Self {
+        self.skipped.lock().unwrap().push(label.to_string());
+        self
+    }
+
+    /// Tout appel echoue: le lot entier est perdu.
+    pub fn failing_batches(self) -> Self {
+        *self.failing.lock().unwrap() = true;
+        self
+    }
+
+    pub fn with_batch_size(self, size: usize) -> Self {
+        *self.batch_size.lock().unwrap() = size;
         self
     }
 
     pub fn defaulting_to_nothing(self) -> Self {
-        *self.default.lock().unwrap() = Some(Ok(vec![]));
+        *self.default.lock().unwrap() = Some(vec![]);
         self
     }
 }
@@ -270,13 +301,33 @@ impl Default for StubClassifier {
 
 #[async_trait]
 impl ThemeClassifier for StubClassifier {
-    async fn propose(&self, text_label: &str) -> Result<Vec<ProposedFamily>, ClassifierError> {
-        self.calls.lock().unwrap().push(text_label.to_string());
-        let programmed = self.answers.lock().unwrap().get(text_label).cloned();
-        let answer = programmed
-            .or_else(|| self.default.lock().unwrap().clone())
-            .unwrap_or(Ok(vec![]));
-        answer.map_err(ClassifierError::Call)
+    async fn propose_batch(
+        &self,
+        labels: &[String],
+    ) -> Result<Vec<Option<Vec<ProposedFamily>>>, ClassifierError> {
+        self.batches.lock().unwrap().push(labels.len());
+        self.calls.lock().unwrap().extend(labels.iter().cloned());
+
+        if *self.failing.lock().unwrap() {
+            return Err(ClassifierError::Call("modèle injoignable".to_string()));
+        }
+
+        let answers = self.answers.lock().unwrap();
+        let skipped = self.skipped.lock().unwrap();
+        let default = self.default.lock().unwrap();
+        Ok(labels
+            .iter()
+            .map(|label| {
+                if skipped.contains(label) {
+                    return None;
+                }
+                answers
+                    .get(label)
+                    .cloned()
+                    .or_else(|| default.clone())
+                    .or(Some(vec![]))
+            })
+            .collect())
     }
 
     fn model(&self) -> &str {
@@ -285,5 +336,9 @@ impl ThemeClassifier for StubClassifier {
 
     fn prompt_version(&self) -> &str {
         "test-v1"
+    }
+
+    fn batch_size(&self) -> usize {
+        *self.batch_size.lock().unwrap()
     }
 }

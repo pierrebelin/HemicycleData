@@ -75,24 +75,34 @@ Rattacher un texte à un ou plusieurs thèmes est **le seul endroit où un jugem
 
 Le texte est extrait de l'objet du scrutin par une règle déterministe : 8 428 scrutins sur 8 434 se regroupent en 322 textes. Un scrutin hérite des familles de son texte ; un dossier hérite du texte que ses propres scrutins nomment, et n'est classé directement que s'il n'a aucun scrutin.
 
-Familles cibles :
+Familles cibles — **treize**, référentiel fermé :
 
-- Pouvoir d'achat / fiscalité
-- Logement (loyers, accès propriété, locations courte durée)
-- Travail / emploi (droit du travail, chômage, indépendants)
-- Environnement / énergie (prix de l'énergie, transition, transports)
+- Pouvoir d'achat / fiscalité (impôts, taxes, prestations, prix, budget de l'État)
+- Logement (loyers, accès propriété, locations courte durée, urbanisme)
+- Travail / emploi (droit du travail, chômage, retraites, indépendants)
+- Santé / social (remboursements, accès aux soins, hôpital, handicap, famille)
+- Environnement / énergie (prix de l'énergie, transition, transports, eau, biodiversité)
+- Agriculture / alimentation (revenu agricole, pêche, phytosanitaires, foncier agricole)
 - Numérique (données, IA, réseaux sociaux, fraude en ligne)
-- Santé / social (remboursements, accès aux soins, congés)
-- Société / libertés (**terrain sensible : factuel uniquement**)
-- Institutions / procédure (motions de censure, révisions, budget)
+- Justice / sécurité (pénal, police, prisons, terrorisme, procédure judiciaire)
+- Immigration (séjour, asile, éloignement, nationalité — **terrain sensible : factuel uniquement**)
+- Éducation / culture (école, université, recherche, sport, culture, médias)
+- Société / libertés (égalité, fin de vie, bioéthique, laïcité — **terrain sensible : factuel uniquement**)
+- International / défense (ratification de traités, armées, aide au développement, Europe)
+- Institutions / procédure (motions de censure, révisions, collectivités, élections)
+
+Le référentiel est passé de huit à treize familles le 9 août 2026. Les huit précédentes concentraient justice, sécurité, immigration, éducation et culture dans « société / libertés » — les sujets les plus disputés de la législature dans le bac qu'on avait soi-même marqué sensible — et n'accueillaient ni l'international ni la défense. Le découpage porte sur l'**objet** des textes ; il ne dit rien de leur orientation (§6).
 
 Règles :
 
 - Un texte peut appartenir à **plusieurs** familles, trois au plus ; on ne force pas l'unicité.
 - Le rattachement est **révisable** et son historique conservé.
 - Un texte non rattaché reste **consultable** (liste dédiée), il n'est pas perdu.
-- La méthode de rattachement est publiée sur le site.
-- Le modèle **propose**, sa proposition est publiée avec la mention de son origine, un humain peut arbitrer après coup. Le modèle ne voit que le libellé du texte.
+- La méthode de rattachement est publiée sur le site, table de règles comprise.
+- Trois chemins mènent à un rattachement : une **règle publiée** tranche quand la nature juridique du texte suffit (un projet de loi de finances est un texte budgétaire) ; sinon le modèle **propose** ; un humain peut **arbitrer** après coup, et son arbitrage prime. Le modèle ne voit que le libellé du texte.
+- **Le rattachement ne s'affiche pas avec une étiquette d'origine.** Le site montre la famille, pas qui l'a décidée : lire « logement — auto » plutôt que « logement » déplace l'attention sans rien apprendre sur le vote. La traçabilité reste entière — l'auteur de chaque rattachement (règle, modèle ou mainteneur), sa justification et l'historique des révisions sont consultables sur la fiche du texte (§9).
+
+**Économie d'appels.** Le rattachement est le seul poste du produit qui appelle un modèle, donc le seul qui coûte à l'usage. Trois leviers, dans cet ordre : le porteur est le texte et non le scrutin (8 434 scrutins tiennent en 322 textes, et scrutins comme dossiers en héritent) ; les règles publiées prennent ce qu'elles savent prendre sans un jeton ; le reste part au modèle **par lot**, le cadrage n'étant payé qu'une fois par lot. Un objet déjà rattaché n'est jamais resoumis. Un rafraîchissement de routine ne coûte donc que ce qui est nouveau, pas la taille de la base.
 
 ## 6. Neutralité — règles dures
 

@@ -62,7 +62,8 @@ systemd (hemicycle.service, User=hemicycle)
 
 systemd (hemicycle-ingest.timer → .service, toutes les 2 h)
    └─ /home/hemicycle/app/deploy/cron/hemicycle-ingest.sh
-         POST 127.0.0.1:8085/api/{registry/refresh,scrutins/refresh,refresh,themes/extract}
+         POST 127.0.0.1:8085/api/{registry/refresh,scrutins/refresh,refresh}
+         (`refresh` porte aussi l'extraction des textes et le rattachement)
          en-tête x-admin-token : jeton du jour
 ```
 
@@ -152,11 +153,26 @@ protégerait rien.
 ### 3.3 Ingestion périodique
 
 `deploy/cron/hemicycle-ingest.sh` enchaîne `registry/refresh`,
-`scrutins/refresh`, `refresh` puis `themes/extract`, dans cet ordre : sans
-acteurs à jour un scrutin référence des députés inconnus, et sans scrutins
-l'extraction ne voit rien. `POST /api/themes/propose` en est volontairement
-absent — il consomme la clé Anthropic, il reste une action délibérée de
-l'opérateur.
+`scrutins/refresh` puis `refresh`, dans cet ordre : sans acteurs à jour un
+scrutin référence des députés inconnus, et sans scrutins l'extraction ne voit
+rien.
+
+Depuis le 9 août 2026, `POST /api/refresh` porte lui-même l'extraction des
+textes débattus et le rattachement thématique — appeler `themes/extract` après
+lui le rejouerait à vide. **Il consomme donc la clé Anthropic**, ce qui n'était
+pas le cas auparavant. Trois garde-fous rendent la dépense prévisible :
+
+- le porteur du thème est le texte, pas le scrutin — 8 434 scrutins tiennent en
+  322 textes, et scrutins comme dossiers en héritent sans appel supplémentaire ;
+- un objet déjà rattaché n'est jamais resoumis, et une table de règles publiée
+  prend sans appel ce que la nature du texte suffit à classer ;
+- `THEME_BATCH_PER_REFRESH` (100 par défaut) plafonne le nombre d'objets soumis
+  par passe ; le reliquat part à la suivante. `0` suspend le rattachement sans
+  toucher au reste de l'ingestion.
+
+Une passe de routine ne trouve donc qu'une poignée d'objets nouveaux.
+`POST /api/themes/propose` reste disponible pour rattraper un arriéré à la
+main, hors cadence.
 
 **Le déclencheur est `hemicycle-ingest.timer`, toutes les deux heures.** Le
 timer est préféré à une ligne de crontab pour trois raisons : la sortie part

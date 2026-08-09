@@ -292,6 +292,14 @@ pub struct RefreshResponse {
     /// Renseigne quand la source des scrutins n'a pas repondu: les scrutins
     /// deja stockes restent en place.
     pub scrutins_anomaly: Option<String>,
+    /// Extraction des textes debattus, deterministe (RM-02).
+    pub extraction: Option<crate::api::theme_dto::ExtractionResponse>,
+    pub extraction_anomaly: Option<String>,
+    /// Passe de rattachement thematique, plafonnee (RM-14).
+    pub themes: Option<crate::api::theme_dto::ProposalRunResponse>,
+    /// Renseigne quand la passe n'a pas pu avoir lieu: les objets concernes
+    /// restent non rattaches et consultables (RM-01).
+    pub themes_anomaly: Option<String>,
 }
 
 impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for RefreshResponse {
@@ -305,6 +313,10 @@ impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for Refres
                 .scrutins
                 .map(crate::api::scrutin_dto::ScrutinsRefreshResponse::from),
             scrutins_anomaly: o.scrutins_anomaly,
+            extraction: o.extraction.map(crate::api::theme_dto::ExtractionResponse::from),
+            extraction_anomaly: o.extraction_anomaly,
+            themes: o.themes.map(crate::api::theme_dto::ProposalRunResponse::from),
+            themes_anomaly: o.themes_anomaly,
         }
     }
 }

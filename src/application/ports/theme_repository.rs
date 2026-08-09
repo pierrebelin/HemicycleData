@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 
+use crate::domain::dossier::DossierUid;
 use crate::domain::theme::{
-    AssignmentOrigin, DebatedText, FamilyCode, SubjectRef, TextKey, ThemeAssignment, ThemeProposal,
+    DebatedText, FamilyCode, SubjectRef, TextKey, ThemeAssignment, ThemeProposal,
 };
 
 pub use super::RepositoryError;
@@ -23,9 +24,11 @@ pub struct TextLink {
     pub text_key: String,
 }
 
-/// Issue de la derniere tentative de proposition sur un texte.
+/// Issue de la derniere tentative de rattachement sur un objet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttemptOutcome {
+    /// Une regle publiee a rattache l'objet, sans appel au modele (RM-13).
+    Ruled,
     /// Le modele a rendu au moins une famille.
     Proposed,
     /// Le modele a repondu sans retenir de famille.
@@ -37,6 +40,7 @@ pub enum AttemptOutcome {
 impl AttemptOutcome {
     pub fn as_str(&self) -> &'static str {
         match self {
+            Self::Ruled => "ruled",
             Self::Proposed => "proposed",
             Self::NoFamily => "no_family",
             Self::Failed => "failed",
@@ -44,11 +48,18 @@ impl AttemptOutcome {
     }
 }
 
-/// Famille courante d'un objet, telle qu'affichee (RM-09).
+/// Dossier qu'aucun scrutin ne relie a un texte. Faute de texte porteur, il est
+/// classe sur son propre titre (RM-06).
+#[derive(Debug, Clone)]
+pub struct PendingDossier {
+    pub uid: DossierUid,
+    pub title: String,
+}
+
+/// Famille courante d'un objet, telle qu'affichee.
 #[derive(Debug, Clone)]
 pub struct AssignedFamily {
     pub family: FamilyCode,
-    pub origin: AssignmentOrigin,
     pub opened_on: NaiveDate,
     pub motive: Option<String>,
 }
@@ -94,7 +105,6 @@ pub struct FamilyCoverage {
     pub family: FamilyCode,
     pub text_count: i64,
     pub scrutin_count: i64,
-    pub arbitrated_text_count: i64,
 }
 
 /// Ce que la page methode publie (CU-06).
@@ -103,8 +113,6 @@ pub struct MethodReport {
     pub families: Vec<FamilyCoverage>,
     pub texts_total: i64,
     pub texts_assigned: i64,
-    pub texts_arbitrated: i64,
-    pub texts_awaiting_arbitration: i64,
     pub texts_without_family: i64,
     pub texts_attempt_failed: i64,
     pub texts_never_attempted: i64,
@@ -114,6 +122,9 @@ pub struct MethodReport {
     pub dossiers_total: i64,
     pub dossiers_linked_to_text: i64,
     pub dossiers_assigned: i64,
+    /// Dossiers qu'aucun scrutin ne relie a un texte: ils sont classes sur leur
+    /// propre titre, et restent consultables tant qu'ils ne le sont pas (RM-01).
+    pub dossiers_without_text: i64,
 }
 
 #[async_trait]
@@ -133,14 +144,25 @@ pub trait ThemeRepository: Send + Sync {
 
     // -- Proposition (CU-02) -----------------------------------------------
 
-    /// Textes sans rattachement courant et jamais proposes avec succes, du plus
+    /// Textes sans rattachement courant et jamais rattaches avec succes, du plus
     /// vote au moins vote: le travail utile d'abord.
     async fn texts_awaiting_proposal(&self, limit: i64)
         -> Result<Vec<DebatedText>, RepositoryError>;
 
+    /// Dossiers sans scrutin, sans rattachement courant et jamais rattaches
+    /// avec succes. Ceux qui ont des scrutins heritent de leur texte et ne
+    /// passent jamais ici (RM-06).
+    async fn dossiers_awaiting_proposal(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<PendingDossier>, RepositoryError>;
+
+    /// Trace la derniere tentative sur l'objet, quelle qu'en soit l'issue. Un
+    /// objet deja rattache n'est jamais resoumis: c'est le premier levier de
+    /// reduction des appels au modele (RM-14).
     async fn record_attempt(
         &self,
-        key: &TextKey,
+        subject: &SubjectRef,
         on: NaiveDate,
         outcome: AttemptOutcome,
     ) -> Result<(), RepositoryError>;
