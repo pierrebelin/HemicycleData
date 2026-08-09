@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import DossierAmendments from '../components/DossierAmendments'
 import DossierScrutins from '../components/DossierScrutins'
 import { OutcomePanel } from '../components/OutcomeBadge'
 import {
@@ -455,6 +456,10 @@ export default function DossierDetailPage() {
       </div>
 
       <DossierScrutins uid={data.uid} />
+
+      {/* Les votes d'abord, les raisons ensuite : on lit ce qui a ete decide,
+          puis ce que les signataires ont ecrit pour le justifier. */}
+      <DossierAmendments uid={data.uid} />
 
       <div className="text-center">
         <a

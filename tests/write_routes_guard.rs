@@ -23,9 +23,11 @@ use hemicycle_data::api::routes::create_router;
 use hemicycle_data::api::security::AdminGuard;
 use hemicycle_data::infrastructure::llm::unavailable_classifier::UnavailableClassifier;
 use hemicycle_data::infrastructure::national_assembly::actor_client::AmoActorClient;
+use hemicycle_data::infrastructure::national_assembly::amendment_client::AmendmentClient;
 use hemicycle_data::infrastructure::national_assembly::client::NationalAssemblyClient;
 use hemicycle_data::infrastructure::national_assembly::scrutin_client::ScrutinClient;
 use hemicycle_data::infrastructure::persistence::pg_actor_repository::PgActorRepository;
+use hemicycle_data::infrastructure::persistence::pg_amendment_repository::PgAmendmentRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_repository::PgDossierRepository;
 use hemicycle_data::infrastructure::persistence::pg_final_vote_repository::PgFinalVoteRepository;
 use hemicycle_data::infrastructure::persistence::pg_group_repository::PgGroupRepository;
@@ -36,12 +38,13 @@ use hemicycle_data::AppState;
 
 const SECRET: &str = "0123456789abcdef0123456789abcdef";
 
-/// Les huit routes d'ecriture de l'API. Toute route ajoutee ici sans garde
+/// Les neuf routes d'ecriture de l'API. Toute route ajoutee ici sans garde
 /// fait echouer `toute_route_d_ecriture_exige_un_jeton`.
-const WRITE_ROUTES: [&str; 8] = [
+const WRITE_ROUTES: [&str; 9] = [
     "/api/refresh",
     "/api/registry/refresh",
     "/api/scrutins/refresh",
+    "/api/amendements/refresh",
     "/api/dossiers/DLR5L15N47160/curate",
     "/api/dossiers/DLR5L15N47160/save",
     "/api/themes/extract",
@@ -66,7 +69,9 @@ fn state() -> AppState {
         actor_source: Arc::new(AmoActorClient::new()),
         actor_repository: Arc::new(PgActorRepository::new(db.clone())),
         scrutin_source: Arc::new(ScrutinClient::new()),
+        amendment_source: Arc::new(AmendmentClient::new()),
         scrutin_repository: Arc::new(PgScrutinRepository::new(db.clone())),
+        amendment_repository: Arc::new(PgAmendmentRepository::new(db.clone())),
         final_vote_repository: Arc::new(PgFinalVoteRepository::new(db.clone())),
         group_repository: Arc::new(PgGroupRepository::new(db.clone())),
         theme_repository: Arc::new(PgThemeRepository::new(db)),

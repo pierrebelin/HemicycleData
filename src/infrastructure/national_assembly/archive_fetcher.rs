@@ -112,6 +112,26 @@ impl ArchiveFetcher {
         Decision::Revalidate(cached.validators.clone())
     }
 
+    /// Identite de l'archive actuellement en cache, telle que la source la
+    /// publie: `ETag` de preference, `Last-Modified` a defaut.
+    ///
+    /// Sert a reconnaitre une archive deja ingeree sans la reparcourir. On
+    /// prefere le validateur publie a une empreinte calculee: hacher plusieurs
+    /// centaines de mega-octets pour retrouver ce que la source annonce
+    /// gratuitement dans ses en-tetes serait du travail pour rien.
+    ///
+    /// `None` quand rien n'est en cache, ou quand la source ne publie aucun
+    /// validateur: l'appelant doit alors ingerer sans pouvoir se comparer.
+    pub fn archive_id(&self) -> Option<String> {
+        let cache = self.cache.lock().unwrap();
+        let cached = cache.as_ref()?;
+        cached
+            .validators
+            .etag
+            .clone()
+            .or_else(|| cached.validators.last_modified.clone())
+    }
+
     /// Rend l'archive, en la retelechargeant seulement si la source dit qu'elle
     /// a change.
     ///

@@ -1,4 +1,5 @@
 pub mod arbitrate_theme;
+pub mod browse_dossier_amendments;
 pub mod browse_dossiers;
 pub mod browse_final_votes;
 pub mod browse_groups;
@@ -14,6 +15,7 @@ pub mod get_scrutin_detail;
 pub mod list_scrutins;
 pub mod refresh_actor_registry;
 pub mod refresh_all;
+pub mod refresh_amendments;
 pub mod refresh_dossiers;
 pub mod refresh_scrutins;
 pub mod save_dossier;

@@ -1,3 +1,4 @@
+pub mod amendment_dto;
 pub mod dto;
 pub mod final_vote_dto;
 pub mod group_dto;
