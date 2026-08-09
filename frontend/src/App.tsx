@@ -77,14 +77,6 @@ export default function App() {
           <span className="text-ink-faint">
             Données publiques de l'Assemblée nationale, reprises sans sélection.
           </span>
-          <NavLink
-            to="/selection"
-            className={({ isActive }) =>
-              `ml-auto ${isActive ? 'text-ink-soft underline underline-offset-4' : 'text-ink-faint hover:text-ink-soft'}`
-            }
-          >
-            Sélection des dossiers
-          </NavLink>
         </div>
       </footer>
     </div>
