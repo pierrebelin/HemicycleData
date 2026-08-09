@@ -34,7 +34,14 @@ pub struct AmendmentsSummary {
     /// Amendements laisses pour la passe suivante parce que le plafond de passe
     /// est atteint. Non nul = chargement en cours, a afficher comme tel.
     pub pending: usize,
+    pub json_entries: usize,
+    pub parsed: usize,
+    pub undecodable: usize,
+    pub malformed: usize,
+    pub refused: usize,
     pub unreadable: usize,
+    pub failures: BTreeMap<String, usize>,
+    pub top_level: BTreeMap<String, usize>,
     pub without_text_ref: usize,
     pub other_legislature: usize,
     /// Sorts publies hors referentiel, avec leur nombre (RM-04).
@@ -114,7 +121,14 @@ impl<'a> RefreshAmendments<'a> {
         }
 
         if let Some(scan) = scan {
-            summary.unreadable = scan.unreadable;
+            summary.json_entries = scan.json_entries;
+            summary.parsed = scan.parsed;
+            summary.undecodable = scan.undecodable;
+            summary.malformed = scan.malformed;
+            summary.refused = scan.refused;
+            summary.unreadable = scan.unreadable();
+            summary.failures = scan.failures;
+            summary.top_level = scan.top_level;
             summary.without_text_ref = scan.without_text_ref;
             summary.other_legislature = scan.other_legislature;
             summary.unknown_fates = scan.unknown_fates;
@@ -125,7 +139,15 @@ impl<'a> RefreshAmendments<'a> {
 
         // L'identite n'est retenue qu'apres une passe entiere: une passe tronquee
         // par le plafond ne doit pas faire sauter la suivante.
-        if summary.pending == 0 {
+        let walked_to_nothing = summary.json_entries > 0 && summary.parsed == 0;
+        if walked_to_nothing {
+            tracing::error!(
+                "Amendments archive exposed {} JSON entries but parsed none; archive identity is not retained",
+                summary.json_entries
+            );
+        }
+
+        if summary.pending == 0 && !walked_to_nothing {
             if let Some(archive_id) = feed.archive_id {
                 self.repository
                     .remember_archive(ARCHIVE_LABEL, &archive_id)
@@ -398,7 +420,9 @@ mod tests {
                 ])),
                 Ok(AmendmentBatch::Done(ArchiveScan {
                     parsed: 2,
-                    unreadable: 3,
+                    undecodable: 1,
+                    malformed: 1,
+                    refused: 1,
                     without_text_ref: 2,
                     other_legislature: 1,
                     ..Default::default()
@@ -419,6 +443,9 @@ mod tests {
         assert_eq!(summary.written, 2);
         assert_eq!(summary.pending, 0);
         assert_eq!(summary.unreadable, 3);
+        assert_eq!(summary.undecodable, 1);
+        assert_eq!(summary.malformed, 1);
+        assert_eq!(summary.refused, 1);
         assert_eq!(summary.without_text_ref, 2);
         assert_eq!(summary.other_legislature, 1);
         assert_eq!(repository.saved.lock().unwrap().len(), 2);
@@ -570,6 +597,32 @@ mod tests {
         assert_eq!(summary.written, 1);
         assert_eq!(summary.pending, 1);
         assert!(truncated.remembered.lock().unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn an_archive_that_parses_nothing_is_not_remembered() {
+        let source = FakeSource::with(
+            Some("etag-1"),
+            vec![Ok(AmendmentBatch::Done(ArchiveScan {
+                json_entries: 2,
+                malformed: 2,
+                ..Default::default()
+            }))],
+        );
+        let repository = FakeRepository::default();
+
+        let summary = RefreshAmendments::new(
+            &source,
+            &repository,
+            &FakeActorRepository::default(),
+            0,
+        )
+        .execute()
+        .await
+        .unwrap();
+
+        assert_eq!(summary.parsed, 0);
+        assert!(repository.remembered.lock().unwrap().is_none());
     }
 
     #[tokio::test]
