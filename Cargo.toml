@@ -33,6 +33,10 @@ reqwest = { version = "0.12", default-features = false, features = [
     "http2",
 ] }
 zip = "2"
+# Deja dans l'arbre via reqwest. Declare ici parce que `ArchiveFetcher` s'en
+# sert directement : `Bytes` est compte par reference, donc mettre l'archive en
+# cache ne la recopie pas.
+bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"
 thiserror = "2"

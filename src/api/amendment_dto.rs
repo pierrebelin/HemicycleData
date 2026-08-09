@@ -80,6 +80,9 @@ impl From<AmendmentView> for AmendmentDto {
 
 #[derive(Serialize)]
 pub struct AmendmentCoverageDto {
+    /// Amendements en base, tous dossiers confondus. Distingue « rien n'est
+    /// ingere » de « rien ne se rattache a ce dossier » (RM-01, README §2).
+    pub base_total: i64,
     pub total: i64,
     pub without_summary: i64,
     pub unknown_fates: i64,
@@ -88,6 +91,7 @@ pub struct AmendmentCoverageDto {
 impl From<DossierAmendmentCoverage> for AmendmentCoverageDto {
     fn from(coverage: DossierAmendmentCoverage) -> Self {
         Self {
+            base_total: coverage.base_total,
             total: coverage.total,
             without_summary: coverage.without_summary,
             unknown_fates: coverage.unknown_fates,

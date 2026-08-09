@@ -191,10 +191,16 @@ export default function DossierAmendments({ uid }: { uid: string }) {
       {data && (
         <div className="space-y-2">
           {data.total === 0 ? (
+            /*
+              Deux vides très différents, qui doivent se lire différemment.
+              Le premier est un état du site, le second un constat sur ce qui
+              a été ingéré — et aucun des deux n'autorise à parler au nom de
+              l'Assemblée (README.md §2).
+            */
             <p className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-ink-soft">
-              La source ne rattache aucun amendement à un texte de ce dossier.
-              Cela ne signifie pas qu'aucun amendement n'a été déposé sur ce
-              texte.
+              {data.coverage.base_total === 0
+                ? "Les amendements ne sont pas encore ingérés sur ce site. Cette section restera vide jusqu'à la première passe d'ingestion."
+                : "Aucun amendement ingéré ne se rattache à un texte de ce dossier. Cela ne signifie pas qu'aucun amendement n'a été déposé sur ce texte."}
             </p>
           ) : (
             <>
