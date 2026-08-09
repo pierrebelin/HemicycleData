@@ -11,7 +11,7 @@ use bytes::{Bytes, BytesMut};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use reqwest::header::{ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
+use reqwest::header::{ACCEPT_RANGES, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED, RANGE};
 use reqwest::StatusCode;
 
 use crate::application::ports::SourceError;
@@ -49,6 +49,14 @@ const READ_TIMEOUT: Duration = Duration::from_secs(120);
 /// le journal, assez frequent pour qu'un telechargement d'un quart d'heure
 /// montre qu'il avance.
 const PROGRESS_STEP: u64 = 50 * 1024 * 1024;
+
+/// Reprises tentees avant d'abandonner un telechargement.
+///
+/// La source a montre qu'elle coupe les transferts longs. Reprendre a l'octet
+/// ou l'on s'est arrete coute une requete; tout recommencer coute l'archive
+/// entiere. Trois tentatives suffisent a passer un incident sans masquer une
+/// panne durable.
+const MAX_RESUME_ATTEMPTS: usize = 3;
 
 /// Ce que la source a renvoye avec l'archive et qui permet de lui redemander
 /// « seulement si ca a change ».
@@ -98,6 +106,13 @@ impl ArchiveFetcher {
             .user_agent(USER_AGENT)
             .connect_timeout(CONNECT_TIMEOUT)
             .read_timeout(READ_TIMEOUT)
+            // HTTP/1.1 impose, et c'est delibere. Le telechargement de
+            // l'archive des amendements s'interrompait a 16 572 066 octets sur
+            // 296 735 207 — a deux cents kilo-octets de 16 Mio, la signature
+            // d'un blocage de la fenetre de controle de flux HTTP/2. Le
+            // multiplexage n'apporte rien a une requete unique sur un fichier
+            // statique; il n'apporte ici qu'une facon de plus d'echouer.
+            .http1_only()
             // Repris tel quel du code precedent. A reexaminer: desactiver la
             // verification du certificat n'a de raison d'etre que si la chaine
             // de la source est cassee, ce qui se verifie.
@@ -258,13 +273,23 @@ impl ArchiveFetcher {
     /// La taille annoncee est journalisee avant de commencer: c'est la seule
     /// mesure de volumetrie que le projet ait sur cette archive
     /// (todo/SPEC-amendements.md §6, H1).
-    async fn download_body(&self, mut response: reqwest::Response) -> Result<Bytes, SourceError> {
+    async fn download_body(&self, response: reqwest::Response) -> Result<Bytes, SourceError> {
         let announced = response.content_length();
+        // `Accept-Ranges: bytes` est la promesse de la source qu'elle sait
+        // reprendre. Sans elle, une coupure impose de tout recommencer.
+        let resumable = header_value(&response, ACCEPT_RANGES)
+            .is_some_and(|v| v.eq_ignore_ascii_case("bytes"));
+
         match announced {
             Some(total) => tracing::info!(
-                "{}: downloading {} bytes announced",
+                "{}: downloading {} bytes announced ({})",
                 self.label,
-                total
+                total,
+                if resumable {
+                    "resumable"
+                } else {
+                    "not resumable"
+                }
             ),
             None => tracing::info!("{}: downloading, size not announced", self.label),
         }
@@ -272,27 +297,29 @@ impl ArchiveFetcher {
         // La capacite annoncee evite de reallouer en cours de route, ce qui
         // doublerait transitoirement la memoire tenue.
         let mut buffer = BytesMut::with_capacity(announced.unwrap_or(0) as usize);
-        let mut next_report = PROGRESS_STEP;
+        let mut response = response;
+        let mut attempts = 0usize;
 
         loop {
-            let chunk = response.chunk().await.map_err(|e| {
-                // Le nombre d'octets recus est la moitie utile du diagnostic.
-                SourceError::Download(format!(
-                    "{}: transfer interrupted after {} bytes{}: {e}",
-                    self.label,
-                    buffer.len(),
-                    announced
-                        .map(|t| format!(" of {t}"))
-                        .unwrap_or_default()
-                ))
-            })?;
-
-            let Some(chunk) = chunk else { break };
-            buffer.extend_from_slice(&chunk);
-
-            if buffer.len() as u64 >= next_report {
-                tracing::info!("{}: {} bytes received", self.label, buffer.len());
-                next_report += PROGRESS_STEP;
+            match self.read_into(&mut buffer, response).await {
+                Ok(()) => break,
+                Err(interruption) => {
+                    // Une reprise n'a de sens que si la source la sait, si elle
+                    // a deja livre quelque chose, et si l'on n'a pas deja
+                    // insiste. Sinon on rend l'erreur telle quelle.
+                    if !resumable || buffer.is_empty() || attempts >= MAX_RESUME_ATTEMPTS {
+                        return Err(interruption);
+                    }
+                    attempts += 1;
+                    tracing::warn!(
+                        "{} — reprise {}/{} a partir de l'octet {}",
+                        interruption,
+                        attempts,
+                        MAX_RESUME_ATTEMPTS,
+                        buffer.len()
+                    );
+                    response = self.request_from(buffer.len() as u64).await?;
+                }
             }
         }
 
@@ -314,6 +341,80 @@ impl ArchiveFetcher {
         tracing::info!("Downloaded {} bytes ({})", buffer.len(), self.label);
         Ok(buffer.freeze())
     }
+
+    /// Verse le corps d'une reponse dans le tampon, jusqu'a sa fin ou jusqu'a
+    /// l'interruption. Le tampon garde ce qui est passe: c'est lui qui rend la
+    /// reprise possible.
+    async fn read_into(
+        &self,
+        buffer: &mut BytesMut,
+        mut response: reqwest::Response,
+    ) -> Result<(), SourceError> {
+        let mut next_report = (buffer.len() as u64 / PROGRESS_STEP + 1) * PROGRESS_STEP;
+
+        loop {
+            let chunk = response.chunk().await.map_err(|e| {
+                SourceError::Download(format!(
+                    "{}: transfer interrupted after {} bytes: {}",
+                    self.label,
+                    buffer.len(),
+                    causes(&e)
+                ))
+            })?;
+
+            let Some(chunk) = chunk else { return Ok(()) };
+            buffer.extend_from_slice(&chunk);
+
+            if buffer.len() as u64 >= next_report {
+                tracing::info!("{}: {} bytes received", self.label, buffer.len());
+                next_report += PROGRESS_STEP;
+            }
+        }
+    }
+
+    /// Redemande l'archive a partir d'un octet donne.
+    ///
+    /// La source doit repondre `206 Partial Content`. Un `200` signifierait
+    /// qu'elle ignore l'en-tete et renvoie tout depuis le debut: concatener
+    /// produirait une archive corrompue, donc on refuse plutot que d'abimer.
+    async fn request_from(&self, offset: u64) -> Result<reqwest::Response, SourceError> {
+        let response = self
+            .http
+            .get(self.url)
+            .header(RANGE, format!("bytes={offset}-"))
+            .send()
+            .await
+            .map_err(|e| {
+                SourceError::Download(format!("{}: resume request failed: {}", self.label, causes(&e)))
+            })?;
+
+        if response.status() != StatusCode::PARTIAL_CONTENT {
+            return Err(SourceError::Download(format!(
+                "{}: resume refused, HTTP {} instead of 206",
+                self.label,
+                response.status()
+            )));
+        }
+
+        Ok(response)
+    }
+}
+
+/// Message d'une erreur, suivi de sa chaine de causes.
+///
+/// `reqwest::Error` n'affiche que son propre libelle — « error decoding
+/// response body » — et laisse dans `source()` ce qui s'est reellement passe:
+/// connexion coupee, flux reinitialise, delai expire. Sans derouler la chaine,
+/// le journal nomme le symptome et tait la cause.
+fn causes(error: &dyn std::error::Error) -> String {
+    let mut out = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        out.push_str(" <- ");
+        out.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    out
 }
 
 fn header_value(response: &reqwest::Response, name: reqwest::header::HeaderName) -> Option<String> {
@@ -327,6 +428,54 @@ fn header_value(response: &reqwest::Response, name: reqwest::header::HeaderName)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Erreur a deux etages, comme celles de reqwest: le libelle de surface ne
+    /// dit rien, la cause est en dessous.
+    #[derive(Debug)]
+    struct Layered {
+        message: &'static str,
+        source: Option<Box<Layered>>,
+    }
+
+    impl std::fmt::Display for Layered {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.message)
+        }
+    }
+
+    impl std::error::Error for Layered {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            self.source
+                .as_deref()
+                .map(|s| s as &(dyn std::error::Error + 'static))
+        }
+    }
+
+    #[test]
+    fn the_cause_chain_is_unrolled_not_swallowed() {
+        let error = Layered {
+            message: "error decoding response body",
+            source: Some(Box::new(Layered {
+                message: "connection reset by peer",
+                source: None,
+            })),
+        };
+
+        assert_eq!(
+            causes(&error),
+            "error decoding response body <- connection reset by peer"
+        );
+    }
+
+    /// Une erreur sans cause ne gagne pas de decoration.
+    #[test]
+    fn a_lone_error_reads_as_itself() {
+        let error = Layered {
+            message: "HTTP 503",
+            source: None,
+        };
+        assert_eq!(causes(&error), "HTTP 503");
+    }
 
     fn cached(age: Duration, validators: Validators) -> CachedArchive {
         CachedArchive {
