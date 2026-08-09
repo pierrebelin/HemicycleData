@@ -9,7 +9,7 @@ use crate::application::ports::final_vote_repository::{
 };
 use crate::application::ports::theme_repository::AssignedFamily;
 use crate::domain::scrutin::VoteTally;
-use crate::domain::theme::{AssignmentOrigin, FamilyCode};
+use crate::domain::theme::FamilyCode;
 
 /// Selection des votes sur l'ensemble d'un texte.
 ///
@@ -76,7 +76,7 @@ impl PgFinalVoteRepository {
         Ok(by_scrutin)
     }
 
-    /// Familles courantes des textes de la page (RM-09).
+    /// Familles courantes des textes de la page (RM-06).
     async fn families_for(
         &self,
         text_keys: &[String],
@@ -86,7 +86,7 @@ impl PgFinalVoteRepository {
         }
 
         let rows = sqlx::query(
-            "SELECT subject_id, family_code, origin, opened_on, motive
+            "SELECT subject_id, family_code, opened_on, motive
              FROM theme_assignments
              WHERE subject_kind = 'text' AND closed_on IS NULL AND subject_id = ANY($1)
              ORDER BY opened_on, id",
@@ -100,10 +100,7 @@ impl PgFinalVoteRepository {
         let mut by_key: HashMap<String, Vec<AssignedFamily>> = HashMap::new();
         for row in &rows {
             let code: String = row.get("family_code");
-            let origin: String = row.get("origin");
-            let (Ok(family), Some(origin)) =
-                (FamilyCode::parse(&code), AssignmentOrigin::parse(&origin))
-            else {
+            let Ok(family) = FamilyCode::parse(&code) else {
                 continue;
             };
             by_key
@@ -111,7 +108,6 @@ impl PgFinalVoteRepository {
                 .or_default()
                 .push(AssignedFamily {
                     family,
-                    origin,
                     opened_on: row.get("opened_on"),
                     motive: row.get("motive"),
                 });

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Ingestion periodique : registre des acteurs, scrutins, dossiers, extraction
-# des textes debattus. Tourne sur le VPS, appelle le backend en boucle locale
-# avec le jeton du jour.
+# des textes debattus et rattachement thematique. Tourne sur le VPS, appelle le
+# backend en boucle locale avec le jeton du jour.
 #
 # Declenchement par `hemicycle-ingest.timer` (toutes les deux heures), installe
 # en meme temps que les autres unites systemd. Voir todo/SPEC-DEPLOIEMENT.md
@@ -16,8 +16,15 @@
 # Le jeton du jour et celui de la veille sont acceptes tous les deux : aucune
 # cadence ne tombe donc a cheval sur le changement de jeton de minuit.
 #
-# `POST /api/themes/propose` n'est **pas** appele ici : il consomme la cle
-# Anthropic. La proposition reste une action deliberee de l'operateur.
+# `POST /api/refresh` **consomme la cle Anthropic** : depuis le 9 aout 2026 il
+# extrait les textes debattus puis rattache les objets encore en attente. Le
+# volume est plafonne par `THEME_BATCH_PER_REFRESH` (100 par defaut), et un
+# objet deja rattache n'est jamais resoumis : une passe de routine ne paie que
+# ce qui est nouveau. Poser `THEME_BATCH_PER_REFRESH=0` dans l'environnement du
+# service suspend le rattachement sans toucher au reste de l'ingestion.
+#
+# `POST /api/themes/propose` reste disponible pour rattraper un arriere a la
+# main, hors cadence.
 
 set -uo pipefail
 
@@ -46,11 +53,12 @@ TOKEN="$("$APP_DIR/deploy/bin/admin-token.sh")" || {
 
 # Ordre impose par les dependances : sans acteurs a jour, un scrutin reference
 # des deputes inconnus ; sans scrutins, l'extraction des textes ne voit rien.
+# `/api/refresh` ferme la marche et porte l'extraction et le rattachement : les
+# appeler separement ici les rejouerait a vide.
 ROUTES=(
     /api/registry/refresh
     /api/scrutins/refresh
     /api/refresh
-    /api/themes/extract
 )
 
 failures=0

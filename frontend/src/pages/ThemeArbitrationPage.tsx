@@ -227,7 +227,7 @@ export default function ThemeArbitrationPage() {
                   {text.scrutin_count} scrutin
                   {text.scrutin_count > 1 ? 's' : ''}
                   {text.families.length > 0
-                    ? ` · ${text.families.map((f) => `${f.label} (${f.origin_note})`).join(', ')}`
+                    ? ` · ${text.families.map((f) => f.label).join(', ')}`
                     : ''}
                 </p>
               </div>

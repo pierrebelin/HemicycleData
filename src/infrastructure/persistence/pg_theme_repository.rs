@@ -5,12 +5,12 @@ use chrono::NaiveDate;
 use sqlx::{PgPool, Row};
 
 use crate::application::ports::theme_repository::{
-    AssignedFamily, AttemptOutcome, FamilyCoverage, MethodReport, RepositoryError, ScrutinSubject,
-    TextLink, TextPage, TextScrutin, TextSummary, ThemeRepository,
+    AssignedFamily, AttemptOutcome, FamilyCoverage, MethodReport, PendingDossier, RepositoryError,
+    ScrutinSubject, TextLink, TextPage, TextScrutin, TextSummary, ThemeRepository,
 };
+use crate::domain::dossier::DossierUid;
 use crate::domain::theme::{
-    AssignmentOrigin, DebatedText, FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment,
-    ThemeProposal,
+    DebatedText, FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment, ThemeProposal,
 };
 
 /// Lignes par instruction `UNNEST`. 8 434 scrutins passent en trois lots.
@@ -78,10 +78,8 @@ fn summary_from_row(row: &sqlx::postgres::PgRow) -> TextSummary {
 
 fn assigned_from_row(row: &sqlx::postgres::PgRow) -> Option<AssignedFamily> {
     let code: String = row.get("family_code");
-    let origin: String = row.get("origin");
     Some(AssignedFamily {
         family: FamilyCode::parse(&code).ok()?,
-        origin: AssignmentOrigin::parse(&origin)?,
         opened_on: row.get("opened_on"),
         motive: row.get("motive"),
     })
@@ -95,7 +93,7 @@ impl PgThemeRepository {
         }
         let keys: Vec<String> = items.iter().map(|i| i.key.clone()).collect();
         let rows = sqlx::query(
-            "SELECT subject_id, family_code, origin, opened_on, motive
+            "SELECT subject_id, family_code, opened_on, motive
              FROM theme_assignments
              WHERE subject_kind = 'text' AND closed_on IS NULL AND subject_id = ANY($1)
              ORDER BY opened_on, id",
@@ -242,23 +240,82 @@ impl ThemeRepository for PgThemeRepository {
             .collect())
     }
 
+    async fn dossiers_awaiting_proposal(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<PendingDossier>, RepositoryError> {
+        // Un dossier relie a un texte herite de ses familles (RM-06): le
+        // soumettre en plus serait payer deux fois le meme rattachement.
+        let rows = sqlx::query(
+            "SELECT d.uid, d.title
+             FROM legislative_dossiers d
+             LEFT JOIN dossier_theme_attempts a ON a.dossier_uid = d.uid
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM dossier_debated_texts l WHERE l.dossier_uid = d.uid
+             )
+             AND NOT EXISTS (
+                 SELECT 1 FROM theme_assignments t
+                 WHERE t.subject_kind = 'dossier' AND t.subject_id = d.uid
+                   AND t.closed_on IS NULL
+             )
+             AND (a.last_attempt_outcome IS NULL OR a.last_attempt_outcome = 'failed')
+             ORDER BY d.uid
+             LIMIT $1",
+        )
+        .bind(limit)
+        .persistent(false)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db)?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                Some(PendingDossier {
+                    uid: DossierUid::new(row.get("uid")).ok()?,
+                    title: row.get("title"),
+                })
+            })
+            .collect())
+    }
+
     async fn record_attempt(
         &self,
-        key: &TextKey,
+        subject: &SubjectRef,
         on: NaiveDate,
         outcome: AttemptOutcome,
     ) -> Result<(), RepositoryError> {
-        sqlx::query(
-            "UPDATE debated_texts SET last_attempt_on = $2, last_attempt_outcome = $3,
-                    updated_at = NOW()
-             WHERE text_key = $1",
-        )
-        .bind(key.as_str())
-        .bind(on)
-        .bind(outcome.as_str())
-        .execute(&self.pool)
-        .await
-        .map_err(db)?;
+        match subject {
+            SubjectRef::Text(key) => {
+                sqlx::query(
+                    "UPDATE debated_texts SET last_attempt_on = $2, last_attempt_outcome = $3,
+                            updated_at = NOW()
+                     WHERE text_key = $1",
+                )
+                .bind(key.as_str())
+                .bind(on)
+                .bind(outcome.as_str())
+                .execute(&self.pool)
+                .await
+                .map_err(db)?;
+            }
+            SubjectRef::Dossier(uid) => {
+                sqlx::query(
+                    "INSERT INTO dossier_theme_attempts
+                         (dossier_uid, last_attempt_on, last_attempt_outcome)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (dossier_uid) DO UPDATE
+                         SET last_attempt_on = EXCLUDED.last_attempt_on,
+                             last_attempt_outcome = EXCLUDED.last_attempt_outcome",
+                )
+                .bind(uid.as_str())
+                .bind(on)
+                .bind(outcome.as_str())
+                .execute(&self.pool)
+                .await
+                .map_err(db)?;
+            }
+        }
         Ok(())
     }
 
@@ -369,13 +426,12 @@ impl ThemeRepository for PgThemeRepository {
         for assignment in opened {
             sqlx::query(
                 "INSERT INTO theme_assignments
-                    (subject_kind, subject_id, family_code, origin, opened_on, author, motive)
+                    (subject_kind, subject_id, family_code, opened_on, author, motive)
                  VALUES ($1, $2, $3, $4, $5, $6, $7)",
             )
             .bind(assignment.subject().kind())
             .bind(assignment.subject().identifier())
             .bind(assignment.family().as_str())
-            .bind(assignment.origin().as_str())
             .bind(assignment.opened_on())
             .bind(assignment.author())
             .bind(assignment.motive())
@@ -393,7 +449,7 @@ impl ThemeRepository for PgThemeRepository {
         subject: &SubjectRef,
     ) -> Result<Vec<ThemeAssignment>, RepositoryError> {
         let rows = sqlx::query(
-            "SELECT family_code, origin, opened_on, closed_on, author, motive
+            "SELECT family_code, opened_on, closed_on, author, motive
              FROM theme_assignments
              WHERE subject_kind = $1 AND subject_id = $2
              ORDER BY opened_on DESC, id DESC",
@@ -410,13 +466,9 @@ impl ThemeRepository for PgThemeRepository {
             let Ok(family) = FamilyCode::parse(&row.get::<String, _>("family_code")) else {
                 continue;
             };
-            let Some(origin) = AssignmentOrigin::parse(&row.get::<String, _>("origin")) else {
-                continue;
-            };
             let Ok(mut assignment) = ThemeAssignment::open(
                 subject.clone(),
                 family,
-                origin,
                 row.get("opened_on"),
                 row.get("author"),
                 row.get("motive"),
@@ -565,7 +617,7 @@ impl ThemeRepository for PgThemeRepository {
         scrutin_uids: &[String],
     ) -> Result<HashMap<String, Vec<AssignedFamily>>, RepositoryError> {
         let rows = sqlx::query(
-            "SELECT l.scrutin_uid, a.family_code, a.origin, a.opened_on, a.motive
+            "SELECT l.scrutin_uid, a.family_code, a.opened_on, a.motive
              FROM scrutin_debated_texts l
              JOIN theme_assignments a
                ON a.subject_kind = 'text' AND a.subject_id = l.text_key AND a.closed_on IS NULL
@@ -595,13 +647,13 @@ impl ThemeRepository for PgThemeRepository {
         dossier_uid: &str,
     ) -> Result<Vec<AssignedFamily>, RepositoryError> {
         let rows = sqlx::query(
-            "SELECT a.family_code, a.origin, a.opened_on, a.motive
+            "SELECT a.family_code, a.opened_on, a.motive
              FROM dossier_debated_texts dt
              JOIN theme_assignments a
                ON a.subject_kind = 'text' AND a.subject_id = dt.text_key AND a.closed_on IS NULL
              WHERE dt.dossier_uid = $1
              UNION
-             SELECT a.family_code, a.origin, a.opened_on, a.motive
+             SELECT a.family_code, a.opened_on, a.motive
              FROM theme_assignments a
              WHERE a.subject_kind = 'dossier' AND a.subject_id = $1 AND a.closed_on IS NULL",
         )
@@ -622,8 +674,6 @@ impl ThemeRepository for PgThemeRepository {
         let rows = sqlx::query(
             "SELECT f.code,
                     count(DISTINCT a.subject_id) AS text_count,
-                    count(DISTINCT a.subject_id) FILTER (WHERE a.origin = 'human_arbitration')
-                        AS arbitrated_count,
                     coalesce((
                         SELECT count(*) FROM scrutin_debated_texts l
                         WHERE l.text_key IN (
@@ -650,7 +700,6 @@ impl ThemeRepository for PgThemeRepository {
                     family: FamilyCode::parse(&row.get::<String, _>("code")).ok()?,
                     text_count: row.get("text_count"),
                     scrutin_count: row.get("scrutin_count"),
-                    arbitrated_text_count: row.get("arbitrated_count"),
                 })
             })
             .collect();
@@ -665,24 +714,6 @@ impl ThemeRepository for PgThemeRepository {
                 .count(&format!(
                     "SELECT count(*) FROM debated_texts t WHERE EXISTS ({current_text_assignment})"
                 ))
-                .await?,
-            texts_arbitrated: self
-                .count(
-                    "SELECT count(DISTINCT subject_id) FROM theme_assignments
-                     WHERE subject_kind = 'text' AND closed_on IS NULL
-                       AND origin = 'human_arbitration'",
-                )
-                .await?,
-            texts_awaiting_arbitration: self
-                .count(
-                    "SELECT count(DISTINCT subject_id) FROM theme_assignments a
-                     WHERE a.subject_kind = 'text' AND a.closed_on IS NULL AND a.origin = 'proposal'
-                       AND NOT EXISTS (
-                           SELECT 1 FROM theme_assignments b
-                           WHERE b.subject_kind = 'text' AND b.subject_id = a.subject_id
-                             AND b.closed_on IS NULL AND b.origin = 'human_arbitration'
-                       )",
-                )
                 .await?,
             texts_without_family: self
                 .count("SELECT count(*) FROM debated_texts WHERE last_attempt_outcome = 'no_family'")
@@ -711,13 +742,31 @@ impl ThemeRepository for PgThemeRepository {
             dossiers_linked_to_text: self
                 .count("SELECT count(DISTINCT dossier_uid) FROM dossier_debated_texts")
                 .await?,
+            // Un dossier est rattache soit par le texte que ses scrutins
+            // nomment, soit — a defaut de scrutin — sur son propre titre
+            // (RM-06). Les deux comptent.
             dossiers_assigned: self
                 .count(
-                    "SELECT count(DISTINCT d.dossier_uid) FROM dossier_debated_texts d
+                    "SELECT count(*) FROM legislative_dossiers d
                      WHERE EXISTS (
+                         SELECT 1 FROM dossier_debated_texts l
+                         JOIN theme_assignments a
+                           ON a.subject_kind = 'text' AND a.subject_id = l.text_key
+                          AND a.closed_on IS NULL
+                         WHERE l.dossier_uid = d.uid
+                     )
+                     OR EXISTS (
                          SELECT 1 FROM theme_assignments a
-                         WHERE a.subject_kind = 'text' AND a.subject_id = d.text_key
+                         WHERE a.subject_kind = 'dossier' AND a.subject_id = d.uid
                            AND a.closed_on IS NULL
+                     )",
+                )
+                .await?,
+            dossiers_without_text: self
+                .count(
+                    "SELECT count(*) FROM legislative_dossiers d
+                     WHERE NOT EXISTS (
+                         SELECT 1 FROM dossier_debated_texts l WHERE l.dossier_uid = d.uid
                      )",
                 )
                 .await?,
