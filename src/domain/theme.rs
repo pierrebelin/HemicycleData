@@ -289,7 +289,10 @@ fn strip_stage_suffixes(label: &mut String) {
 }
 
 /// Apostrophes ramenees a une seule forme, espaces (insecables compris) reduits.
-fn clean(raw: &str) -> String {
+///
+/// Partage avec `domain::amendment`: la source ponctue ses libelles de la meme
+/// facon partout, la normalisation n'a pas de raison d'exister en deux copies.
+pub(crate) fn clean(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len());
     let mut pending_space = false;
     for c in raw.chars() {
@@ -311,7 +314,7 @@ fn clean(raw: &str) -> String {
     out
 }
 
-fn lowercase(raw: &str) -> String {
+pub(crate) fn lowercase(raw: &str) -> String {
     raw.chars()
         .map(|c| c.to_lowercase().next().unwrap_or(c))
         .collect()
