@@ -1,19 +1,10 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import DossierScrutins from '../components/DossierScrutins'
 import { OutcomePanel } from '../components/OutcomeBadge'
-import {
-  Card,
-  ErrorPanel,
-  Loading,
-  Pill,
-  SectionTitle,
-  type PillTone,
-} from '../components/ui'
+import { Card, ErrorPanel, Loading, Pill, SectionTitle } from '../components/ui'
 import type { OutcomeDto } from '../types/dossiers'
-import { AdminTokenField } from '../components/AdminTokenField'
-import { adminFetch } from '../lib/adminToken'
 
 /** Actes visibles avant dépliage. Un dossier peut en porter des dizaines. */
 const VISIBLE_ACTS = 3
@@ -60,19 +51,10 @@ interface DossierDetailDto {
   last_activity_label: string
   acts: ActeDto[]
   score: ScoreDto
-  persisted: boolean
   current_stage: StageDto | null
   initiators: InitiatorDto[]
   committee: string | null
-  curation_status?: string
   outcome: OutcomeDto
-}
-
-const curationLabels: Record<string, { label: string; tone: PillTone }> = {
-  new: { label: 'Nouveau', tone: 'neutral' },
-  selected: { label: 'Sélectionné', tone: 'yes' },
-  dismissed: { label: 'Écarté', tone: 'neutral' },
-  published: { label: 'Publié', tone: 'info' },
 }
 
 function ScoreBar({
@@ -111,9 +93,13 @@ function scoreTotalColor(score: number) {
   return 'text-ink-soft'
 }
 
+/**
+ * Fiche d'un dossier, en lecture seule. Sauvegarde et curation passent
+ * désormais par l'API, jamais par cet écran : le navigateur d'un visiteur n'a
+ * rien à écrire, et le jeton du jour n'a donc plus à y être collé.
+ */
 export default function DossierDetailPage() {
   const { uid } = useParams<{ uid: string }>()
-  const queryClient = useQueryClient()
   const [allActsShown, setAllActsShown] = useState(false)
 
   const { data, isLoading, isError, error } = useQuery<DossierDetailDto>({
@@ -124,29 +110,6 @@ export default function DossierDetailPage() {
         return res.json()
       }),
     enabled: !!uid,
-  })
-
-  const curateMutation = useMutation({
-    mutationFn: async (status: string) => {
-      await adminFetch(`/api/dossiers/${uid}/curate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dossier', uid] })
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] })
-    },
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      await adminFetch(`/api/dossiers/${uid}/save`, { method: 'POST' })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dossier', uid] })
-    },
   })
 
   if (isLoading) return <Loading>Chargement du dossier…</Loading>
@@ -176,66 +139,34 @@ export default function DossierDetailPage() {
         ← Retour à la liste
       </Link>
 
-      <div className="mb-5 flex items-start justify-between gap-6">
-        <div className="min-w-0">
-          <h2 className="max-w-4xl text-2xl font-semibold leading-tight tracking-tight">
-            {data.title}
-          </h2>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint">
-            <span>{data.procedure}</span>
-            {data.current_stage && (
-              <Pill tone="info">
-                {data.current_stage.label}
-                {data.current_stage.chamber &&
-                  ` — ${data.current_stage.chamber}`}
-              </Pill>
+      <div className="mb-5 min-w-0">
+        <h2 className="max-w-4xl text-2xl font-semibold leading-tight tracking-tight">
+          {data.title}
+        </h2>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint">
+          <span>{data.procedure}</span>
+          {data.current_stage && (
+            <Pill tone="info">
+              {data.current_stage.label}
+              {data.current_stage.chamber && ` — ${data.current_stage.chamber}`}
+            </Pill>
+          )}
+          <span>·</span>
+          <span className="text-ink-soft">{data.last_activity_label}</span>
+          <span>·</span>
+          <span>
+            {new Date(data.last_activity_date + 'T00:00:00').toLocaleDateString(
+              'fr-FR',
+              { day: 'numeric', month: 'long', year: 'numeric' },
             )}
-            <span>·</span>
-            <span className="text-ink-soft">{data.last_activity_label}</span>
-            <span>·</span>
-            <span>
-              {new Date(
-                data.last_activity_date + 'T00:00:00',
-              ).toLocaleDateString('fr-FR', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
-            </span>
-            {data.committee && (
-              <>
-                <span>·</span>
-                <span>Commission : {data.committee}</span>
-              </>
-            )}
-          </div>
-        </div>
-        {data.persisted ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-yes-soft px-2.5 py-1 text-xs font-medium text-yes ring-1 ring-inset ring-yes/15">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Sauvegardé
           </span>
-        ) : (
-          <button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-strong disabled:opacity-50"
-          >
-            {saveMutation.isPending ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
-              </svg>
-            )}
-            Sauvegarder
-          </button>
-        )}
+          {data.committee && (
+            <>
+              <span>·</span>
+              <span>Commission : {data.committee}</span>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="mb-4">
@@ -289,59 +220,6 @@ export default function DossierDetailPage() {
               )}
             </span>
           ))}
-        </div>
-      )}
-
-      {data.curation_status && (
-        <div className="flex items-center gap-2 mb-4">
-          {(() => {
-            const info = curationLabels[data.curation_status] ?? curationLabels.new
-            return <Pill tone={info.tone}>{info.label}</Pill>
-          })()}
-          {data.curation_status !== 'published' && (
-            <div className="flex gap-1.5">
-              {data.curation_status !== 'selected' && (
-                <button
-                  onClick={() => curateMutation.mutate('selected')}
-                  disabled={curateMutation.isPending}
-                  className="rounded-md bg-yes-soft px-2 py-0.5 text-xs font-medium text-yes ring-1 ring-inset ring-yes/15 hover:ring-yes/40 disabled:opacity-50"
-                >
-                  Sélectionner
-                </button>
-              )}
-              {data.curation_status !== 'dismissed' && (
-                <button
-                  onClick={() => curateMutation.mutate('dismissed')}
-                  disabled={curateMutation.isPending}
-                  className="rounded-md bg-surface-soft px-2 py-0.5 text-xs font-medium text-ink-soft ring-1 ring-inset ring-line hover:ring-line-strong disabled:opacity-50"
-                >
-                  Écarter
-                </button>
-              )}
-              <button
-                onClick={() => curateMutation.mutate('published')}
-                disabled={curateMutation.isPending}
-                className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/15 hover:ring-accent/40 disabled:opacity-50"
-              >
-                Publié
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Curation et mise de côté écrivent : jeton du jour requis. */}
-      <div className="mb-4 max-w-md">
-        <AdminTokenField />
-      </div>
-
-      {(curateMutation.isError || saveMutation.isError) && (
-        <div className="mb-4 rounded-lg border border-no/25 bg-no-soft px-3 py-2">
-          <p className="text-no text-sm">
-            {(curateMutation.error ?? saveMutation.error) instanceof Error
-              ? (curateMutation.error ?? saveMutation.error)!.message
-              : 'Erreur inconnue'}
-          </p>
         </div>
       )}
 

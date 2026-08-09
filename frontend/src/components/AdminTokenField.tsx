@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { getAdminToken, setAdminToken } from '../lib/adminToken'
 
 /**
- * Champ de saisie du jeton d'administration, partagé par les écrans qui
- * écrivent (sélection, fiche dossier, arbitrage).
+ * Champ de saisie du jeton d'administration. Un seul écran écrit encore depuis
+ * le navigateur : l'arbitrage des rattachements, qui porte une décision humaine
+ * (CU-03) et n'a pas d'autre interface. Le reste passe par l'API.
  *
  * Le jeton n'est pas un mot de passe de compte : c'est la valeur du jour,
  * dérivée du secret du serveur. Il expire à minuit UTC, d'où le rappel affiché
