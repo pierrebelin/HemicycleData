@@ -1,3 +1,4 @@
+pub mod amendment_handlers;
 pub mod dossier_handlers;
 pub mod final_vote_handlers;
 pub mod group_handlers;

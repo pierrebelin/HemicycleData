@@ -92,6 +92,18 @@ impl AmendmentBatches {
     }
 }
 
+/// Ce qu'une ouverture d'archive rend: son identite, et ses lots.
+pub struct AmendmentFeed {
+    /// Identite de l'archive servie, telle que la source la publie (`ETag`, ou
+    /// `Last-Modified` a defaut). `None` quand la source n'en publie aucune.
+    ///
+    /// Permet de reconnaitre une archive deja ingeree et de ne pas la
+    /// reparcourir. Abandonner `batches` sans le consommer interrompt le
+    /// parcours: au plus un lot aura ete lu pour rien.
+    pub archive_id: Option<String>,
+    pub batches: AmendmentBatches,
+}
+
 #[async_trait]
 pub trait AmendmentSource: Send + Sync {
     /// Ouvre l'archive et rend les amendements par lots d'au plus `batch_size`.
@@ -101,5 +113,5 @@ pub trait AmendmentSource: Send + Sync {
         &self,
         legislature: u16,
         batch_size: usize,
-    ) -> Result<AmendmentBatches, SourceError>;
+    ) -> Result<AmendmentFeed, SourceError>;
 }

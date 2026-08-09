@@ -2,6 +2,8 @@ use chrono::NaiveDate;
 
 use crate::application::ports::actor_repository::{ActorRepository, RegistrySummary};
 use crate::application::ports::actor_source::ActorSource;
+use crate::application::ports::amendment_repository::AmendmentRepository;
+use crate::application::ports::amendment_source::AmendmentSource;
 use crate::application::ports::assembly_source::AssemblySource;
 use crate::application::ports::dossier_repository::DossierRepository;
 use crate::application::ports::scrutin_repository::ScrutinRepository;
@@ -12,6 +14,7 @@ use crate::application::ports::theme_repository::ThemeRepository;
 use super::extract_debated_texts::{ExtractDebatedTexts, ExtractionReport};
 use super::propose_theme_families::{ProposalRun, ProposeThemeFamilies};
 use super::refresh_actor_registry::RefreshActorRegistry;
+use super::refresh_amendments::{AmendmentsSummary, RefreshAmendments};
 use super::refresh_dossiers::{DossiersSummary, RefreshDossiers, RefreshError, RefreshScope};
 use super::refresh_scrutins::{RefreshScrutins, ScrutinsSummary};
 
@@ -32,6 +35,10 @@ pub struct RefreshOutcome {
     /// Rattachement des objets encore en attente, plafonne a chaque passe.
     pub themes: Option<ProposalRun>,
     pub themes_anomaly: Option<String>,
+    /// Amendements. Passe la plus longue, donc la derniere: une troncature ne
+    /// coute jamais le reste du rafraichissement.
+    pub amendments: Option<AmendmentsSummary>,
+    pub amendments_anomaly: Option<String>,
 }
 
 /// Rafraichissement complet, dans l'ordre impose: referentiel d'abord, dossiers
@@ -54,11 +61,15 @@ pub struct RefreshAll<'a> {
     dossier_repository: &'a dyn DossierRepository,
     scrutin_source: &'a dyn ScrutinSource,
     scrutin_repository: &'a dyn ScrutinRepository,
+    amendment_source: &'a dyn AmendmentSource,
+    amendment_repository: &'a dyn AmendmentRepository,
     theme_repository: &'a dyn ThemeRepository,
     theme_classifier: &'a dyn ThemeClassifier,
     /// Objets soumis au rattachement par passe. Plafond, pas objectif: le
     /// reliquat est repris au rafraichissement suivant.
     theme_batch: i64,
+    /// Amendements ecrits par passe. Meme regle: un plafond, pas un objectif.
+    amendment_batch: usize,
 }
 
 impl<'a> RefreshAll<'a> {
@@ -70,9 +81,12 @@ impl<'a> RefreshAll<'a> {
         dossier_repository: &'a dyn DossierRepository,
         scrutin_source: &'a dyn ScrutinSource,
         scrutin_repository: &'a dyn ScrutinRepository,
+        amendment_source: &'a dyn AmendmentSource,
+        amendment_repository: &'a dyn AmendmentRepository,
         theme_repository: &'a dyn ThemeRepository,
         theme_classifier: &'a dyn ThemeClassifier,
         theme_batch: i64,
+        amendment_batch: usize,
     ) -> Self {
         Self {
             actor_source,
@@ -81,9 +95,12 @@ impl<'a> RefreshAll<'a> {
             dossier_repository,
             scrutin_source,
             scrutin_repository,
+            amendment_source,
+            amendment_repository,
             theme_repository,
             theme_classifier,
             theme_batch,
+            amendment_batch,
         }
     }
 
@@ -163,6 +180,26 @@ impl<'a> RefreshAll<'a> {
             }
         };
 
+        // Les amendements ferment la marche. Deux raisons: leur ingestion est la
+        // plus longue, et une passe coupee par un delai ne doit rien couter au
+        // reste; et le groupe de leurs signataires est date depuis le
+        // referentiel, qui vient d'etre rafraichi (RM-11).
+        let (amendments, amendments_anomaly) = match RefreshAmendments::new(
+            self.amendment_source,
+            self.amendment_repository,
+            self.actor_repository,
+            self.amendment_batch,
+        )
+        .execute()
+        .await
+        {
+            Ok(summary) => (Some(summary), None),
+            Err(e) => {
+                tracing::warn!("Amendments refresh failed, keeping the stored ones: {e}");
+                (None, Some(e.to_string()))
+            }
+        };
+
         Ok(RefreshOutcome {
             registry,
             registry_anomaly,
@@ -173,6 +210,8 @@ impl<'a> RefreshAll<'a> {
             extraction_anomaly,
             themes,
             themes_anomaly,
+            amendments,
+            amendments_anomaly,
         })
     }
 }
@@ -185,6 +224,13 @@ mod tests {
     use std::sync::Mutex;
 
     use crate::application::ports::actor_source::SourceError as ActorSourceError;
+    use crate::application::ports::amendment_repository::{
+        AmendmentPage, AmendmentPageRequest, DossierAmendmentCoverage,
+        RepositoryError as AmendmentRepositoryError, SignatoryRow,
+    };
+    use crate::application::ports::amendment_source::{
+        AmendmentBatch, AmendmentBatches, AmendmentFeed, ArchiveScan,
+    };
     use crate::application::ports::assembly_source::SourceError;
     use crate::application::ports::scrutin_repository::{
         DatasetShape, RepositoryError as ScrutinRepositoryError, ScrutinFilter, ScrutinPage,
@@ -194,6 +240,7 @@ mod tests {
     use crate::application::ports::theme_repository::ScrutinSubject;
     use crate::application::use_cases::theme_fakes::{InMemoryThemeRepository, StubClassifier};
     use crate::domain::actor::{ActorRegistry, ActorUid};
+    use crate::domain::amendment::Amendment;
     use crate::domain::dossier::{DossierUid, LegislativeDossier};
     use crate::domain::scrutin::{Scrutin, ScrutinUid};
     use crate::domain::theme::{DebatedText, FamilyCode, SubjectRef};
@@ -296,6 +343,75 @@ mod tests {
         }
     }
 
+    /// Source d'amendements muette: le rafraichissement des amendements n'est pas
+    /// l'objet de ces tests, seule son innocuite sur le reste l'est.
+    struct EmptyAmendmentSource;
+
+    #[async_trait]
+    impl AmendmentSource for EmptyAmendmentSource {
+        async fn fetch_amendments(
+            &self,
+            _legislature: u16,
+            _batch_size: usize,
+        ) -> Result<AmendmentFeed, crate::application::ports::SourceError> {
+            Ok(AmendmentFeed {
+                archive_id: None,
+                batches: AmendmentBatches::from_batches(vec![Ok(AmendmentBatch::Done(
+                    ArchiveScan::default(),
+                ))]),
+            })
+        }
+    }
+
+    struct NoopAmendmentRepository;
+
+    #[async_trait]
+    impl AmendmentRepository for NoopAmendmentRepository {
+        async fn save_amendments(
+            &self,
+            _amendments: &[Amendment],
+        ) -> Result<usize, AmendmentRepositoryError> {
+            Ok(0)
+        }
+
+        async fn by_dossier(
+            &self,
+            _dossier_uid: &str,
+            _page: &AmendmentPageRequest,
+        ) -> Result<AmendmentPage, AmendmentRepositoryError> {
+            unreachable!()
+        }
+
+        async fn dossier_coverage(
+            &self,
+            _dossier_uid: &str,
+        ) -> Result<DossierAmendmentCoverage, AmendmentRepositoryError> {
+            unreachable!()
+        }
+
+        async fn signatories_of(
+            &self,
+            _amendment_uid: &str,
+        ) -> Result<Vec<SignatoryRow>, AmendmentRepositoryError> {
+            unreachable!()
+        }
+
+        async fn last_archive_id(
+            &self,
+            _label: &str,
+        ) -> Result<Option<String>, AmendmentRepositoryError> {
+            Ok(None)
+        }
+
+        async fn remember_archive(
+            &self,
+            _label: &str,
+            _id: &str,
+        ) -> Result<(), AmendmentRepositoryError> {
+            Ok(())
+        }
+    }
+
     struct RecordingActorSource {
         available: bool,
         order: Mutex<Vec<&'static str>>,
@@ -332,9 +448,12 @@ mod tests {
                 $dossier_repository,
                 $scrutin_source,
                 $scrutin_repository,
+                &EmptyAmendmentSource,
+                &NoopAmendmentRepository,
                 $theme_repository,
                 $theme_classifier,
                 50,
+                0,
             )
             .execute(date(2026, 8, 9))
             .await

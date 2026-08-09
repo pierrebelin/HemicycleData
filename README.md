@@ -157,8 +157,8 @@ Colonne vertébrale. XML / JSON. Jeux clés :
 - **Scrutins** : position de vote de chaque député (→ §7). Priorité absolue.
 - **Acteurs et organes** : députés, groupes, **mandats et appartenances datées** (→ §3.2).
 - Dossiers législatifs (titres, dépôts, commissions, rapporteurs, dates).
-- Comptes rendus de séance (positions attribuées).
-- Amendements (auteur, objet, sort).
+- **Amendements** : auteur, cosignataires, **exposé sommaire**, sort. Ingérés depuis l'archive de la législature. Ce sont les seules raisons de vote que la source publie sous forme structurée — il n'existe aucun champ « raison du vote » dans le jeu des scrutins.
+- Comptes rendus de séance (positions attribuées). Non ingérés à ce jour.
 
 ### Vie publique — `vie-publique.fr`
 
@@ -194,6 +194,7 @@ API officielle : textes promulgués, droit en vigueur, Journal officiel. Auth OA
 - [x] **Phase 2** — **Acteurs** : référentiel députés et groupes, appartenances datées (§3.2).
 - [x] **Phase 3** — **Scrutins** : ingestion, positions nominales, répartition par groupe.
 - [x] **Phase 4** — **Thématisation** : textes débattus, familles, méthode publiée (§5).
+- [x] **Phase 4bis** — **Amendements** : ingestion, rattachement au dossier, exposé sommaire verbatim sur la page dossier.
 - [ ] **Phase 5** — Pages publiques thème × groupe × période.
 - [ ] **Phase 6** — Chat de routage (§8.2).
 - [ ] **Phase 7** — Page méthodologie, journal des corrections (§9).
@@ -228,6 +229,7 @@ Variables reconnues :
 | `ADMIN_TOKEN_SECRET` | secret maître des routes d'écriture ; absent, toute écriture est fermée |
 | `ALLOWED_ORIGINS` | origines tierces autorisées par CORS, séparées par des virgules ; vide par défaut |
 | `ANTHROPIC_API_KEY` | propositions de thématisation ; absente, la fonction est désactivée |
+| `AMENDMENT_BATCH_PER_REFRESH` | amendements écrits par passe d'ingestion (défaut `40000`) ; `0` lève la borne |
 
 ### Routes d'écriture
 
@@ -235,7 +237,7 @@ Les routes de consultation sont ouvertes : le site publie de la donnée
 publique, et un jeton embarqué dans un bundle JavaScript public ne protégerait
 rien — pas plus que `Origin` ou `Referer`, qu'un `curl` falsifie.
 
-Les huit routes d'écriture (ingestion, curation, thématisation) exigent en
+Les neuf routes d'écriture (ingestion, curation, thématisation) exigent en
 revanche un jeton, présenté en `x-admin-token` ou en `Authorization: Bearer`.
 Ce jeton **change chaque jour** : il est dérivé de `ADMIN_TOKEN_SECRET` et de la
 date UTC, jamais stocké. Le serveur accepte celui du jour et celui de la veille,

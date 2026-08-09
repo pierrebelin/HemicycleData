@@ -300,6 +300,11 @@ pub struct RefreshResponse {
     /// Renseigne quand la passe n'a pas pu avoir lieu: les objets concernes
     /// restent non rattaches et consultables (RM-01).
     pub themes_anomaly: Option<String>,
+    /// Passe d'ingestion des amendements, plafonnee elle aussi.
+    pub amendments: Option<crate::api::amendment_dto::AmendmentsRefreshResponse>,
+    /// Renseigne quand la source des amendements n'a pas repondu: ceux deja
+    /// stockes restent en place.
+    pub amendments_anomaly: Option<String>,
 }
 
 impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for RefreshResponse {
@@ -317,6 +322,10 @@ impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for Refres
             extraction_anomaly: o.extraction_anomaly,
             themes: o.themes.map(crate::api::theme_dto::ProposalRunResponse::from),
             themes_anomaly: o.themes_anomaly,
+            amendments: o
+                .amendments
+                .map(crate::api::amendment_dto::AmendmentsRefreshResponse::from),
+            amendments_anomaly: o.amendments_anomaly,
         }
     }
 }

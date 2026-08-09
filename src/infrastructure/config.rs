@@ -17,6 +17,20 @@ pub fn theme_batch_per_refresh() -> i64 {
         .clamp(0, 2_000)
 }
 
+/// Amendements ecrits a chaque rafraichissement.
+///
+/// Plafond, pas objectif: le reliquat est repris a la passe suivante. La
+/// legislature en compte plusieurs centaines de milliers, et la fenetre du
+/// timer d'ingestion est de deux heures: sans borne, une passe la deborderait.
+/// `AMENDMENT_BATCH_PER_REFRESH=0` leve la borne, pour un premier chargement
+/// lance a la main hors cadence.
+pub fn amendment_batch_per_refresh() -> usize {
+    std::env::var("AMENDMENT_BATCH_PER_REFRESH")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<usize>().ok())
+        .unwrap_or(40_000)
+}
+
 pub async fn try_connect_database() -> Result<PgPool, String> {
     let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?;
 
