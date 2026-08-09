@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::amendment_source::{
-    AmendmentBatch, AmendmentBatches, AmendmentSource, ArchiveScan, SourceError,
+    AmendmentBatch, AmendmentBatches, AmendmentFeed, AmendmentSource, ArchiveScan, SourceError,
 };
 use crate::domain::actor::{ActorUid, GroupUid};
 use crate::domain::amendment::{
@@ -314,8 +314,9 @@ impl AmendmentSource for AmendmentClient {
         &self,
         legislature: u16,
         batch_size: usize,
-    ) -> Result<AmendmentBatches, SourceError> {
+    ) -> Result<AmendmentFeed, SourceError> {
         let data = self.get_zip().await?;
+        let archive_id = self.archive.archive_id();
         // Deux lots en vol au plus: le producteur attend le consommateur, ce qui
         // borne la memoire tenue quelle que soit la taille de l'archive.
         let (sender, receiver) = tokio::sync::mpsc::channel(2);
@@ -335,7 +336,10 @@ impl AmendmentSource for AmendmentClient {
             let _ = sender.blocking_send(last);
         });
 
-        Ok(AmendmentBatches::from_channel(receiver))
+        Ok(AmendmentFeed {
+            archive_id,
+            batches: AmendmentBatches::from_channel(receiver),
+        })
     }
 }
 

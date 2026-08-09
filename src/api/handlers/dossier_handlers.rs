@@ -177,9 +177,12 @@ pub async fn refresh_dossiers(
         state.dossier_repository.as_ref(),
         state.scrutin_source.as_ref(),
         state.scrutin_repository.as_ref(),
+        state.amendment_source.as_ref(),
+        state.amendment_repository.as_ref(),
         state.theme_repository.as_ref(),
         state.theme_classifier.as_ref(),
         config::theme_batch_per_refresh(),
+        config::amendment_batch_per_refresh(),
     );
 
     let outcome = uc
