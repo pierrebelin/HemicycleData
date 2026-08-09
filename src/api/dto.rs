@@ -1,8 +1,9 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
+use crate::application::ports::dossier_repository::DossierCriteria;
 use crate::application::use_cases::browse_dossiers::DEFAULT_PER_PAGE;
-use crate::domain::dossier::{CurationStatus, DossierOutcome, LegislativeDossier};
+use crate::domain::dossier::{CurationStatus, DossierOutcome, Initiative, LegislativeDossier};
 
 #[derive(Deserialize)]
 pub struct RecentActivityQuery {
@@ -123,6 +124,13 @@ pub struct DossierPageQuery {
     pub page: i64,
     #[serde(default = "default_per_page")]
     pub per_page: i64,
+    /// Fragment cherché dans le titre.
+    pub search: Option<String>,
+    /// Sort du dossier: `promulgated`, `rejected`, `withdrawn`, `merged_into`,
+    /// `no_recorded_conclusion`.
+    pub outcome: Option<String>,
+    /// `government` ou `parliamentary`.
+    pub initiative: Option<String>,
 }
 
 fn default_page() -> i64 {
@@ -131,6 +139,30 @@ fn default_page() -> i64 {
 
 fn default_per_page() -> i64 {
     DEFAULT_PER_PAGE
+}
+
+/// `?search=` sans valeur est une absence de critere, pas un titre vide.
+fn non_empty(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+/// Un parametre vide ou illisible ne restreint rien: comme pour la pagination,
+/// la liste ramene la demande a ce qu'elle sait faire plutot que de la refuser.
+impl From<&DossierPageQuery> for DossierCriteria {
+    fn from(q: &DossierPageQuery) -> Self {
+        Self {
+            search: non_empty(q.search.as_deref()),
+            outcome_kind: non_empty(q.outcome.as_deref()),
+            initiative: q
+                .initiative
+                .as_deref()
+                .map(str::trim)
+                .and_then(Initiative::parse),
+        }
+    }
 }
 
 #[derive(Serialize)]

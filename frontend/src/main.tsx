@@ -7,7 +7,6 @@ import App from './App.tsx'
 import HomePage from './pages/HomePage.tsx'
 import DossierListPage from './pages/DossierListPage.tsx'
 import DossierDetailPage from './pages/DossierDetailPage.tsx'
-import DossierSelectionPage from './pages/DossierSelectionPage.tsx'
 import GroupListPage from './pages/GroupListPage.tsx'
 import GroupDetailPage from './pages/GroupDetailPage.tsx'
 import GroupVotesPage from './pages/GroupVotesPage.tsx'
@@ -32,7 +31,6 @@ createRoot(document.getElementById('root')!).render(
             <Route index element={<HomePage />} />
             <Route path="dossiers" element={<DossierListPage />} />
             <Route path="dossiers/:uid" element={<DossierDetailPage />} />
-            <Route path="selection" element={<DossierSelectionPage />} />
             <Route path="groupes" element={<GroupListPage />} />
             <Route path="groupes/:uid" element={<GroupDetailPage />} />
             <Route path="votes-par-groupe" element={<GroupVotesPage />} />

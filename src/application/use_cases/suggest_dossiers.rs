@@ -59,6 +59,7 @@ mod tests {
 
         async fn find_page(
             &self,
+            _criteria: &crate::application::ports::dossier_repository::DossierCriteria,
             _limit: i64,
             _offset: i64,
         ) -> Result<crate::application::ports::dossier_repository::DossierPage, RepositoryError>
