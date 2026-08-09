@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::assembly_source::{AssemblySource, SourceError};
-use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiator, LegislativeAct, LegislativeDocument, LegislativeDossier};
+use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiative, Initiator, LegislativeAct, LegislativeDocument, LegislativeDossier};
 use crate::domain::scoring::compute_score;
 
 use super::archive_fetcher::ArchiveFetcher;
@@ -104,7 +104,9 @@ impl NationalAssemblyClient {
             .and_then(|c| Committee::new(c).ok());
         let initiator_refs = extract_initiator_refs(&raw.initiator);
 
-        let is_government_bill = raw.parliamentary_procedure.libelle.starts_with("Projet de loi");
+        let is_government_bill =
+            Initiative::from_procedure(&raw.parliamentary_procedure.libelle)
+                == Some(Initiative::Government);
 
         let initiators = if initiator_refs.is_empty() && is_government_bill {
             vec![Initiator::unresolved("Gouvernement".to_string()).expect("non-empty")]

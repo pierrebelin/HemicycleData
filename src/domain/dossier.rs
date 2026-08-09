@@ -311,6 +311,51 @@ impl Initiator {
     }
 }
 
+/// Qui a depose le texte, lu dans le libelle de procedure de la source.
+///
+/// « Projet de loi ... » vient du gouvernement, « Proposition de loi ... » ou
+/// « Proposition de resolution ... » d'un parlementaire. C'est la seule lecture
+/// faite du libelle: tout autre intitule reste sans initiative connue plutot
+/// que range d'office (README.md §6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Initiative {
+    Government,
+    Parliamentary,
+}
+
+impl Initiative {
+    /// Prefixe du libelle de procedure qui porte cette initiative. Une seule
+    /// regle, partagee par la lecture de la source et par le filtre de liste.
+    pub fn procedure_prefix(&self) -> &'static str {
+        match self {
+            Self::Government => "Projet de loi",
+            Self::Parliamentary => "Proposition",
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Government => "government",
+            Self::Parliamentary => "parliamentary",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "government" => Some(Self::Government),
+            "parliamentary" => Some(Self::Parliamentary),
+            _ => None,
+        }
+    }
+
+    /// Initiative portee par un libelle de procedure, si elle s'y lit.
+    pub fn from_procedure(procedure: &str) -> Option<Self> {
+        [Self::Government, Self::Parliamentary]
+            .into_iter()
+            .find(|initiative| procedure.starts_with(initiative.procedure_prefix()))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CurationStatus {
@@ -919,6 +964,37 @@ mod tests {
     #[test]
     fn curation_status_parse_invalid() {
         assert_eq!(CurationStatus::parse("invalid"), None);
+    }
+
+    #[test]
+    fn initiative_roundtrip() {
+        for initiative in [Initiative::Government, Initiative::Parliamentary] {
+            assert_eq!(Initiative::parse(initiative.as_str()), Some(initiative));
+        }
+        assert_eq!(Initiative::parse("invalid"), None);
+    }
+
+    #[test]
+    fn initiative_read_from_the_procedure_label() {
+        assert_eq!(
+            Initiative::from_procedure("Projet de loi ordinaire"),
+            Some(Initiative::Government)
+        );
+        assert_eq!(
+            Initiative::from_procedure("Proposition de loi organique"),
+            Some(Initiative::Parliamentary)
+        );
+        assert_eq!(
+            Initiative::from_procedure("Proposition de r\u{00e9}solution"),
+            Some(Initiative::Parliamentary)
+        );
+    }
+
+    /// Un libelle que la source n'a pas prefixe ainsi n'est pas range d'office.
+    #[test]
+    fn unreadable_procedure_label_carries_no_initiative() {
+        assert_eq!(Initiative::from_procedure("Rapport d'information"), None);
+        assert_eq!(Initiative::from_procedure(""), None);
     }
 
     #[test]
