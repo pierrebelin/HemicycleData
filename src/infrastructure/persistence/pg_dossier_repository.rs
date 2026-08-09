@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, QueryBuilder};
 
 use crate::application::ports::dossier_repository::{
-    DossierPage, DossierRepository, RepositoryError, StoredDossierState,
+    DossierCriteria, DossierPage, DossierRepository, RepositoryError, StoredDossierState,
 };
 use crate::domain::actor::{ActorRole, ActorUid, GroupUid, MembershipQuality};
 use crate::domain::dossier::{Committee, CurationStatus, DossierOutcome, DossierUid, Initiator, InitiatorGroup, LawPublication, LegislativeAct, LegislativeDocument, LegislativeStage, LegislativeDossier, Score};
@@ -235,6 +235,54 @@ impl PgDossierRepository {
 
 const BATCH_SIZE: usize = 50;
 
+/// Colonnes de la ligne de liste : ni actes, ni initiateurs, ni documents, que
+/// la page ne montre pas et qui coûteraient une requête par dossier.
+const PAGE_SELECT: &str = "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
+            score_progress, score_magnitude, score_momentum, score_total,
+            current_stage_code, committee, curation_status,
+            legislature, url, summary, deposit_date,
+            outcome_kind, outcome_date, outcome_label,
+            law_code, law_jo_date, law_legifrance_url,
+            merged_into_uid, merge_cause
+     FROM legislative_dossiers";
+
+/// Traduit les critères du visiteur en conditions SQL, la même clause servant
+/// au décompte et à la tranche : sinon le total ne dirait pas ce qui est listé.
+fn push_criteria(query: &mut QueryBuilder<'_, Postgres>, criteria: &DossierCriteria) {
+    let mut separated = false;
+    let open = |q: &mut QueryBuilder<'_, Postgres>, separated: &mut bool| {
+        q.push(if *separated { " AND " } else { " WHERE " });
+        *separated = true;
+    };
+
+    if let Some(search) = criteria.search.as_ref() {
+        open(query, &mut separated);
+        query.push("title ILIKE ");
+        query.push_bind(format!("%{}%", escape_like(search)));
+    }
+    if let Some(kind) = criteria.outcome_kind.as_ref() {
+        open(query, &mut separated);
+        query.push("outcome_kind = ");
+        query.push_bind(kind.clone());
+    }
+    // L'initiative se lit dans le libellé de procédure, avec la règle que porte
+    // le domaine : « Projet de loi ... » vient du gouvernement.
+    if let Some(initiative) = criteria.initiative {
+        open(query, &mut separated);
+        query.push("procedure_label LIKE ");
+        query.push_bind(format!("{}%", escape_like(initiative.procedure_prefix())));
+    }
+}
+
+/// Neutralise les jokers SQL d'une saisie libre : sans cela un titre contenant
+/// `%` élargirait la recherche au lieu de la restreindre.
+fn escape_like(input: &str) -> String {
+    input
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
 #[async_trait]
 impl DossierRepository for PgDossierRepository {
     async fn save_all(&self, dossiers: &[LegislativeDossier]) -> Result<usize, RepositoryError> {
@@ -305,31 +353,37 @@ impl DossierRepository for PgDossierRepository {
         Ok(rows.into_iter().map(|r| r.into_dossier(vec![], vec![], vec![])).collect())
     }
 
-    async fn find_page(&self, limit: i64, offset: i64) -> Result<DossierPage, RepositoryError> {
-        let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM legislative_dossiers")
+    async fn find_page(
+        &self,
+        criteria: &DossierCriteria,
+        limit: i64,
+        offset: i64,
+    ) -> Result<DossierPage, RepositoryError> {
+        let mut count_query: QueryBuilder<Postgres> =
+            QueryBuilder::new("SELECT COUNT(*) FROM legislative_dossiers");
+        push_criteria(&mut count_query, criteria);
+        let total: i64 = count_query
+            .build_query_scalar()
+            .persistent(false)
             .fetch_one(&self.pool)
             .await
             .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
+        let mut query: QueryBuilder<Postgres> = QueryBuilder::new(PAGE_SELECT);
+        push_criteria(&mut query, criteria);
         // `uid` départage les dossiers d'une même journée : sans lui, deux pages
         // successives peuvent renvoyer deux fois la même ligne.
-        let rows = sqlx::query_as::<_, DossierRow>(
-            "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
-                    score_progress, score_magnitude, score_momentum, score_total,
-                    current_stage_code, committee, curation_status,
-                    legislature, url, summary, deposit_date,
-                    outcome_kind, outcome_date, outcome_label,
-                    law_code, law_jo_date, law_legifrance_url,
-                    merged_into_uid, merge_cause
-             FROM legislative_dossiers
-             ORDER BY last_activity_date DESC, uid DESC
-             LIMIT $1 OFFSET $2",
-        )
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| RepositoryError::Database(e.to_string()))?;
+        query.push(" ORDER BY last_activity_date DESC, uid DESC LIMIT ");
+        query.push_bind(limit);
+        query.push(" OFFSET ");
+        query.push_bind(offset);
+
+        let rows = query
+            .build_query_as::<DossierRow>()
+            .persistent(false)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
         Ok(DossierPage {
             items: rows

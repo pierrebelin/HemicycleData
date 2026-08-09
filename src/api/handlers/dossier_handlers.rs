@@ -8,7 +8,8 @@ use crate::api::dto::{
     RecentActivityQuery, RecentDossiersResponse, RefreshQuery, RefreshResponse, RegistryResponse,
     SuggestionsQuery, SuggestionsResponse,
 };
-use crate::application::use_cases::browse_dossiers::{BrowseDossiers, PageRequest};
+use crate::application::ports::dossier_repository::DossierCriteria;
+use crate::application::use_cases::browse_dossiers::{BrowseDossiers, DossierQuery};
 use crate::application::use_cases::curate_dossier::CurateDossier;
 use crate::application::use_cases::fetch_recent_dossiers::FetchRecentDossiers;
 use crate::application::use_cases::get_dossier_detail::GetDossierDetail;
@@ -40,25 +41,33 @@ pub async fn get_recent_dossiers(
     }))
 }
 
-/// Liste paginée de tous les dossiers, du plus récent au plus ancien.
+/// Liste paginée des dossiers, du plus récent au plus ancien. Les critères de
+/// la requête restreignent l'affichage, jamais le contenu de la base.
 pub async fn browse_dossiers(
     State(state): State<AppState>,
     Query(params): Query<DossierPageQuery>,
 ) -> Result<Json<DossierPageResponse>, (StatusCode, String)> {
-    let request = PageRequest::new(params.page, params.per_page);
+    let query = DossierQuery::new(
+        params.page,
+        params.per_page,
+        DossierCriteria::from(&params),
+    );
     let uc = BrowseDossiers::new(state.dossier_repository.as_ref());
 
+    let per_page = query.per_page();
+    let page_number = query.page();
+
     let page = uc
-        .execute(request)
+        .execute(query)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok(Json(DossierPageResponse {
-        page: request.page(),
-        per_page: request.per_page(),
+        page: page_number,
+        per_page,
         total: page.total,
-        total_pages: page.total.div_euclid(request.per_page())
-            + i64::from(page.total.rem_euclid(request.per_page()) > 0),
+        total_pages: page.total.div_euclid(per_page)
+            + i64::from(page.total.rem_euclid(per_page) > 0),
         dossiers: page.items.into_iter().map(DossierDto::from).collect(),
     }))
 }
