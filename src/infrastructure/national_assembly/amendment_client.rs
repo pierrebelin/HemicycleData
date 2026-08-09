@@ -161,7 +161,7 @@ impl AmendmentClient {
         let uid = raw.uid.ok_or_else(|| "entry carries no uid".to_string())?;
         let uid = AmendmentUid::new(uid).map_err(|e| e.to_string())?;
 
-        let identifiant = raw.identifiant;
+        let identifiant = raw.identification.or(raw.identifiant);
         let number = identifiant
             .as_ref()
             .and_then(|i| {
@@ -178,7 +178,10 @@ impl AmendmentClient {
             .transpose()
             .map_err(|e| e.to_string())?;
 
-        let division = raw.division;
+        let division = raw
+            .pointeur_fragment_texte
+            .and_then(|pointer| pointer.division)
+            .or(raw.division);
         // La source ne publie pas toujours de titre de division: un amendement
         // portant sur l'ensemble du texte n'en a pas. Le libelle de repli est
         // explicite plutot que vide, et n'invente aucune cible.
@@ -230,6 +233,10 @@ impl AmendmentClient {
         let fate_label = raw.sort_en_seance.clone().or_else(|| {
             cycle
                 .as_ref()
+                .and_then(|c| c.sort.clone())
+        }).or_else(|| {
+            cycle
+                .as_ref()
                 .and_then(|c| c.etat_des_traitements.as_ref())
                 .and_then(|e| e.sort.as_ref())
                 .and_then(|s| s.libelle.clone())
@@ -240,7 +247,7 @@ impl AmendmentClient {
             cycle
                 .as_ref()
                 .and_then(|c| c.etat_des_traitements.as_ref())
-                .and_then(|e| e.etat.as_ref())
+                .and_then(|e| e.etat.as_ref().or(e.sous_etat.as_ref()))
                 .and_then(|s| non_empty(s.libelle.clone()))
         });
 
@@ -249,7 +256,7 @@ impl AmendmentClient {
             .and_then(|c| c.contenu_auteur)
             .and_then(|c| non_empty(c.expose_sommaire));
 
-        let parent_uid = non_empty(raw.amendement_parent)
+        let parent_uid = non_empty(raw.amendement_parent.or(raw.amendement_parent_ref))
             .map(AmendmentUid::new)
             .transpose()
             .map_err(|e| e.to_string())?;
@@ -432,6 +439,21 @@ mod tests {
         AmendmentClient::to_domain(wrapper.amendement, 17)
             .unwrap()
             .unwrap()
+    }
+
+    #[test]
+    fn parses_the_official_amendment_shape() {
+        let amendment = parse_one(include_str!("../../../tests/fixtures/amendment_official_amanr5l17po59047btc1376p0d1n000005.json"));
+
+        assert_eq!(amendment.uid().as_str(), "AMANR5L17PO59047BTC1376P0D1N000005");
+        assert_eq!(amendment.number().as_str(), "AE5");
+        assert_eq!(amendment.text_ref().unwrap().as_str(), "PNREANR5L17BTC1376");
+        assert_eq!(amendment.target().title, "Article unique");
+        assert_eq!(amendment.target().kind.as_deref(), Some("ARTICLE"));
+        assert_eq!(amendment.deposited_on(), NaiveDate::from_ymd_opt(2025, 5, 28));
+        assert_eq!(amendment.fate().label(), "Adopté");
+        assert_eq!(amendment.state_label(), Some("Discuté"));
+        assert!(amendment.summary().unwrap().contains("Danemark"));
     }
 
     #[test]
