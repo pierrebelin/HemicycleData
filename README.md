@@ -99,7 +99,8 @@ Règles :
 - Le rattachement est **révisable** et son historique conservé.
 - Un texte non rattaché reste **consultable** (liste dédiée), il n'est pas perdu.
 - La méthode de rattachement est publiée sur le site, table de règles comprise.
-- Trois origines possibles, toutes affichées : une **règle publiée** tranche quand la nature juridique du texte suffit (un projet de loi de finances est un texte budgétaire) ; sinon le modèle **propose**, sa proposition est publiée avec la mention de son origine ; un humain peut **arbitrer** après coup, et son arbitrage prime. Le modèle ne voit que le libellé du texte.
+- Trois chemins mènent à un rattachement : une **règle publiée** tranche quand la nature juridique du texte suffit (un projet de loi de finances est un texte budgétaire) ; sinon le modèle **propose** ; un humain peut **arbitrer** après coup, et son arbitrage prime. Le modèle ne voit que le libellé du texte.
+- **Le rattachement ne s'affiche pas avec une étiquette d'origine.** Le site montre la famille, pas qui l'a décidée : lire « logement — auto » plutôt que « logement » déplace l'attention sans rien apprendre sur le vote. La traçabilité reste entière — l'auteur de chaque rattachement (règle, modèle ou mainteneur), sa justification et l'historique des révisions sont consultables sur la fiche du texte (§9).
 
 **Économie d'appels.** Le rattachement est le seul poste du produit qui appelle un modèle, donc le seul qui coûte à l'usage. Trois leviers, dans cet ordre : le porteur est le texte et non le scrutin (8 434 scrutins tiennent en 322 textes, et scrutins comme dossiers en héritent) ; les règles publiées prennent ce qu'elles savent prendre sans un jeton ; le reste part au modèle **par lot**, le cadrage n'étant payé qu'une fois par lot. Un objet déjà rattaché n'est jamais resoumis. Un rafraîchissement de routine ne coûte donc que ce qui est nouveau, pas la taille de la base.
 

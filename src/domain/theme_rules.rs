@@ -11,8 +11,8 @@
 //!   sur ses effets supposes (README.md §6);
 //! - elle rend les memes familles a chaque passage, sur la meme cle normalisee
 //!   (RM-02);
-//! - son rattachement s'affiche avec son origine et reste revisable par
-//!   arbitrage humain comme n'importe quel autre (RM-07, RM-09).
+//! - son rattachement reste revisable par arbitrage humain comme n'importe
+//!   quel autre (RM-07).
 //!
 //! Une regle qui ne s'applique pas laisse le texte au modele. Le silence est
 //! le comportement par defaut: mieux vaut un appel de plus qu'un rattachement
@@ -21,7 +21,7 @@
 use chrono::NaiveDate;
 
 use super::theme::{
-    AssignmentOrigin, FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment, ThemeError,
+    FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment, ThemeError,
 };
 
 /// Une regle du referentiel publie.
@@ -56,7 +56,8 @@ impl ThemeRule {
     }
 
     /// Auteur porte par les rattachements produits. Nomme la regle, pas un
-    /// humain et pas un modele: le site ne doit pas mentir sur sa methode.
+    /// humain et pas un modele: l'historique ne doit pas mentir sur ce qui a
+    /// ouvert la ligne (RM-07).
     pub fn author(&self) -> String {
         format!("règle « {} »", self.id)
     }
@@ -81,7 +82,6 @@ impl ThemeRule {
                 ThemeAssignment::open(
                     subject.clone(),
                     *family,
-                    AssignmentOrigin::DeterministicRule,
                     opened_on,
                     self.author(),
                     Some(self.statement.to_string()),
@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn a_rule_opens_assignments_carrying_its_own_origin() {
+    fn a_rule_names_itself_in_the_assignments_it_opens() {
         let rule = rule_for(&key("projet de loi de finances pour 2026")).unwrap();
         let subject = SubjectRef::Text(key("projet de loi de finances pour 2026"));
         let opened_on = NaiveDate::from_ymd_opt(2026, 8, 9).unwrap();
@@ -275,7 +275,6 @@ mod tests {
 
         assert_eq!(assignments.len(), 2);
         for assignment in &assignments {
-            assert_eq!(assignment.origin(), AssignmentOrigin::DeterministicRule);
             assert_eq!(assignment.author(), "règle « loi de finances »");
             assert_eq!(assignment.motive(), Some(rule.statement()));
             assert!(assignment.is_current());

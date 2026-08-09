@@ -41,7 +41,6 @@ struct Pending {
 /// 3. le reste part au modele **par lot**, le cadrage n'etant paye qu'une fois
 ///    par lot au lieu d'une fois par texte.
 ///
-/// Le rattachement est publie tel quel, portant sa mention d'origine (RM-09).
 /// Un echec du modele n'en fait echouer aucun autre: l'objet reste non rattache
 /// et consultable (RM-01).
 pub struct ProposeThemeFamilies<'a> {
@@ -212,7 +211,7 @@ mod tests {
     use crate::application::ports::theme_repository::PendingDossier;
     use crate::application::use_cases::theme_fakes::{InMemoryThemeRepository, StubClassifier};
     use crate::domain::dossier::DossierUid;
-    use crate::domain::theme::{AssignmentOrigin, DebatedText, FamilyCode};
+    use crate::domain::theme::{DebatedText, FamilyCode};
 
     fn today() -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 8, 9).unwrap()
@@ -248,7 +247,6 @@ mod tests {
             vec![FamilyCode::Logement]
         );
         let assignments = repository.assignments.lock().unwrap();
-        assert_eq!(assignments[0].origin(), AssignmentOrigin::Proposal);
         assert_eq!(
             assignments[0].motive(),
             Some("Le texte porte sur l'urbanisme et le logement.")
@@ -282,7 +280,6 @@ mod tests {
             ]
         );
         let assignments = repository.assignments.lock().unwrap();
-        assert_eq!(assignments[0].origin(), AssignmentOrigin::DeterministicRule);
         assert_eq!(assignments[0].author(), "règle « loi de finances »");
     }
 

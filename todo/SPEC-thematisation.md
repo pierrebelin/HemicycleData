@@ -20,9 +20,9 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 | Clé de texte | Forme normalisée du libellé du texte. Deux objets qui nomment le même texte donnent la même clé |
 | Rattachement | Lien daté entre un objet et une famille |
 | Proposition | Rattachement produit par le modèle de langage, avec justification. Publié par défaut |
-| Arbitrage | Décision humaine sur une proposition : confirmée, corrigée ou écartée |
+| Arbitrage | Décision humaine sur un rattachement : confirmé, corrigé ou écarté |
+| Auteur du rattachement | Ce qui a ouvert la ligne, en clair : nom de la règle, du modèle ou du mainteneur. Conservé pour l'historique, pas affiché comme une catégorie |
 | Non rattaché | Objet sans aucune famille retenue. Reste consultable |
-| Origine du rattachement | Règle déterministe · proposition automatique · arbitrage humain · héritage |
 | Méthode | Page publique décrivant familles, extraction, rôle du modèle, limites |
 
 ## 3. Cas d'usage
@@ -43,11 +43,11 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 
 **Scénario nominal :**
 1. Système constitue la file d'attente : textes sans famille courante d'abord, du plus voté au moins voté, puis dossiers qu'aucun scrutin ne relie à un texte. Un objet déjà rattaché n'y entre jamais (RM-14).
-2. Pour chaque objet, système cherche une règle applicable (RM-13). Si elle existe, rattachement ouvert à l'origine « règle déterministe », justification = énoncé de la règle, aucun appel au modèle.
+2. Pour chaque objet, système cherche une règle applicable (RM-13). Si elle existe, rattachement ouvert avec la règle pour auteur, son énoncé pour justification, et aucun appel au modèle.
 3. Les objets restants partent au modèle **par lot** (RM-14), qui ne reçoit que leurs libellés (RM-04).
 4. Modèle rend, par libellé, une à trois familles ordonnées, chacune avec une justification d'une à deux phrases (RM-03, RM-05).
 5. Système écarte toute famille hors référentiel (RM-08), enregistre la proposition — familles, justifications, modèle, version d'instruction, date — et ouvre les rattachements.
-6. Rattachements publiés, portant leur mention d'origine (RM-09).
+6. Rattachements publiés.
 
 **Variantes :**
 - Modèle ne retient aucune famille pour un libellé → objet non rattaché, consultable, listé en attente (RM-01).
@@ -59,13 +59,13 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 **Acteur** : mainteneur · **Intention** : corriger un jugement automatique · **Fréquence** : à la demande
 
 **Scénario nominal :**
-1. Mainteneur ouvre l'écran d'arbitrage, filtre par famille, par origine ou par état.
+1. Mainteneur ouvre l'écran d'arbitrage, filtre par famille ou par état.
 2. Écran affiche le libellé du texte, les familles proposées, les justifications, le nombre de scrutins portés.
 3. Mainteneur retient, retire ou ajoute des familles, dans la limite de trois (RM-03), et motive sa décision.
 4. Système clôt le rattachement précédent et ouvre le nouveau à la date du jour (RM-07).
-5. Rattachement affiché en origine « arbitrage humain », proposition initiale conservée et consultable.
+5. Nouveau rattachement affiché, proposition initiale conservée et consultable.
 
-**Variantes :** mainteneur confirme sans changement → origine passe à arbitrage humain, familles inchangées.
+**Variantes :** mainteneur confirme sans changement → l'ancien rattachement est clos, un nouveau est ouvert à son nom, familles inchangées.
 **Erreurs :** accès sans jeton valide → écran refusé.
 
 ### CU-04 — Parcourir les votes d'une famille
@@ -74,9 +74,8 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 **Scénario nominal :**
 1. Visiteur ouvre une famille.
 2. Système liste les textes rattachés, du plus récemment voté au plus ancien, avec le nombre de scrutins de chacun.
-3. Chaque texte porte l'origine de son rattachement (RM-09).
-4. Visiteur ouvre un texte → ses scrutins, leur date, leur objet, leur sort.
-5. Visiteur ouvre un scrutin → répartition par groupe et positions nominales (spec SCRUTINS).
+3. Visiteur ouvre un texte → ses scrutins, leur date, leur objet, leur sort. L'historique du rattachement, son auteur et sa justification restent consultables sur la fiche du texte.
+4. Visiteur ouvre un scrutin → répartition par groupe et positions nominales (spec SCRUTINS).
 
 ### CU-05 — Consulter les objets non rattachés
 **Acteur** : visiteur · **Intention** : vérifier que rien n'est caché · **Fréquence** : occasionnelle
@@ -91,7 +90,7 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 
 **Scénario nominal :**
 1. Visiteur ouvre la page méthode depuis toute page de thème.
-2. Page décrit : les 13 familles avec leur périmètre, la règle d'extraction du texte, la table des règles de rattachement (RM-13), le rôle exact du modèle, la limite de trois familles, la part réglée et la part arbitrée par un humain, le compte des non rattachés.
+2. Page décrit : les 13 familles avec leur périmètre, la règle d'extraction du texte, la table des règles de rattachement (RM-13), le rôle exact du modèle, la limite de trois familles, le compte des non rattachés.
 3. Page dit ce que le modèle ne fait pas : aucun chiffre, aucune lecture des votes (RM-04, RM-10).
 4. Page dit ce qui ne lui est jamais soumis : les scrutins et les dossiers reliés à un texte, qui en héritent (RM-06), et les objets déjà rattachés (RM-14).
 
@@ -123,8 +122,8 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 ### RM-08 — Référentiel de familles fermé
 - **Énoncé** : les 13 familles de README.md §5 sont le seul jeu de valeurs. Toute famille rendue hors référentiel est écartée et journalisée. Aucune famille créée par le modèle. · **Origine** : README.md §5 · **Sévérité** : bloquant · **Applies to** : CU-02
 
-### RM-09 — Origine affichée
-- **Énoncé** : chaque rattachement affiché porte son origine — règle déterministe publiée, proposition automatique non arbitrée, arbitrage humain, ou héritage. · **Origine** : README.md §2, §9 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
+### RM-09 — *(retirée le 9 août 2026)*
+- La règle imposait d'afficher, à côté de chaque famille, si le rattachement venait d'une règle, du modèle ou d'un humain. Elle est retirée : la distinction ne dit rien au lecteur sur le vote qu'il vient consulter, et occupait la place au plus près de l'information utile. La traçabilité reste entière — l'auteur de chaque ligne est conservé en clair et l'historique n'efface rien (RM-07, README.md §9). Le numéro n'est pas réattribué, les règles suivantes gardant le leur.
 
 ### RM-10 — Le modèle ne produit aucun chiffre
 - **Énoncé** : le modèle rend des familles et du texte de justification. Aucune note, aucun score, aucun rang, aucun décompte. Tout nombre affiché vient de la base. · **Origine** : README.md §6, §8 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-04
@@ -136,7 +135,7 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 - **Énoncé** : une page de thème n'affiche aucun cumul, taux ou classement comparant les groupes entre eux. Les chiffres restent attachés à un scrutin. · **Origine** : README.md §6 · **Sévérité** : bloquant · **Applies to** : CU-04
 
 ### RM-13 — Règle publiée avant modèle
-- **Énoncé** : un texte dont la **nature juridique** porte sa famille est rattaché par une règle publiée, sans appel au modèle. Chaque règle nomme le fragment qu'elle cherche, les familles qu'elle ouvre et son énoncé ; la table entière est publiée sur la page méthode. Une règle porte sur l'objet du texte, jamais sur son orientation. Le rattachement qu'elle produit s'affiche à l'origine « règle déterministe » et reste révisable par arbitrage humain comme n'importe quel autre. · **Origine** : README.md §5, §8 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-06
+- **Énoncé** : un texte dont la **nature juridique** porte sa famille est rattaché par une règle publiée, sans appel au modèle. Chaque règle nomme le fragment qu'elle cherche, les familles qu'elle ouvre et son énoncé ; la table entière est publiée sur la page méthode. Une règle porte sur l'objet du texte, jamais sur son orientation. Le rattachement qu'elle produit nomme la règle comme auteur et reste révisable par arbitrage humain comme n'importe quel autre. · **Origine** : README.md §5, §8 · **Sévérité** : bloquant · **Applies to** : CU-02, CU-06
 - **Conforme** : « projet de loi de finances pour 2026 » → pouvoir d'achat / fiscalité + institutions / procédure, parce qu'une loi de finances fixe les recettes et les charges de l'État.
 - **Non conforme** : une règle qui rattacherait sur un mot du titre sans que la nature du texte le commande — « sécurité » dans un intitulé ne fait pas un texte de justice / sécurité. Le doute laisse le texte au modèle.
 
@@ -157,7 +156,7 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 | Texte débattu | Clé normalisée, libellé publié, date du premier et du dernier vote | Calculée | Essentiel |
 | Lien scrutin → texte | Clé du texte que l'objet du scrutin nomme | Calculée | Essentiel |
 | Lien dossier → texte | Établi quand un scrutin porte dossier et texte | Calculée | Essentiel |
-| Rattachement | Objet, famille, origine, date d'ouverture, date de clôture, auteur, motif | Saisie ou calculée | Essentiel |
+| Rattachement | Objet, famille, date d'ouverture, date de clôture, auteur, motif | Saisie ou calculée | Essentiel |
 | Proposition | Familles ordonnées, justification par famille, modèle, version d'instruction, date | Calculée | Essentiel |
 | Compte des non rattachés | Nombre de textes, scrutins et dossiers sans famille | Calculée | Essentiel |
 
@@ -176,11 +175,11 @@ Le porteur retenu est donc le **texte débattu**, nommé dans l'objet de chaque 
 | arbitré | mainteneur révise | arbitré | ancien rattachement clos, nouveau ouvert |
 | non rattaché | mainteneur rattache | arbitré | familles ≤ 3 |
 
-Réglé, proposé et arbitré sont publiés, avec leur origine (RM-09). Non rattaché est publié aussi (RM-01). Un objet réglé n'est jamais soumis au modèle (RM-14).
+Réglé, proposé et arbitré se publient à l'identique : le visiteur voit la famille, pas l'état. Non rattaché est publié aussi (RM-01). Un objet réglé n'est jamais soumis au modèle (RM-14).
 
 ## 7. Comportements transverses
 
-**Re-soumission** — un objet déjà rattaché, quelle qu'en soit l'origine, n'est pas re-soumis au modèle (RM-14). Changer de modèle ou d'instruction produit de nouvelles propositions sur les seuls objets non rattachés. Redécouper le référentiel, en revanche, clôt les rattachements des familles touchées et rend leurs objets à la file d'attente.
+**Re-soumission** — un objet déjà rattaché n'est pas re-soumis au modèle, quoi qu'il l'ait rattaché (RM-14). Changer de modèle ou d'instruction produit de nouvelles propositions sur les seuls objets non rattachés. Redécouper le référentiel, en revanche, clôt les rattachements des familles touchées et rend leurs objets à la file d'attente.
 
 **Texte sans famille après échec du modèle** — indistinguable, côté visiteur, d'un texte que le modèle n'a pas su rattacher : les deux sont non rattachés. La page méthode distingue les trois causes — jamais soumis, soumis sans famille retenue, soumis sans réponse.
 
@@ -224,6 +223,6 @@ Mesurées sur les données réelles le 3 août 2026, législature 17, par la rè
 | Q1 | 6 objets ne nomment aucun texte (déclarations de politique générale, motions hors texte). Aucun porteur de thème. | 6 scrutins sur 8 434, non rattachés | Laisser non rattachés (retenu) · rattacher à « institutions / procédure » par règle publiée |
 | Q2 | Le libellé du texte change entre deux lectures (« garantir l'égal accès … » puis « accompagnement et soins palliatifs »). La clé les sépare. | Un texte suivi sur deux lectures s'affiche en deux entrées | Laisser tel quel · rapprocher par arbitrage humain · rapprocher par le dossier quand il existe |
 | Q3 | La justification produite par le modèle est-elle affichée au visiteur, ou réservée à l'écran d'arbitrage ? | Transparence contre bruit sur la page de thème | Affichée sur la fiche du texte · réservée à la page méthode · réservée à l'arbitrage |
-| Q4 | Une proposition non arbitrée reste publiée sans limite de temps. Rien ne force l'arbitrage. | Le contrôle humain de README.md §4 peut ne jamais avoir lieu | Compteur d'attente sur la page méthode · priorisation des textes par nombre de votes portés · aucune contrainte |
+| Q4 | Un rattachement automatique reste publié sans limite de temps, et depuis le retrait de RM-09 rien ne le signale plus au visiteur. Rien ne force l'arbitrage. | Le contrôle humain de README.md §4 peut ne jamais avoir lieu, sans que cela se voie | Priorisation des textes par nombre de votes portés · revue périodique des rattachements jamais arbitrés · aucune contrainte |
 
 → Étape suivante : /plan-implementation

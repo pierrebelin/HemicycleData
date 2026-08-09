@@ -48,15 +48,21 @@ INSERT INTO theme_families (code, label, scope, display_order) VALUES
     ('international-defense', 'International / défense',
      'Ratification de traités, armées, aide au développement, affaires européennes.', 12);
 
--- 3. Nouvelle origine de rattachement ----------------------------------------
+-- 3. L'origine du rattachement disparait --------------------------------------
 --
--- Une regle publiee rattache sans appel au modele. Elle s'affiche comme telle
--- (RM-09) et reste revisable par arbitrage humain comme n'importe quel autre
--- rattachement.
+-- `origin` rangeait chaque rattachement en « proposition automatique » ou
+-- « arbitrage humain », et l'affichait a cote de la famille. La distinction
+-- n'apprend rien au lecteur: un texte est rattache au logement ou il ne l'est
+-- pas, savoir qui a ouvert la ligne ne change pas le vote qu'il va lire.
+--
+-- L'audit ne disparait pas pour autant: `author` reste renseigne en clair —
+-- nom de la regle, nom du modele, nom du mainteneur — et l'historique conserve
+-- chaque ligne close (RM-07, README.md §9). Ce qui est retire, c'est la
+-- taxonomie affichee, pas la tracabilite.
+--
+-- La contrainte `theme_assignments_origin_check` tombe avec la colonne.
 
-ALTER TABLE theme_assignments DROP CONSTRAINT theme_assignments_origin_check;
-ALTER TABLE theme_assignments ADD CONSTRAINT theme_assignments_origin_check
-    CHECK (origin IN ('deterministic_rule', 'proposal', 'human_arbitration'));
+ALTER TABLE theme_assignments DROP COLUMN origin;
 
 ALTER TABLE debated_texts DROP CONSTRAINT debated_texts_last_attempt_outcome_check;
 ALTER TABLE debated_texts ADD CONSTRAINT debated_texts_last_attempt_outcome_check

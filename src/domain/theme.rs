@@ -366,55 +366,21 @@ impl SubjectRef {
     }
 }
 
-/// D'ou vient le rattachement affiche (RM-09).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AssignmentOrigin {
-    /// Produit par une regle publiee, sans modele de langage (RM-13).
-    DeterministicRule,
-    /// Propose par le modele, publie tel quel, pas encore arbitre.
-    Proposal,
-    /// Retenu, corrige ou ajoute par un humain.
-    HumanArbitration,
-}
-
-impl AssignmentOrigin {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::DeterministicRule => "deterministic_rule",
-            Self::Proposal => "proposal",
-            Self::HumanArbitration => "human_arbitration",
-        }
-    }
-
-    pub fn parse(raw: &str) -> Option<Self> {
-        match raw {
-            "deterministic_rule" => Some(Self::DeterministicRule),
-            "proposal" => Some(Self::Proposal),
-            "human_arbitration" => Some(Self::HumanArbitration),
-            _ => None,
-        }
-    }
-
-    /// Mention affichee a cote du rattachement (RM-09).
-    pub fn notice(&self) -> &'static str {
-        match self {
-            Self::DeterministicRule => "règle déterministe publiée, non arbitrée",
-            Self::Proposal => "proposition automatique, non arbitrée",
-            Self::HumanArbitration => "arbitrage humain",
-        }
-    }
-}
-
 /// Rattachement date d'un objet a une famille.
 ///
 /// `closed_on` renseigne = rattachement historique: il a valu jusqu'a cette
 /// date et reste lisible (RM-07).
+///
+/// Le rattachement ne porte pas de categorie d'auteur — regle, modele, humain.
+/// Un rattachement vaut par ce qu'il rattache, pas par qui l'a ouvert: dire au
+/// lecteur qu'un texte est « logement selon un modele » plutot que « logement »
+/// deplace son attention sans rien lui apprendre sur le vote. `author` reste
+/// renseigne, en clair, pour que l'historique dise qui a ouvert la ligne
+/// (RM-07, README.md §9).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemeAssignment {
     subject: SubjectRef,
     family: FamilyCode,
-    origin: AssignmentOrigin,
     opened_on: NaiveDate,
     closed_on: Option<NaiveDate>,
     author: String,
@@ -425,7 +391,6 @@ impl ThemeAssignment {
     pub fn open(
         subject: SubjectRef,
         family: FamilyCode,
-        origin: AssignmentOrigin,
         opened_on: NaiveDate,
         author: String,
         motive: Option<String>,
@@ -436,7 +401,6 @@ impl ThemeAssignment {
         Ok(Self {
             subject,
             family,
-            origin,
             opened_on,
             closed_on: None,
             author,
@@ -466,9 +430,6 @@ impl ThemeAssignment {
     }
     pub fn family(&self) -> FamilyCode {
         self.family
-    }
-    pub fn origin(&self) -> AssignmentOrigin {
-        self.origin
     }
     pub fn opened_on(&self) -> NaiveDate {
         self.opened_on
@@ -555,7 +516,7 @@ impl ThemeProposal {
         })
     }
 
-    /// Rattachements a ouvrir depuis la proposition, publies tels quels (RM-09).
+    /// Rattachements a ouvrir depuis la proposition.
     pub fn into_assignments(&self) -> Result<Vec<ThemeAssignment>, ThemeError> {
         self.families
             .iter()
@@ -563,7 +524,6 @@ impl ThemeProposal {
                 ThemeAssignment::open(
                     self.subject.clone(),
                     proposed.family,
-                    AssignmentOrigin::Proposal,
                     self.produced_on,
                     self.model.clone(),
                     Some(proposed.justification.clone()),
@@ -734,16 +694,18 @@ mod tests {
     }
 
     #[test]
-    fn a_proposal_opens_assignments_marked_as_proposals() {
+    fn a_proposal_opens_one_assignment_per_family() {
         let subject = SubjectRef::Text(TextKey("texte".into()));
         let families = vec![ProposedFamily::new(FamilyCode::Logement, "motif".into()).unwrap()];
         let proposal =
             ThemeProposal::new(subject, families, "modele".into(), "v1".into(), date()).unwrap();
         let assignments = proposal.into_assignments().unwrap();
         assert_eq!(assignments.len(), 1);
-        assert_eq!(assignments[0].origin(), AssignmentOrigin::Proposal);
         assert!(assignments[0].is_current());
         assert_eq!(assignments[0].motive(), Some("motif"));
+        // L'historique dit qui a ouvert la ligne, sans la ranger dans une
+        // categorie d'auteur (RM-07).
+        assert_eq!(assignments[0].author(), "modele");
     }
 
     #[test]
@@ -752,7 +714,6 @@ mod tests {
         let mut assignment = ThemeAssignment::open(
             subject,
             FamilyCode::Logement,
-            AssignmentOrigin::Proposal,
             date(),
             "modele".into(),
             None,
@@ -771,7 +732,6 @@ mod tests {
         let mut assignment = ThemeAssignment::open(
             subject,
             FamilyCode::Logement,
-            AssignmentOrigin::Proposal,
             date(),
             "modele".into(),
             None,
@@ -780,6 +740,21 @@ mod tests {
         let earlier = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         assert!(assignment.close(earlier).is_err());
         assert!(assignment.is_current());
+    }
+
+    #[test]
+    fn an_assignment_without_an_author_is_refused() {
+        assert_eq!(
+            ThemeAssignment::open(
+                SubjectRef::Text(TextKey("texte".into())),
+                FamilyCode::Logement,
+                date(),
+                "  ".into(),
+                None,
+            )
+            .unwrap_err(),
+            ThemeError::EmptyAuthor
+        );
     }
 
     #[test]

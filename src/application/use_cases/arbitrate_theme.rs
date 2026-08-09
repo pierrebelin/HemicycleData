@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 
 use crate::application::ports::theme_repository::{RepositoryError, ThemeRepository};
 use crate::domain::theme::{
-    AssignmentOrigin, FamilyCode, SubjectRef, ThemeAssignment, ThemeError, MAX_FAMILIES,
+    FamilyCode, SubjectRef, ThemeAssignment, ThemeError, MAX_FAMILIES,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -75,7 +75,6 @@ impl<'a> ArbitrateTheme<'a> {
                 ThemeAssignment::open(
                     subject.clone(),
                     family,
-                    AssignmentOrigin::HumanArbitration,
                     on,
                     command.author.clone(),
                     command.motive.clone(),
@@ -122,7 +121,6 @@ mod tests {
         let assignment = ThemeAssignment::open(
             subject(),
             family,
-            AssignmentOrigin::Proposal,
             today(),
             "modèle".into(),
             None,
@@ -164,7 +162,6 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(opened[0].origin(), AssignmentOrigin::HumanArbitration);
         assert_eq!(opened[0].author(), "mainteneur");
     }
 
