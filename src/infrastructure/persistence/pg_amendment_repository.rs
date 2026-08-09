@@ -307,7 +307,13 @@ impl AmendmentRepository for PgAmendmentRepository {
         .await
         .map_err(db)?;
 
+        let base_total: i64 = sqlx::query_scalar("SELECT count(*) FROM amendments")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(db)?;
+
         Ok(DossierAmendmentCoverage {
+            base_total,
             total: row.get("total"),
             without_summary: row.get("without_summary"),
             unknown_fates: row.get("unknown_fates"),
