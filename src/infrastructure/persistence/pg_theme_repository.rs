@@ -10,8 +10,7 @@ use crate::application::ports::theme_repository::{
 };
 use crate::domain::dossier::DossierUid;
 use crate::domain::theme::{
-    AssignmentOrigin, DebatedText, FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment,
-    ThemeProposal,
+    DebatedText, FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment, ThemeProposal,
 };
 
 /// Lignes par instruction `UNNEST`. 8 434 scrutins passent en trois lots.
@@ -79,10 +78,8 @@ fn summary_from_row(row: &sqlx::postgres::PgRow) -> TextSummary {
 
 fn assigned_from_row(row: &sqlx::postgres::PgRow) -> Option<AssignedFamily> {
     let code: String = row.get("family_code");
-    let origin: String = row.get("origin");
     Some(AssignedFamily {
         family: FamilyCode::parse(&code).ok()?,
-        origin: AssignmentOrigin::parse(&origin)?,
         opened_on: row.get("opened_on"),
         motive: row.get("motive"),
     })
@@ -96,7 +93,7 @@ impl PgThemeRepository {
         }
         let keys: Vec<String> = items.iter().map(|i| i.key.clone()).collect();
         let rows = sqlx::query(
-            "SELECT subject_id, family_code, origin, opened_on, motive
+            "SELECT subject_id, family_code, opened_on, motive
              FROM theme_assignments
              WHERE subject_kind = 'text' AND closed_on IS NULL AND subject_id = ANY($1)
              ORDER BY opened_on, id",
@@ -429,13 +426,12 @@ impl ThemeRepository for PgThemeRepository {
         for assignment in opened {
             sqlx::query(
                 "INSERT INTO theme_assignments
-                    (subject_kind, subject_id, family_code, origin, opened_on, author, motive)
+                    (subject_kind, subject_id, family_code, opened_on, author, motive)
                  VALUES ($1, $2, $3, $4, $5, $6, $7)",
             )
             .bind(assignment.subject().kind())
             .bind(assignment.subject().identifier())
             .bind(assignment.family().as_str())
-            .bind(assignment.origin().as_str())
             .bind(assignment.opened_on())
             .bind(assignment.author())
             .bind(assignment.motive())
@@ -453,7 +449,7 @@ impl ThemeRepository for PgThemeRepository {
         subject: &SubjectRef,
     ) -> Result<Vec<ThemeAssignment>, RepositoryError> {
         let rows = sqlx::query(
-            "SELECT family_code, origin, opened_on, closed_on, author, motive
+            "SELECT family_code, opened_on, closed_on, author, motive
              FROM theme_assignments
              WHERE subject_kind = $1 AND subject_id = $2
              ORDER BY opened_on DESC, id DESC",
@@ -470,13 +466,9 @@ impl ThemeRepository for PgThemeRepository {
             let Ok(family) = FamilyCode::parse(&row.get::<String, _>("family_code")) else {
                 continue;
             };
-            let Some(origin) = AssignmentOrigin::parse(&row.get::<String, _>("origin")) else {
-                continue;
-            };
             let Ok(mut assignment) = ThemeAssignment::open(
                 subject.clone(),
                 family,
-                origin,
                 row.get("opened_on"),
                 row.get("author"),
                 row.get("motive"),
@@ -625,7 +617,7 @@ impl ThemeRepository for PgThemeRepository {
         scrutin_uids: &[String],
     ) -> Result<HashMap<String, Vec<AssignedFamily>>, RepositoryError> {
         let rows = sqlx::query(
-            "SELECT l.scrutin_uid, a.family_code, a.origin, a.opened_on, a.motive
+            "SELECT l.scrutin_uid, a.family_code, a.opened_on, a.motive
              FROM scrutin_debated_texts l
              JOIN theme_assignments a
                ON a.subject_kind = 'text' AND a.subject_id = l.text_key AND a.closed_on IS NULL
@@ -655,13 +647,13 @@ impl ThemeRepository for PgThemeRepository {
         dossier_uid: &str,
     ) -> Result<Vec<AssignedFamily>, RepositoryError> {
         let rows = sqlx::query(
-            "SELECT a.family_code, a.origin, a.opened_on, a.motive
+            "SELECT a.family_code, a.opened_on, a.motive
              FROM dossier_debated_texts dt
              JOIN theme_assignments a
                ON a.subject_kind = 'text' AND a.subject_id = dt.text_key AND a.closed_on IS NULL
              WHERE dt.dossier_uid = $1
              UNION
-             SELECT a.family_code, a.origin, a.opened_on, a.motive
+             SELECT a.family_code, a.opened_on, a.motive
              FROM theme_assignments a
              WHERE a.subject_kind = 'dossier' AND a.subject_id = $1 AND a.closed_on IS NULL",
         )
@@ -682,8 +674,6 @@ impl ThemeRepository for PgThemeRepository {
         let rows = sqlx::query(
             "SELECT f.code,
                     count(DISTINCT a.subject_id) AS text_count,
-                    count(DISTINCT a.subject_id) FILTER (WHERE a.origin = 'human_arbitration')
-                        AS arbitrated_count,
                     coalesce((
                         SELECT count(*) FROM scrutin_debated_texts l
                         WHERE l.text_key IN (
@@ -710,7 +700,6 @@ impl ThemeRepository for PgThemeRepository {
                     family: FamilyCode::parse(&row.get::<String, _>("code")).ok()?,
                     text_count: row.get("text_count"),
                     scrutin_count: row.get("scrutin_count"),
-                    arbitrated_text_count: row.get("arbitrated_count"),
                 })
             })
             .collect();
@@ -725,32 +714,6 @@ impl ThemeRepository for PgThemeRepository {
                 .count(&format!(
                     "SELECT count(*) FROM debated_texts t WHERE EXISTS ({current_text_assignment})"
                 ))
-                .await?,
-            texts_ruled: self
-                .count(
-                    "SELECT count(DISTINCT subject_id) FROM theme_assignments
-                     WHERE subject_kind = 'text' AND closed_on IS NULL
-                       AND origin = 'deterministic_rule'",
-                )
-                .await?,
-            texts_arbitrated: self
-                .count(
-                    "SELECT count(DISTINCT subject_id) FROM theme_assignments
-                     WHERE subject_kind = 'text' AND closed_on IS NULL
-                       AND origin = 'human_arbitration'",
-                )
-                .await?,
-            texts_awaiting_arbitration: self
-                .count(
-                    "SELECT count(DISTINCT subject_id) FROM theme_assignments a
-                     WHERE a.subject_kind = 'text' AND a.closed_on IS NULL
-                       AND a.origin IN ('proposal', 'deterministic_rule')
-                       AND NOT EXISTS (
-                           SELECT 1 FROM theme_assignments b
-                           WHERE b.subject_kind = 'text' AND b.subject_id = a.subject_id
-                             AND b.closed_on IS NULL AND b.origin = 'human_arbitration'
-                       )",
-                )
                 .await?,
             texts_without_family: self
                 .count("SELECT count(*) FROM debated_texts WHERE last_attempt_outcome = 'no_family'")

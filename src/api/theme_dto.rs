@@ -10,10 +10,9 @@ use crate::application::use_cases::propose_theme_families::ProposalRun;
 use crate::domain::theme::{ThemeAssignment, ThemeProposal, MAX_FAMILIES};
 use crate::domain::theme_rules::{ThemeRule, RULES};
 
-/// Mention portee par les pages de theme (RM-09, README.md §2).
+/// Mention portee par les pages de theme (README.md §2).
 pub const METHOD_NOTE: &str = "Le rattachement d'un texte à une famille est le seul jugement du \
-     site. Une règle publiée tranche quand la nature du texte suffit, un modèle de langage \
-     propose sinon, un humain peut corriger, et l'origine de chaque rattachement est affichée. \
+     site. La méthode est publiée, chaque rattachement est révisable et son historique conservé. \
      Les textes non rattachés restent consultables.";
 
 #[derive(Debug, Serialize)]
@@ -54,9 +53,6 @@ impl FamiliesResponse {
 pub struct AssignedFamilyDto {
     pub code: String,
     pub label: String,
-    pub origin: String,
-    /// Mention affichee a cote du rattachement (RM-09).
-    pub origin_note: String,
     pub opened_on: NaiveDate,
     pub motive: Option<String>,
 }
@@ -66,8 +62,6 @@ impl From<AssignedFamily> for AssignedFamilyDto {
         Self {
             code: assigned.family.as_str().to_string(),
             label: assigned.family.label().to_string(),
-            origin: assigned.origin.as_str().to_string(),
-            origin_note: assigned.origin.notice().to_string(),
             opened_on: assigned.opened_on,
             motive: assigned.motive,
         }
@@ -156,8 +150,6 @@ impl From<TextScrutin> for TextScrutinDto {
 pub struct AssignmentHistoryDto {
     pub code: String,
     pub label: String,
-    pub origin: String,
-    pub origin_note: String,
     pub opened_on: NaiveDate,
     pub closed_on: Option<NaiveDate>,
     pub author: String,
@@ -169,8 +161,6 @@ impl From<&ThemeAssignment> for AssignmentHistoryDto {
         Self {
             code: assignment.family().as_str().to_string(),
             label: assignment.family().label().to_string(),
-            origin: assignment.origin().as_str().to_string(),
-            origin_note: assignment.origin().notice().to_string(),
             opened_on: assignment.opened_on(),
             closed_on: assignment.closed_on(),
             author: assignment.author().to_string(),
@@ -241,7 +231,6 @@ pub struct FamilyCoverageDto {
     pub label: String,
     pub text_count: i64,
     pub scrutin_count: i64,
-    pub arbitrated_text_count: i64,
 }
 
 impl From<FamilyCoverage> for FamilyCoverageDto {
@@ -251,7 +240,6 @@ impl From<FamilyCoverage> for FamilyCoverageDto {
             label: coverage.family.label().to_string(),
             text_count: coverage.text_count,
             scrutin_count: coverage.scrutin_count,
-            arbitrated_text_count: coverage.arbitrated_text_count,
         }
     }
 }
@@ -265,10 +253,6 @@ pub struct MethodResponse {
     pub rules: Vec<ThemeRuleDto>,
     pub texts_total: i64,
     pub texts_assigned: i64,
-    /// Rattachés par règle publiée, sans appel au modèle.
-    pub texts_ruled: i64,
-    pub texts_arbitrated: i64,
-    pub texts_awaiting_arbitration: i64,
     pub texts_without_family: i64,
     pub texts_attempt_failed: i64,
     pub texts_never_attempted: i64,
@@ -334,8 +318,7 @@ const RULE_SCOPE: &str = "Certains textes portent leur famille dans leur nature 
      projet de loi de finances est un texte budgétaire, un projet de loi autorisant la \
      ratification d'un accord est un texte international. Ceux-là sont rattachés par les règles \
      ci-dessous, sans passer par le modèle. Chaque règle porte sur l'objet du texte, jamais sur \
-     son orientation ; son rattachement s'affiche comme tel et reste révisable par arbitrage \
-     humain, comme n'importe quel autre.";
+     son orientation, et reste révisable comme n'importe quel autre rattachement.";
 
 impl From<MethodReport> for MethodResponse {
     fn from(report: MethodReport) -> Self {
@@ -345,9 +328,6 @@ impl From<MethodReport> for MethodResponse {
             rules: RULES.iter().map(ThemeRuleDto::from).collect(),
             texts_total: report.texts_total,
             texts_assigned: report.texts_assigned,
-            texts_ruled: report.texts_ruled,
-            texts_arbitrated: report.texts_arbitrated,
-            texts_awaiting_arbitration: report.texts_awaiting_arbitration,
             texts_without_family: report.texts_without_family,
             texts_attempt_failed: report.texts_attempt_failed,
             texts_never_attempted: report.texts_never_attempted,

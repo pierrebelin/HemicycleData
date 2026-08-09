@@ -773,7 +773,7 @@ export const SECTIONS: Section[] = [
           {
             kind: 'p',
             texte:
-              "La méthode de rattachement d'un texte à un thème est publiée à part, avec son taux de couverture et la part arbitrée par un humain.",
+              "La méthode de rattachement d'un texte à un thème est publiée à part, avec son taux de couverture et les textes qu'elle laisse non rattachés.",
           },
         ],
       },

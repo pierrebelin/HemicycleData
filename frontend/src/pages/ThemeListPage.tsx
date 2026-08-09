@@ -62,9 +62,7 @@ export default function ThemeListPage() {
                     <span className="font-semibold text-ink-soft">
                       {stats.text_count}
                     </span>{' '}
-                    texte{stats.text_count > 1 ? 's' : ''}, dont{' '}
-                    {stats.arbitrated_text_count} arbitré
-                    {stats.arbitrated_text_count > 1 ? 's' : ''}
+                    texte{stats.text_count > 1 ? 's' : ''}
                   </p>
                 )}
                 <p className="mt-2 text-xs leading-relaxed text-ink-soft">

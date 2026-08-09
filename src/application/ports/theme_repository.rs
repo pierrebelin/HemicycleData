@@ -5,7 +5,7 @@ use chrono::NaiveDate;
 
 use crate::domain::dossier::DossierUid;
 use crate::domain::theme::{
-    AssignmentOrigin, DebatedText, FamilyCode, SubjectRef, TextKey, ThemeAssignment, ThemeProposal,
+    DebatedText, FamilyCode, SubjectRef, TextKey, ThemeAssignment, ThemeProposal,
 };
 
 pub use super::RepositoryError;
@@ -56,11 +56,10 @@ pub struct PendingDossier {
     pub title: String,
 }
 
-/// Famille courante d'un objet, telle qu'affichee (RM-09).
+/// Famille courante d'un objet, telle qu'affichee.
 #[derive(Debug, Clone)]
 pub struct AssignedFamily {
     pub family: FamilyCode,
-    pub origin: AssignmentOrigin,
     pub opened_on: NaiveDate,
     pub motive: Option<String>,
 }
@@ -106,7 +105,6 @@ pub struct FamilyCoverage {
     pub family: FamilyCode,
     pub text_count: i64,
     pub scrutin_count: i64,
-    pub arbitrated_text_count: i64,
 }
 
 /// Ce que la page methode publie (CU-06).
@@ -115,10 +113,6 @@ pub struct MethodReport {
     pub families: Vec<FamilyCoverage>,
     pub texts_total: i64,
     pub texts_assigned: i64,
-    /// Rattaches par regle publiee, sans appel au modele (RM-13).
-    pub texts_ruled: i64,
-    pub texts_arbitrated: i64,
-    pub texts_awaiting_arbitration: i64,
     pub texts_without_family: i64,
     pub texts_attempt_failed: i64,
     pub texts_never_attempted: i64,

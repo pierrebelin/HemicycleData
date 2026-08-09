@@ -159,7 +159,6 @@ pub async fn arbitrate(
             .map(|assignment| {
                 AssignedFamilyDto::from(AssignedFamily {
                     family: assignment.family(),
-                    origin: assignment.origin(),
                     opened_on: assignment.opened_on(),
                     motive: assignment.motive().map(str::to_string),
                 })

@@ -100,12 +100,6 @@ export default function ThemeMethodPage() {
         <Block title="Couverture">
           <Row label="Textes débattus" value={data.texts_total} />
           <Row label="Textes rattachés à au moins une famille" value={data.texts_assigned} />
-          <Row label="dont rattachés par une règle publiée" value={data.texts_ruled} />
-          <Row label="dont arbitrés par un humain" value={data.texts_arbitrated} />
-          <Row
-            label="Rattachements automatiques non encore arbitrés"
-            value={data.texts_awaiting_arbitration}
-          />
           <Row
             label="Textes soumis, aucune famille retenue"
             value={data.texts_without_family}

@@ -3,8 +3,9 @@ import { Note } from './ui'
 import type { AssignedFamilyDto } from '../types/themes'
 
 /**
- * Chaque rattachement affiché porte son origine (RM-09) : le visiteur voit
- * si un humain a arbitré ou si la proposition automatique tient encore.
+ * Le rattachement s'affiche pour ce qu'il rattache, sans dire qui l'a ouvert :
+ * savoir qu'un texte est « logement selon un modèle » plutôt que « logement »
+ * déplace l'attention du lecteur sans rien lui apprendre sur le vote.
  */
 export function FamilyBadges({
   families,
@@ -18,28 +19,6 @@ export function FamilyBadges({
   return (
     <div className="flex flex-wrap gap-1">
       {families.map((family) => {
-        const arbitrated = family.origin === 'human_arbitration'
-        // Une règle publiée se vérifie à la lecture, une proposition de modèle
-        // non : les deux ne se présentent pas de la même façon.
-        const mark =
-          family.origin === 'human_arbitration'
-            ? 'arbitré'
-            : family.origin === 'deterministic_rule'
-              ? 'règle'
-              : 'auto'
-        const content = (
-          <>
-            {family.label}
-            <span
-              className={`ml-1.5 text-[10px] uppercase tracking-wide ${
-                arbitrated ? 'text-yes' : 'text-abstain'
-              }`}
-              title={family.origin_note}
-            >
-              {mark}
-            </span>
-          </>
-        )
         const className =
           'inline-flex items-center rounded-md bg-surface-soft px-1.5 py-0.5 text-[11px] font-medium text-ink-soft ring-1 ring-inset ring-line'
         return linkToFamily ? (
@@ -48,11 +27,11 @@ export function FamilyBadges({
             to={`/themes/${family.code}`}
             className={`${className} transition-colors hover:bg-surface hover:text-ink hover:ring-line-strong`}
           >
-            {content}
+            {family.label}
           </Link>
         ) : (
           <span key={family.code} className={className}>
-            {content}
+            {family.label}
           </span>
         )
       })}

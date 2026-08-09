@@ -13,10 +13,6 @@ export interface FamiliesResponse {
 export interface AssignedFamilyDto {
   code: string
   label: string
-  /** `deterministic_rule`, `proposal` ou `human_arbitration`. */
-  origin: string
-  /** Mention affichée à côté du rattachement (RM-09). */
-  origin_note: string
   opened_on: string
   motive: string | null
 }
@@ -55,8 +51,6 @@ export interface TextScrutinDto {
 export interface AssignmentHistoryDto {
   code: string
   label: string
-  origin: string
-  origin_note: string
   opened_on: string
   closed_on: string | null
   author: string
@@ -88,7 +82,6 @@ export interface FamilyCoverageDto {
   label: string
   text_count: number
   scrutin_count: number
-  arbitrated_text_count: number
 }
 
 export interface ThemeRuleDto {
@@ -107,10 +100,6 @@ export interface MethodResponse {
   rules: ThemeRuleDto[]
   texts_total: number
   texts_assigned: number
-  /** Rattachés par règle publiée, sans appel au modèle. */
-  texts_ruled: number
-  texts_arbitrated: number
-  texts_awaiting_arbitration: number
   texts_without_family: number
   texts_attempt_failed: number
   texts_never_attempted: number
