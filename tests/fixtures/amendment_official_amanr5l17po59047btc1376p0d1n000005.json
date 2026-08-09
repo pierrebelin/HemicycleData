@@ -1,0 +1,47 @@
+{
+  "amendement": {
+    "@xmlns": "http://schemas.assemblee-nationale.fr/referentiel",
+    "uid": "AMANR5L17PO59047BTC1376P0D1N000005",
+    "legislature": "17",
+    "identification": {
+      "numeroLong": "AE5",
+      "numeroOrdreDepot": "5",
+      "prefixeOrganeExamen": "CION_AFETR",
+      "numeroRect": "0"
+    },
+    "examenRef": "EXANR5L17PO59046BTC1376P0D1",
+    "texteLegislatifRef": "PNREANR5L17BTC1376",
+    "amendementParentRef": { "@xsi:nil": "true" },
+    "signataires": {
+      "auteur": {
+        "typeAuteur": "Député",
+        "acteurRef": "PA720334",
+        "groupePolitiqueRef": "PO845454"
+      },
+      "cosignataires": { "@xsi:nil": "true" },
+      "libelle": "M.&#160;Pahun"
+    },
+    "pointeurFragmentTexte": {
+      "division": {
+        "titre": "Article unique",
+        "articleDesignationCourte": "ART. UNIQUE",
+        "articleDesignation": "ARTICLE UNIQUE",
+        "type": "ARTICLE"
+      }
+    },
+    "corps": {
+      "contenuAuteur": {
+        "dispositif": "<p>À l’alinéa 19, substituer aux mots.</p>",
+        "exposeSommaire": "<p>Le Danemark jouissant seul de la souveraineté au Groenland, le présent amendement modifie la rédaction de l’alinéa pour lever toute ambiguïté.</p>"
+      }
+    },
+    "cycleDeVie": {
+      "dateDepot": "2025-05-28",
+      "etatDesTraitements": {
+        "etat": { "code": "DI", "libelle": "Discuté" },
+        "sousEtat": { "code": "DI", "libelle": "Adopté" }
+      },
+      "sort": "Adopté"
+    }
+  }
+}

@@ -30,9 +30,14 @@ pub struct RawAmendment {
     #[serde(default, deserialize_with = "lenient")]
     pub examen_ref: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
+    pub identification: Option<RawIdentifiant>,
+    /// Legacy spelling retained for the initial hand-written fixtures.
+    #[serde(default, deserialize_with = "lenient")]
     pub identifiant: Option<RawIdentifiant>,
     #[serde(default, deserialize_with = "lenient")]
     pub division: Option<RawDivision>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub pointeur_fragment_texte: Option<RawPointeurFragmentTexte>,
     #[serde(default, deserialize_with = "lenient")]
     pub signataires: Option<RawSignataires>,
     #[serde(default, deserialize_with = "lenient")]
@@ -45,6 +50,8 @@ pub struct RawAmendment {
     pub etat: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     pub amendement_parent: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub amendement_parent_ref: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,6 +71,13 @@ pub struct RawDivision {
     #[serde(rename = "type")]
     #[serde(default, deserialize_with = "lenient")]
     pub kind: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawPointeurFragmentTexte {
+    #[serde(default, deserialize_with = "lenient")]
+    pub division: Option<RawDivision>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,6 +137,8 @@ pub struct RawCycleDeVie {
     pub date_depot: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     pub etat_des_traitements: Option<RawEtatDesTraitements>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub sort: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,6 +148,8 @@ pub struct RawEtatDesTraitements {
     pub etat: Option<RawLibelle>,
     #[serde(default, deserialize_with = "lenient")]
     pub sort: Option<RawLibelle>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub sous_etat: Option<RawLibelle>,
 }
 
 #[derive(Debug, Deserialize)]
