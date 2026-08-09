@@ -13,7 +13,7 @@ export interface FamiliesResponse {
 export interface AssignedFamilyDto {
   code: string
   label: string
-  /** `proposal` ou `human_arbitration`. */
+  /** `deterministic_rule`, `proposal` ou `human_arbitration`. */
   origin: string
   /** Mention affichée à côté du rattachement (RM-09). */
   origin_note: string
@@ -91,11 +91,24 @@ export interface FamilyCoverageDto {
   arbitrated_text_count: number
 }
 
+export interface ThemeRuleDto {
+  id: string
+  /** Fragment cherché dans le libellé normalisé du texte. */
+  marker: string
+  families: FamilyDto[]
+  /** Énoncé publié, conservé comme justification du rattachement. */
+  statement: string
+}
+
 export interface MethodResponse {
   families: FamilyCoverageDto[]
   max_families_per_text: number
+  /** Table des règles publiée telle qu'elle s'applique (RM-13). */
+  rules: ThemeRuleDto[]
   texts_total: number
   texts_assigned: number
+  /** Rattachés par règle publiée, sans appel au modèle. */
+  texts_ruled: number
   texts_arbitrated: number
   texts_awaiting_arbitration: number
   texts_without_family: number
@@ -108,7 +121,10 @@ export interface MethodResponse {
   dossiers_total: number
   dossiers_linked_to_text: number
   dossiers_assigned: number
+  /** Dossiers qu'aucun scrutin ne relie à un texte. */
+  dossiers_without_text: number
   extraction_rule: string
   model_scope: string
+  rule_scope: string
   method_note: string
 }

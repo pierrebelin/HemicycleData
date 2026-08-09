@@ -1,6 +1,7 @@
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
+use chrono::Utc;
 
 use crate::api::dto::{
     CurateBody, DossierDetailDto, DossierDto, DossierPageQuery, DossierPageResponse,
@@ -17,6 +18,7 @@ use crate::application::use_cases::refresh_dossiers::RefreshScope;
 use crate::application::use_cases::save_dossier::SaveDossier;
 use crate::application::use_cases::suggest_dossiers::SuggestDossiers;
 use crate::domain::dossier::DossierUid;
+use crate::infrastructure::config;
 use crate::AppState;
 
 pub async fn get_recent_dossiers(
@@ -166,10 +168,13 @@ pub async fn refresh_dossiers(
         state.dossier_repository.as_ref(),
         state.scrutin_source.as_ref(),
         state.scrutin_repository.as_ref(),
+        state.theme_repository.as_ref(),
+        state.theme_classifier.as_ref(),
+        config::theme_batch_per_refresh(),
     );
 
     let outcome = uc
-        .execute_with(scope)
+        .execute_with(scope, Utc::now().date_naive())
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 

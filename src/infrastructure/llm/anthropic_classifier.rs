@@ -1,8 +1,13 @@
 //! Proposition de familles thematiques par un modele de langage.
 //!
-//! Le modele ne recoit que le libelle du texte (RM-04) et ne rend que des
+//! Le modele ne recoit que les libelles des textes (RM-04) et ne rend que des
 //! familles et du texte de justification (RM-10): la reponse est contrainte par
 //! un schema qui ne porte aucun nombre.
+//!
+//! Les libelles partent **par lot** (RM-14). Le cadrage — treize familles avec
+//! leur perimetre, plus les regles de rattachement — pese bien plus lourd qu'un
+//! libelle de loi; l'envoyer une fois par texte revient a payer le cadrage 322
+//! fois. Un lot de vingt le paie seize fois en tout.
 
 use std::time::Duration;
 
@@ -19,11 +24,23 @@ const DEFAULT_MODEL: &str = "claude-opus-5";
 
 /// Version de l'instruction, conservee avec chaque proposition pour la rendre
 /// inspectable. A incrementer des que le texte ci-dessous change.
-const PROMPT_VERSION: &str = "thematisation-v1";
+const PROMPT_VERSION: &str = "thematisation-v2";
 
-/// Tentatives par texte. Au-dela, le texte reste non rattache et sera repris a
-/// la passe suivante.
+/// Libelles soumis en un appel.
+///
+/// Vingt: assez pour amortir le cadrage, assez peu pour qu'une reponse tienne
+/// largement sous le plafond de jetons — une reponse tronquee perd le lot
+/// entier, pas un seul texte.
+const BATCH_SIZE: usize = 20;
+
+/// Tentatives par lot. Au-dela, les textes du lot restent non rattaches et
+/// seront repris a la passe suivante.
 const MAX_ATTEMPTS: u32 = 3;
+
+/// Plafond de sortie, dimensionne sur le lot: chaque texte peut porter jusqu'a
+/// trois familles justifiees.
+const TOKENS_PER_LABEL: usize = 400;
+const TOKENS_FLOOR: usize = 2_000;
 
 pub struct AnthropicThemeClassifier {
     http: reqwest::Client,
@@ -35,13 +52,15 @@ pub struct AnthropicThemeClassifier {
 impl AnthropicThemeClassifier {
     /// BYOK: rend `None` sans cle, le site tourne sans proposition.
     pub fn from_env() -> Option<Self> {
-        let api_key = std::env::var("ANTHROPIC_API_KEY").ok().filter(|k| !k.is_empty())?;
+        let api_key = std::env::var("ANTHROPIC_API_KEY")
+            .ok()
+            .filter(|k| !k.is_empty())?;
         let model = std::env::var("ANTHROPIC_MODEL")
             .ok()
             .filter(|m| !m.is_empty())
             .unwrap_or_else(|| DEFAULT_MODEL.to_string());
         let http = reqwest::Client::builder()
-            .timeout(Duration::from_secs(120))
+            .timeout(Duration::from_secs(180))
             .build()
             .ok()?;
         Some(Self {
@@ -52,24 +71,43 @@ impl AnthropicThemeClassifier {
         })
     }
 
-    fn request_body(&self, text_label: &str) -> Value {
+    fn request_body(&self, labels: &[String]) -> Value {
         json!({
             "model": self.model,
-            "max_tokens": 2000,
+            "max_tokens": TOKENS_FLOOR + TOKENS_PER_LABEL * labels.len(),
             // `low`: le rattachement d'un libelle est une tache courte. Le
             // schema fait le reste du travail de cadrage.
             "output_config": {
                 "effort": "low",
                 "format": { "type": "json_schema", "schema": response_schema() }
             },
-            "system": self.system_prompt,
+            // Bloc systeme marque pour le cache: il est identique d'un lot au
+            // suivant. Le fournisseur n'entretient le cache qu'au-dela d'une
+            // longueur minimale — sous ce seuil la mention est sans effet, et
+            // sans cout.
+            "system": [{
+                "type": "text",
+                "text": self.system_prompt,
+                "cache_control": { "type": "ephemeral" }
+            }],
             "messages": [{
                 "role": "user",
-                // Le libelle du texte, rien d'autre (RM-04).
-                "content": text_label
+                // Les libelles, rien d'autre (RM-04).
+                "content": numbered_labels(labels)
             }]
         })
     }
+}
+
+/// Libelles numerotes. Le numero sert a rendre la reponse reattribuable sans
+/// dependre de l'ordre rendu par le modele.
+fn numbered_labels(labels: &[String]) -> String {
+    labels
+        .iter()
+        .enumerate()
+        .map(|(i, label)| format!("{}. {label}", i + 1))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Referentiel ferme decrit au modele. Construit depuis le domaine: la page
@@ -82,21 +120,25 @@ fn system_prompt() -> String {
         .join("\n");
 
     format!(
-        "Tu rattaches un texte soumis au vote de l'Assemblée nationale à une ou plusieurs \
+        "Tu rattaches des textes soumis au vote de l'Assemblée nationale à une ou plusieurs \
          familles thématiques.\n\n\
          Familles disponibles :\n{familles}\n\n\
          Règles :\n\
-         - Tu ne reçois que le libellé du texte. Tu ne disposes d'aucun résultat de vote, \
-         d'aucun décompte, d'aucun nom de groupe parlementaire, et tu n'en demandes pas.\n\
-         - Tu retiens de une à {MAX_FAMILIES} familles, de la plus centrale à la moins centrale. \
-         N'en retiens plusieurs que si le texte porte réellement sur plusieurs de ces domaines.\n\
+         - Tu reçois une liste numérotée de libellés de textes, et rien d'autre. Tu ne disposes \
+         d'aucun résultat de vote, d'aucun décompte, d'aucun nom de groupe parlementaire, et tu \
+         n'en demandes pas.\n\
+         - Tu traites chaque libellé indépendamment des autres et tu rends une entrée par \
+         libellé, en reprenant son numéro. N'omets aucun numéro et n'en invente aucun.\n\
+         - Pour chaque texte tu retiens de une à {MAX_FAMILIES} familles, de la plus centrale à \
+         la moins centrale. N'en retiens plusieurs que si le texte porte réellement sur \
+         plusieurs de ces domaines.\n\
          - Tu rattaches sur l'objet du texte, jamais sur son orientation, ses effets supposés \
          ou sa valeur.\n\
          - La justification dit ce que le libellé du texte porte, en une à deux phrases. \
          Aucun jugement, aucune évaluation, aucun chiffre, aucune estimation, aucun \
          qualificatif d'ampleur.\n\
-         - Si aucune famille ne convient, rends une liste vide plutôt qu'un rattachement \
-         approximatif.\n\
+         - Si aucune famille ne convient à un texte, rends pour lui une liste de familles vide \
+         plutôt qu'un rattachement approximatif.\n\
          - N'invente aucune famille : seuls les codes listés ci-dessus sont acceptés."
     )
 }
@@ -106,26 +148,43 @@ fn response_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "familles": {
+            "textes": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "famille": { "type": "string", "enum": codes },
-                        "justification": { "type": "string" }
+                        "numero": { "type": "integer" },
+                        "familles": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "famille": { "type": "string", "enum": codes },
+                                    "justification": { "type": "string" }
+                                },
+                                "required": ["famille", "justification"],
+                                "additionalProperties": false
+                            }
+                        }
                     },
-                    "required": ["famille", "justification"],
+                    "required": ["numero", "familles"],
                     "additionalProperties": false
                 }
             }
         },
-        "required": ["familles"],
+        "required": ["textes"],
         "additionalProperties": false
     })
 }
 
 #[derive(Deserialize)]
 struct Answer {
+    textes: Vec<AnsweredText>,
+}
+
+#[derive(Deserialize)]
+struct AnsweredText {
+    numero: usize,
     familles: Vec<AnsweredFamily>,
 }
 
@@ -137,8 +196,15 @@ struct AnsweredFamily {
 
 #[async_trait]
 impl ThemeClassifier for AnthropicThemeClassifier {
-    async fn propose(&self, text_label: &str) -> Result<Vec<ProposedFamily>, ClassifierError> {
-        let body = self.request_body(text_label);
+    async fn propose_batch(
+        &self,
+        labels: &[String],
+    ) -> Result<Vec<Option<Vec<ProposedFamily>>>, ClassifierError> {
+        if labels.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let body = self.request_body(labels);
         let mut last_error = ClassifierError::Call("aucune tentative".to_string());
 
         for attempt in 1..=MAX_ATTEMPTS {
@@ -179,7 +245,7 @@ impl ThemeClassifier for AnthropicThemeClassifier {
                 .json()
                 .await
                 .map_err(|e| ClassifierError::Answer(e.to_string()))?;
-            return parse_answer(&payload);
+            return parse_answer(&payload, labels.len());
         }
 
         Err(last_error)
@@ -192,20 +258,32 @@ impl ThemeClassifier for AnthropicThemeClassifier {
     fn prompt_version(&self) -> &str {
         PROMPT_VERSION
     }
+
+    fn batch_size(&self) -> usize {
+        BATCH_SIZE
+    }
 }
 
 async fn backoff(attempt: u32) {
     tokio::time::sleep(Duration::from_millis(500 * 2u64.pow(attempt - 1))).await;
 }
 
-/// Lit la reponse. Une famille hors referentiel ou une justification vide est
-/// ecartee et journalisee (RM-05, RM-08); les autres sont conservees.
-fn parse_answer(payload: &Value) -> Result<Vec<ProposedFamily>, ClassifierError> {
+/// Lit la reponse et la reattribue aux libelles par leur numero.
+///
+/// Une famille hors referentiel ou une justification vide est ecartee et
+/// journalisee (RM-05, RM-08); les autres familles du meme texte sont
+/// conservees. Un numero absent de la reponse laisse son libelle a `None`: il
+/// sera repris a la passe suivante plutot que compte comme « aucune famille ».
+fn parse_answer(
+    payload: &Value,
+    expected: usize,
+) -> Result<Vec<Option<Vec<ProposedFamily>>>, ClassifierError> {
     match payload.get("stop_reason").and_then(Value::as_str) {
         Some("refusal") => {
             return Err(ClassifierError::Answer("réponse refusée".to_string()));
         }
         Some("max_tokens") => {
+            // Le lot entier est perdu: le JSON tronque ne se relit pas.
             return Err(ClassifierError::Answer("réponse tronquée".to_string()));
         }
         _ => {}
@@ -226,21 +304,35 @@ fn parse_answer(payload: &Value) -> Result<Vec<ProposedFamily>, ClassifierError>
     let answer: Answer =
         serde_json::from_str(text).map_err(|e| ClassifierError::Answer(e.to_string()))?;
 
-    let mut proposed = Vec::with_capacity(answer.familles.len());
-    for entry in answer.familles {
-        let family = match FamilyCode::parse(&entry.famille) {
-            Ok(family) => family,
-            Err(_) => {
-                tracing::warn!(famille = entry.famille, "famille hors référentiel écartée");
-                continue;
-            }
+    let mut out: Vec<Option<Vec<ProposedFamily>>> = vec![None; expected];
+    for entry in answer.textes {
+        // Numerotation rendue au modele: 1..=expected.
+        let Some(slot) = entry.numero.checked_sub(1).filter(|i| *i < expected) else {
+            tracing::warn!(numero = entry.numero, "numéro hors du lot, réponse écartée");
+            continue;
         };
-        match ProposedFamily::new(family, entry.justification) {
-            Ok(entry) => proposed.push(entry),
-            Err(error) => tracing::warn!(%error, "proposition écartée"),
+        if out[slot].is_some() {
+            tracing::warn!(numero = entry.numero, "numéro rendu deux fois, doublon écarté");
+            continue;
         }
+
+        let mut proposed = Vec::with_capacity(entry.familles.len());
+        for family in entry.familles {
+            let code = match FamilyCode::parse(&family.famille) {
+                Ok(code) => code,
+                Err(_) => {
+                    tracing::warn!(famille = family.famille, "famille hors référentiel écartée");
+                    continue;
+                }
+            };
+            match ProposedFamily::new(code, family.justification) {
+                Ok(entry) => proposed.push(entry),
+                Err(error) => tracing::warn!(%error, "proposition écartée"),
+            }
+        }
+        out[slot] = Some(proposed);
     }
-    Ok(proposed)
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -266,61 +358,161 @@ mod tests {
     #[test]
     fn the_schema_only_accepts_referential_codes() {
         let schema = response_schema();
-        let codes = schema["properties"]["familles"]["items"]["properties"]["famille"]["enum"]
+        let codes = schema["properties"]["textes"]["items"]["properties"]["familles"]["items"]
+            ["properties"]["famille"]["enum"]
             .as_array()
             .unwrap();
         assert_eq!(codes.len(), FamilyCode::ALL.len());
-        assert!(codes.iter().any(|c| c == "logement"));
+        assert!(codes.iter().any(|c| c == "immigration"));
     }
 
     #[test]
-    fn a_well_formed_answer_is_read() {
-        let proposed = parse_answer(&payload(
-            r#"{"familles":[{"famille":"logement","justification":"Le texte porte sur l'urbanisme."}]}"#,
-        ))
-        .unwrap();
-        assert_eq!(proposed.len(), 1);
-        assert_eq!(proposed[0].family(), FamilyCode::Logement);
+    fn labels_are_numbered_from_one() {
+        let numbered = numbered_labels(&["premier texte".into(), "second texte".into()]);
+        assert_eq!(numbered, "1. premier texte\n2. second texte");
     }
 
     #[test]
-    fn a_family_outside_the_referential_is_dropped_without_failing() {
-        let proposed = parse_answer(&payload(
-            r#"{"familles":[{"famille":"securite","justification":"hors référentiel"},
-                            {"famille":"sante-social","justification":"soins palliatifs"}]}"#,
-        ))
+    fn the_token_ceiling_grows_with_the_batch() {
+        let classifier = AnthropicThemeClassifier {
+            http: reqwest::Client::new(),
+            api_key: "clé-de-test".into(),
+            model: "modèle".into(),
+            system_prompt: system_prompt(),
+        };
+        let one = classifier.request_body(&["un".into()])["max_tokens"]
+            .as_u64()
+            .unwrap();
+        let ten = classifier.request_body(&vec!["un".to_string(); 10])["max_tokens"]
+            .as_u64()
+            .unwrap();
+        assert!(ten > one);
+    }
+
+    #[test]
+    fn the_system_block_is_marked_for_caching() {
+        let classifier = AnthropicThemeClassifier {
+            http: reqwest::Client::new(),
+            api_key: "clé-de-test".into(),
+            model: "modèle".into(),
+            system_prompt: system_prompt(),
+        };
+        let body = classifier.request_body(&["un".into()]);
+        assert_eq!(body["system"][0]["cache_control"]["type"], "ephemeral");
+    }
+
+    #[test]
+    fn each_answer_goes_back_to_its_own_label() {
+        let parsed = parse_answer(
+            &payload(
+                r#"{"textes":[
+                    {"numero":2,"familles":[{"famille":"logement","justification":"urbanisme"}]},
+                    {"numero":1,"familles":[{"famille":"immigration","justification":"séjour"}]}
+                ]}"#,
+            ),
+            2,
+        )
         .unwrap();
-        assert_eq!(proposed.len(), 1);
-        assert_eq!(proposed[0].family(), FamilyCode::SanteSocial);
+
+        assert_eq!(parsed[0].as_ref().unwrap()[0].family(), FamilyCode::Immigration);
+        assert_eq!(parsed[1].as_ref().unwrap()[0].family(), FamilyCode::Logement);
+    }
+
+    #[test]
+    fn a_label_the_model_skipped_stays_retriable() {
+        // `None`, pas `Some(vec![])`: le texte n'a pas eu de reponse, il n'a pas
+        // ete juge sans famille.
+        let parsed = parse_answer(
+            &payload(
+                r#"{"textes":[{"numero":1,"familles":[{"famille":"logement","justification":"urbanisme"}]}]}"#,
+            ),
+            3,
+        )
+        .unwrap();
+        assert!(parsed[0].is_some());
+        assert!(parsed[1].is_none());
+        assert!(parsed[2].is_none());
+    }
+
+    #[test]
+    fn a_number_outside_the_batch_is_dropped_without_failing() {
+        let parsed = parse_answer(
+            &payload(
+                r#"{"textes":[
+                    {"numero":7,"familles":[{"famille":"logement","justification":"urbanisme"}]},
+                    {"numero":1,"familles":[{"famille":"numerique","justification":"données"}]}
+                ]}"#,
+            ),
+            2,
+        )
+        .unwrap();
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].as_ref().unwrap()[0].family(), FamilyCode::Numerique);
+        assert!(parsed[1].is_none());
+    }
+
+    #[test]
+    fn a_repeated_number_keeps_the_first_answer() {
+        let parsed = parse_answer(
+            &payload(
+                r#"{"textes":[
+                    {"numero":1,"familles":[{"famille":"logement","justification":"urbanisme"}]},
+                    {"numero":1,"familles":[{"famille":"numerique","justification":"données"}]}
+                ]}"#,
+            ),
+            1,
+        )
+        .unwrap();
+        assert_eq!(parsed[0].as_ref().unwrap().len(), 1);
+        assert_eq!(parsed[0].as_ref().unwrap()[0].family(), FamilyCode::Logement);
+    }
+
+    #[test]
+    fn a_family_outside_the_referential_is_dropped_without_losing_the_others() {
+        let parsed = parse_answer(
+            &payload(
+                r#"{"textes":[{"numero":1,"familles":[
+                    {"famille":"securite","justification":"hors référentiel"},
+                    {"famille":"sante-social","justification":"soins palliatifs"}
+                ]}]}"#,
+            ),
+            1,
+        )
+        .unwrap();
+        let families = parsed[0].as_ref().unwrap();
+        assert_eq!(families.len(), 1);
+        assert_eq!(families[0].family(), FamilyCode::SanteSocial);
     }
 
     #[test]
     fn a_family_without_justification_is_dropped() {
-        let proposed = parse_answer(&payload(
-            r#"{"familles":[{"famille":"numerique","justification":"  "}]}"#,
-        ))
+        let parsed = parse_answer(
+            &payload(r#"{"textes":[{"numero":1,"familles":[{"famille":"numerique","justification":"  "}]}]}"#),
+            1,
+        )
         .unwrap();
-        assert!(proposed.is_empty());
+        assert!(parsed[0].as_ref().unwrap().is_empty());
     }
 
     #[test]
-    fn an_empty_answer_is_not_an_error() {
-        let proposed = parse_answer(&payload(r#"{"familles":[]}"#)).unwrap();
-        assert!(proposed.is_empty());
+    fn an_empty_family_list_is_an_answer_not_a_failure() {
+        let parsed =
+            parse_answer(&payload(r#"{"textes":[{"numero":1,"familles":[]}]}"#), 1).unwrap();
+        assert_eq!(parsed[0].as_ref().unwrap().len(), 0);
     }
 
     #[test]
     fn a_refusal_is_an_error() {
         let refused = json!({ "stop_reason": "refusal", "content": [] });
-        assert!(parse_answer(&refused).is_err());
+        assert!(parse_answer(&refused, 1).is_err());
     }
 
     #[test]
     fn a_truncated_answer_is_an_error() {
         let truncated = json!({
             "stop_reason": "max_tokens",
-            "content": [{ "type": "text", "text": "{\"familles\":[" }]
+            "content": [{ "type": "text", "text": "{\"textes\":[" }]
         });
-        assert!(parse_answer(&truncated).is_err());
+        assert!(parse_answer(&truncated, 1).is_err());
     }
 }
