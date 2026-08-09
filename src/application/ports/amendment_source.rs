@@ -28,8 +28,14 @@ pub struct ArchiveScan {
     /// Entrees `.json` rencontrees dans l'archive.
     pub json_entries: usize,
     pub parsed: usize,
-    /// Fichiers illisibles ou refuses par les invariants du domaine.
-    pub unreadable: usize,
+    /// Entrees dont le contenu n'est pas du texte UTF-8.
+    pub undecodable: usize,
+    /// Entrees dont la structure ne correspond pas au JSON attendu.
+    pub malformed: usize,
+    /// Entrees refusees par les invariants du domaine.
+    pub refused: usize,
+    /// Echantillon borne des causes rencontrees pendant le parcours.
+    pub failures: BTreeMap<String, usize>,
     pub other_legislature: usize,
     /// Amendements que la source ne rattache a aucun texte legislatif. Ils
     /// entrent quand meme (RM-01), la lacune est comptee.
@@ -44,6 +50,27 @@ pub struct ArchiveScan {
 }
 
 impl ArchiveScan {
+    pub const MAX_FAILURE_SAMPLES: usize = 12;
+    pub const MAX_FAILURE_LENGTH: usize = 200;
+
+    pub fn unreadable(&self) -> usize {
+        self.undecodable + self.malformed + self.refused
+    }
+
+    pub fn count_failure(&mut self, failure: &str) {
+        let failure = Self::truncate(failure, Self::MAX_FAILURE_LENGTH);
+        if self.failures.contains_key(&failure) || self.failures.len() < Self::MAX_FAILURE_SAMPLES {
+            *self.failures.entry(failure).or_insert(0) += 1;
+        }
+    }
+
+    fn truncate(value: &str, max_length: usize) -> String {
+        if value.chars().count() <= max_length {
+            return value.to_string();
+        }
+        value.chars().take(max_length).collect()
+    }
+
     pub fn count_unknown_fate(&mut self, label: &str) {
         *self.unknown_fates.entry(label.to_string()).or_insert(0) += 1;
     }
