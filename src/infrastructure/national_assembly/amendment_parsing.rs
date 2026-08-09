@@ -10,7 +10,7 @@
 //! developpement (SPEC-amendements §6): un nom de champ qui differe doit rendre
 //! un amendement incomplet, jamais faire echouer le parcours entier.
 
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize, Deserializer};
 use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
@@ -21,52 +21,75 @@ pub struct RawAmendmentWrapper {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawAmendment {
-    pub uid: String,
+    #[serde(default, deserialize_with = "lenient")]
+    pub uid: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub legislature: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub texte_legislatif_ref: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub examen_ref: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub identifiant: Option<RawIdentifiant>,
+    #[serde(default, deserialize_with = "lenient")]
     pub division: Option<RawDivision>,
+    #[serde(default, deserialize_with = "lenient")]
     pub signataires: Option<RawSignataires>,
+    #[serde(default, deserialize_with = "lenient")]
     pub corps: Option<RawCorps>,
+    #[serde(default, deserialize_with = "lenient")]
     pub cycle_de_vie: Option<RawCycleDeVie>,
+    #[serde(default, deserialize_with = "lenient")]
     pub sort_en_seance: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub etat: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub amendement_parent: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawIdentifiant {
+    #[serde(default, deserialize_with = "lenient")]
     pub numero: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub numero_long: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawDivision {
+    #[serde(default, deserialize_with = "lenient")]
     pub titre: Option<String>,
     #[serde(rename = "type")]
+    #[serde(default, deserialize_with = "lenient")]
     pub kind: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawSignataires {
+    #[serde(default, deserialize_with = "lenient")]
     pub auteur: Option<RawAuteur>,
+    #[serde(default, deserialize_with = "lenient")]
     pub cosignataires: Option<RawCosignataires>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawAuteur {
+    #[serde(default, deserialize_with = "lenient")]
     pub acteur_ref: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub groupe_politique_ref: Option<String>,
     /// « Député », « Gouvernement », « Commission ». Sert a distinguer un auteur
     /// nominatif d'un auteur institutionnel quand `acteurRef` est absent.
+    #[serde(default, deserialize_with = "lenient")]
     pub type_auteur: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub organe_ref: Option<String>,
     /// Libelle publie d'un auteur institutionnel, quand la source en donne un.
+    #[serde(default, deserialize_with = "lenient")]
     pub libelle: Option<String>,
 }
 
@@ -82,32 +105,54 @@ pub struct RawCosignataires {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawCorps {
+    #[serde(default, deserialize_with = "lenient")]
     pub contenu_auteur: Option<RawContenuAuteur>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawContenuAuteur {
+    #[serde(default, deserialize_with = "lenient")]
     pub expose_sommaire: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawCycleDeVie {
+    #[serde(default, deserialize_with = "lenient")]
     pub date_depot: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
     pub etat_des_traitements: Option<RawEtatDesTraitements>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawEtatDesTraitements {
+    #[serde(default, deserialize_with = "lenient")]
     pub etat: Option<RawLibelle>,
+    #[serde(default, deserialize_with = "lenient")]
     pub sort: Option<RawLibelle>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RawLibelle {
+    #[serde(default, deserialize_with = "lenient")]
     pub libelle: Option<String>,
+}
+
+/// Une discordance de type dans un sous-bloc ne rend pas l'entree illisible.
+/// Elle laisse l'amendement incomplet, afin que les invariants de domaine
+/// decident ensuite s'il peut etre conserve.
+fn lenient<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned,
+{
+    let value = Value::deserialize(deserializer)?;
+    if value.is_null() {
+        return Ok(None);
+    }
+    Ok(serde_json::from_value(value).ok())
 }
 
 /// References d'acteurs d'un bloc de cosignataires, quelle qu'en soit la forme.
