@@ -72,17 +72,19 @@ impl AmendmentClient {
             scan.count_top_level(file.name());
 
             buffer.clear();
-            if file.read_to_string(&mut buffer).is_err() {
-                scan.unreadable += 1;
-                tracing::warn!("Skipping unreadable amendment file {}", file.name());
+            if let Err(error) = file.read_to_string(&mut buffer) {
+                scan.undecodable += 1;
+                scan.count_failure(&format!("undecodable: {error}"));
+                tracing::warn!("Skipping undecodable amendment file {}: {error}", file.name());
                 continue;
             }
 
             let wrapper: RawAmendmentWrapper = match serde_json::from_str(&buffer) {
                 Ok(w) => w,
                 Err(e) => {
-                    scan.unreadable += 1;
-                    tracing::warn!("Skipping unreadable amendment file {}: {e}", file.name());
+                    scan.malformed += 1;
+                    scan.count_failure(&format!("malformed: {e}"));
+                    tracing::warn!("Skipping malformed amendment file {}: {e}", file.name());
                     continue;
                 }
             };
@@ -103,8 +105,9 @@ impl AmendmentClient {
                 }
                 Ok(None) => scan.other_legislature += 1,
                 Err(e) => {
-                    scan.unreadable += 1;
-                    tracing::warn!("Skipping amendment: {e}");
+                    scan.refused += 1;
+                    scan.count_failure(&format!("refused: {e}"));
+                    tracing::warn!("Skipping refused amendment: {e}");
                 }
             }
         }
@@ -115,8 +118,11 @@ impl AmendmentClient {
 
         // RM-01: tout ecart entre le publie et l'ingere est une lacune, pas un
         // detail d'implementation. Il doit se voir dans les journaux.
-        if scan.unreadable > 0 {
-            tracing::warn!("{} amendments unreadable at the source", scan.unreadable);
+        if scan.unreadable() > 0 {
+            tracing::warn!(
+                "{} amendment entries skipped: {} undecodable, {} malformed, {} refused",
+                scan.unreadable(), scan.undecodable, scan.malformed, scan.refused
+            );
         }
         if scan.other_legislature > 0 {
             tracing::info!(
@@ -152,7 +158,8 @@ impl AmendmentClient {
             return Ok(None);
         }
 
-        let uid = AmendmentUid::new(raw.uid).map_err(|e| e.to_string())?;
+        let uid = raw.uid.ok_or_else(|| "entry carries no uid".to_string())?;
+        let uid = AmendmentUid::new(uid).map_err(|e| e.to_string())?;
 
         let identifiant = raw.identifiant;
         let number = identifiant
@@ -566,7 +573,31 @@ mod tests {
         assert_eq!(amendments.len(), 2);
         assert_eq!(scan.json_entries, 3);
         assert_eq!(scan.parsed, 2);
-        assert_eq!(scan.unreadable, 1);
+        assert_eq!(scan.malformed, 1);
+        assert_eq!(scan.unreadable(), 1);
+    }
+
+    #[test]
+    fn a_wrongly_typed_sub_block_is_refused_without_malforming_the_file() {
+        let wrong_signatories = r#"{
+          "amendement": {
+            "uid": "AM6",
+            "legislature": "17",
+            "identifiant": { "numeroLong": "6" },
+            "signataires": "M. Dupont"
+          }
+        }"#;
+        let data = zip_with(&[("AM6.json", wrong_signatories)]);
+
+        let (amendments, scan) = scan(&data, 100);
+
+        assert!(amendments.is_empty());
+        assert_eq!(scan.malformed, 0);
+        assert_eq!(scan.refused, 1);
+        assert_eq!(
+            scan.failures.get("refused: AM6 carries no author"),
+            Some(&1)
+        );
     }
 
     #[test]
@@ -648,7 +679,10 @@ mod tests {
         // H10 (unicite du couple texte/numero). Voir SPEC-amendements §6.
         println!("json entries        : {}", scan.json_entries);
         println!("parsed              : {parsed}");
-        println!("unreadable          : {}", scan.unreadable);
+        println!("undecodable         : {}", scan.undecodable);
+        println!("malformed           : {}", scan.malformed);
+        println!("refused             : {}", scan.refused);
+        println!("failures            : {:?}", scan.failures);
         println!("without text ref    : {}", scan.without_text_ref);
         println!("other legislature   : {}", scan.other_legislature);
         println!("unknown fates       : {:?}", scan.unknown_fates);
