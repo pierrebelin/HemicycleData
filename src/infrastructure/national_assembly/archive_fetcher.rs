@@ -6,6 +6,8 @@
 //! client: une identite declaree, un cache en memoire, et surtout une
 //! revalidation conditionnelle plutot qu'un retelechargement systematique.
 
+use bytes::{Bytes, BytesMut};
+
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -31,10 +33,22 @@ const USER_AGENT: &str = concat!(
     " (+https://github.com/pierrebelin/HemicycleData)"
 );
 
-/// Le telechargement complet porte plusieurs dizaines de mega-octets: large,
-/// mais borne. Au-dela, la connexion est bloquee, pas lente.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// Delai d'**inactivite**, et non duree totale de la requete.
+///
+/// Un plafond sur la duree totale est une guillotine: il ne distingue pas un
+/// transfert lent qui progresse d'un transfert bloque. L'archive des
+/// amendements a depasse les dix minutes qui suffisaient aux trois autres, et
+/// reqwest a rendu l'abandon du flux sous la forme « error decoding response
+/// body » — un message qui ne dit rien de la cause. Ici, seul un silence de la
+/// source interrompt le telechargement, quelle que soit la taille de l'archive.
+const READ_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Intervalle entre deux lignes de progression. Assez espace pour ne pas noyer
+/// le journal, assez frequent pour qu'un telechargement d'un quart d'heure
+/// montre qu'il avance.
+const PROGRESS_STEP: u64 = 50 * 1024 * 1024;
 
 /// Ce que la source a renvoye avec l'archive et qui permet de lui redemander
 /// « seulement si ca a change ».
@@ -62,7 +76,10 @@ enum Decision {
 }
 
 struct CachedArchive {
-    data: Vec<u8>,
+    /// `Bytes` et non `Vec<u8>`: le compteur de references rend la mise en
+    /// cache et le service depuis le cache gratuits. Avec un `Vec`, une archive
+    /// de plusieurs centaines de mega-octets etait recopiee a chaque passage.
+    data: Bytes,
     fetched_at: Instant,
     validators: Validators,
 }
@@ -80,7 +97,7 @@ impl ArchiveFetcher {
         let http = reqwest::Client::builder()
             .user_agent(USER_AGENT)
             .connect_timeout(CONNECT_TIMEOUT)
-            .timeout(REQUEST_TIMEOUT)
+            .read_timeout(READ_TIMEOUT)
             // Repris tel quel du code precedent. A reexaminer: desactiver la
             // verification du certificat n'a de raison d'etre que si la chaine
             // de la source est cassee, ce qui se verifie.
@@ -141,7 +158,7 @@ impl ArchiveFetcher {
     /// fois par jour et relue toutes les deux heures, onze passages sur douze
     /// se resolvent en un `304 Not Modified` de quelques octets — et evitent au
     /// passage de reparser un ZIP identique.
-    pub async fn fetch(&self) -> Result<Vec<u8>, SourceError> {
+    pub async fn fetch(&self) -> Result<Bytes, SourceError> {
         let decision = {
             let cache = self.cache.lock().unwrap();
             Self::decide(cache.as_ref(), Instant::now())
@@ -217,13 +234,7 @@ impl ArchiveFetcher {
             );
         }
 
-        let data = response
-            .bytes()
-            .await
-            .map(|b| b.to_vec())
-            .map_err(|e| SourceError::Download(e.to_string()))?;
-
-        tracing::info!("Downloaded {} bytes ({})", data.len(), self.label);
+        let data = self.download_body(response).await?;
 
         {
             let mut cache = self.cache.lock().unwrap();
@@ -235,6 +246,73 @@ impl ArchiveFetcher {
         }
 
         Ok(data)
+    }
+
+    /// Lit le corps morceau par morceau plutot qu'en un bloc.
+    ///
+    /// `Response::bytes()` ne rend que deux issues: l'archive entiere, ou une
+    /// erreur qui ne dit pas ou elle s'est arretee. Sur une archive de plusieurs
+    /// centaines de mega-octets, la difference entre « la source a refuse » et
+    /// « le transfert a ete coupe a 60 % » est justement ce qu'il faut savoir.
+    ///
+    /// La taille annoncee est journalisee avant de commencer: c'est la seule
+    /// mesure de volumetrie que le projet ait sur cette archive
+    /// (todo/SPEC-amendements.md §6, H1).
+    async fn download_body(&self, mut response: reqwest::Response) -> Result<Bytes, SourceError> {
+        let announced = response.content_length();
+        match announced {
+            Some(total) => tracing::info!(
+                "{}: downloading {} bytes announced",
+                self.label,
+                total
+            ),
+            None => tracing::info!("{}: downloading, size not announced", self.label),
+        }
+
+        // La capacite annoncee evite de reallouer en cours de route, ce qui
+        // doublerait transitoirement la memoire tenue.
+        let mut buffer = BytesMut::with_capacity(announced.unwrap_or(0) as usize);
+        let mut next_report = PROGRESS_STEP;
+
+        loop {
+            let chunk = response.chunk().await.map_err(|e| {
+                // Le nombre d'octets recus est la moitie utile du diagnostic.
+                SourceError::Download(format!(
+                    "{}: transfer interrupted after {} bytes{}: {e}",
+                    self.label,
+                    buffer.len(),
+                    announced
+                        .map(|t| format!(" of {t}"))
+                        .unwrap_or_default()
+                ))
+            })?;
+
+            let Some(chunk) = chunk else { break };
+            buffer.extend_from_slice(&chunk);
+
+            if buffer.len() as u64 >= next_report {
+                tracing::info!("{}: {} bytes received", self.label, buffer.len());
+                next_report += PROGRESS_STEP;
+            }
+        }
+
+        // Une archive tronquee sans erreur reseau existe: la source ferme la
+        // connexion proprement au milieu. Sans ce controle, le ZIP part au
+        // parseur et echoue plus loin, sur un message qui ne designe plus la
+        // cause.
+        if let Some(total) = announced {
+            if buffer.len() as u64 != total {
+                return Err(SourceError::Download(format!(
+                    "{}: truncated body, {} bytes received of {} announced",
+                    self.label,
+                    buffer.len(),
+                    total
+                )));
+            }
+        }
+
+        tracing::info!("Downloaded {} bytes ({})", buffer.len(), self.label);
+        Ok(buffer.freeze())
     }
 }
 
@@ -252,7 +330,7 @@ mod tests {
 
     fn cached(age: Duration, validators: Validators) -> CachedArchive {
         CachedArchive {
-            data: vec![1, 2, 3],
+            data: Bytes::from_static(&[1, 2, 3]),
             fetched_at: Instant::now() - age,
             validators,
         }

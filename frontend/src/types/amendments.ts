@@ -25,6 +25,8 @@ export interface AmendmentDto {
 }
 
 export interface AmendmentCoverageDto {
+  /** Amendements en base, tous dossiers confondus. */
+  base_total: number
   total: number
   without_summary: number
   unknown_fates: number

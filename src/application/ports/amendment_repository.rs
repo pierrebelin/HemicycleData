@@ -84,6 +84,14 @@ pub struct AmendmentPage {
 /// affichee (README.md §2).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DossierAmendmentCoverage {
+    /// Amendements en base, tous dossiers confondus.
+    ///
+    /// Sans ce chiffre, une section vide est indechiffrable: elle peut vouloir
+    /// dire « rien n'est encore ingere », « rien ne se rattache a ce dossier »
+    /// ou « ce dossier n'a pas d'amendement ». Trois etats tres differents, et
+    /// en presenter un pour les trois est exactement la lacune silencieuse que
+    /// README.md §2 interdit.
+    pub base_total: i64,
     pub total: i64,
     /// Amendements du dossier dont la source ne publie aucun expose sommaire.
     pub without_summary: i64,

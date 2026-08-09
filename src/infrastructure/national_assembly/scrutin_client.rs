@@ -32,7 +32,7 @@ impl ScrutinClient {
         }
     }
 
-    async fn get_zip(&self) -> Result<Vec<u8>, SourceError> {
+    async fn get_zip(&self) -> Result<bytes::Bytes, SourceError> {
         self.archive.fetch().await
     }
 
