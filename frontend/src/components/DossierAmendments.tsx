@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Card, ErrorPanel, Note, Pill, SectionTitle, type PillTone } from './ui'
 import type { AmendmentDto, DossierAmendmentsResponse } from '../types/amendments'
@@ -164,12 +164,19 @@ function AmendmentRow({ amendment }: { amendment: AmendmentDto }) {
  * est affiché : paginer n'est pas filtrer (README.md §2, RM-07). Aucun tri par
  * « importance » ni par nombre de cosignataires — ce serait un classement.
  */
-export default function DossierAmendments({ uid }: { uid: string }) {
+export default function DossierAmendments({ uid, initialGroup = '' }: { uid: string; initialGroup?: string }) {
   const [offset, setOffset] = useState(0)
   const [fate, setFate] = useState('')
-  const [group, setGroup] = useState('')
+  const [group, setGroup] = useState(initialGroup)
   const [search, setSearch] = useState('')
   const [draft, setDraft] = useState('')
+
+  useEffect(() => {
+    if (initialGroup) {
+      setGroup(initialGroup)
+      setOffset(0)
+    }
+  }, [initialGroup])
 
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
@@ -198,7 +205,7 @@ export default function DossierAmendments({ uid }: { uid: string }) {
   }
 
   return (
-    <section className="mb-6">
+    <section id="dossier-amendements" className="mb-6">
       <SectionTitle count={data && data.total > 0 ? data.total : undefined}>
         Amendements
       </SectionTitle>

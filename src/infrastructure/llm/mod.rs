@@ -1,2 +1,8 @@
 pub mod anthropic_classifier;
+pub mod anthropic_dossier_summary;
+pub mod openai_classifier;
+pub mod openai_dossier_summary;
+pub mod openai_support;
+pub mod provider;
 pub mod unavailable_classifier;
+pub mod unavailable_dossier_summary;

@@ -7,7 +7,11 @@ use hemicycle_data::application::ports::actor_source::ActorSource;
 use hemicycle_data::application::ports::amendment_repository::AmendmentRepository;
 use hemicycle_data::application::ports::amendment_source::AmendmentSource;
 use hemicycle_data::application::ports::assembly_source::AssemblySource;
+use hemicycle_data::application::ports::dossier_group_actions_repository::{
+    DossierGroupActionsRepository, DossierSummaryRepository,
+};
 use hemicycle_data::application::ports::dossier_repository::DossierRepository;
+use hemicycle_data::application::ports::dossier_summary_generator::DossierSummaryGenerator;
 use hemicycle_data::application::ports::final_vote_repository::FinalVoteRepository;
 use hemicycle_data::application::ports::group_repository::GroupRepository;
 use hemicycle_data::application::ports::scrutin_repository::ScrutinRepository;
@@ -16,14 +20,21 @@ use hemicycle_data::application::ports::theme_classifier::ThemeClassifier;
 use hemicycle_data::application::ports::theme_repository::ThemeRepository;
 use hemicycle_data::infrastructure::config;
 use hemicycle_data::infrastructure::llm::anthropic_classifier::AnthropicThemeClassifier;
+use hemicycle_data::infrastructure::llm::anthropic_dossier_summary::AnthropicDossierSummaryGenerator;
+use hemicycle_data::infrastructure::llm::openai_classifier::OpenAiThemeClassifier;
+use hemicycle_data::infrastructure::llm::openai_dossier_summary::OpenAiDossierSummaryGenerator;
+use hemicycle_data::infrastructure::llm::provider::LlmProvider;
 use hemicycle_data::infrastructure::llm::unavailable_classifier::UnavailableClassifier;
+use hemicycle_data::infrastructure::llm::unavailable_dossier_summary::UnavailableDossierSummaryGenerator;
 use hemicycle_data::infrastructure::national_assembly::actor_client::AmoActorClient;
 use hemicycle_data::infrastructure::national_assembly::amendment_client::AmendmentClient;
 use hemicycle_data::infrastructure::national_assembly::client::NationalAssemblyClient;
 use hemicycle_data::infrastructure::national_assembly::scrutin_client::ScrutinClient;
 use hemicycle_data::infrastructure::persistence::pg_actor_repository::PgActorRepository;
 use hemicycle_data::infrastructure::persistence::pg_amendment_repository::PgAmendmentRepository;
+use hemicycle_data::infrastructure::persistence::pg_dossier_group_actions_repository::PgDossierGroupActionsRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_repository::PgDossierRepository;
+use hemicycle_data::infrastructure::persistence::pg_dossier_summary_repository::PgDossierSummaryRepository;
 use hemicycle_data::infrastructure::persistence::pg_final_vote_repository::PgFinalVoteRepository;
 use hemicycle_data::infrastructure::persistence::pg_group_repository::PgGroupRepository;
 use hemicycle_data::infrastructure::persistence::pg_scrutin_repository::PgScrutinRepository;
@@ -44,6 +55,10 @@ async fn main() {
     let assembly_source: Arc<dyn AssemblySource> = Arc::new(NationalAssemblyClient::new());
     let dossier_repository: Arc<dyn DossierRepository> =
         Arc::new(PgDossierRepository::new(db.clone()));
+    let dossier_group_actions_repository: Arc<dyn DossierGroupActionsRepository> =
+        Arc::new(PgDossierGroupActionsRepository::new(db.clone()));
+    let dossier_summary_repository: Arc<dyn DossierSummaryRepository> =
+        Arc::new(PgDossierSummaryRepository::new(db.clone()));
     let actor_source: Arc<dyn ActorSource> = Arc::new(AmoActorClient::new());
     let actor_repository: Arc<dyn ActorRepository> = Arc::new(PgActorRepository::new(db.clone()));
     let scrutin_source: Arc<dyn ScrutinSource> = Arc::new(ScrutinClient::new());
@@ -57,17 +72,66 @@ async fn main() {
     let group_repository: Arc<dyn GroupRepository> = Arc::new(PgGroupRepository::new(db.clone()));
     let theme_repository: Arc<dyn ThemeRepository> = Arc::new(PgThemeRepository::new(db.clone()));
 
-    // BYOK: sans cle, la thematisation ne propose rien et le reste du site
-    // tourne. Un texte non propose reste consultable, non rattache (RM-01).
-    let theme_classifier: Arc<dyn ThemeClassifier> = match AnthropicThemeClassifier::from_env() {
-        Some(classifier) => {
-            tracing::info!("Theme classifier ready ({})", classifier.model());
-            Arc::new(classifier)
+    let llm_provider = match LlmProvider::from_env() {
+        Ok(provider) => {
+            tracing::info!("LLM provider selected: {}", provider.label());
+            Some(provider)
         }
-        None => {
-            tracing::warn!("ANTHROPIC_API_KEY absent: no theme proposal will be produced");
-            Arc::new(UnavailableClassifier)
+        Err(error) => {
+            tracing::error!(%error, "LLM disabled");
+            None
         }
+    };
+
+    // BYOK: sans la cle du fournisseur selectionne, le site tourne mais les
+    // traitements LLM restent explicitement indisponibles. Les donnees brutes
+    // et les rattachements deterministes restent accessibles (RM-01).
+    let theme_classifier: Arc<dyn ThemeClassifier> = match llm_provider {
+        Some(LlmProvider::Anthropic) => match AnthropicThemeClassifier::from_env() {
+            Some(classifier) => {
+                tracing::info!("Theme classifier ready ({})", classifier.model());
+                Arc::new(classifier)
+            }
+            None => {
+                tracing::warn!("ANTHROPIC_API_KEY absent: no theme proposal will be produced");
+                Arc::new(UnavailableClassifier)
+            }
+        },
+        Some(LlmProvider::OpenAi) => match OpenAiThemeClassifier::from_env() {
+            Some(classifier) => {
+                tracing::info!("Theme classifier ready ({})", classifier.model());
+                Arc::new(classifier)
+            }
+            None => {
+                tracing::warn!("OPENAI_API_KEY absent: no theme proposal will be produced");
+                Arc::new(UnavailableClassifier)
+            }
+        },
+        None => Arc::new(UnavailableClassifier),
+    };
+
+    let dossier_summary_generator: Arc<dyn DossierSummaryGenerator> = match llm_provider {
+        Some(LlmProvider::Anthropic) => match AnthropicDossierSummaryGenerator::from_env() {
+            Some(generator) => {
+                tracing::info!("Dossier summary generator ready ({})", generator.model());
+                Arc::new(generator)
+            }
+            None => {
+                tracing::warn!("ANTHROPIC_API_KEY absent: dossier summaries will stay pending");
+                Arc::new(UnavailableDossierSummaryGenerator)
+            }
+        },
+        Some(LlmProvider::OpenAi) => match OpenAiDossierSummaryGenerator::from_env() {
+            Some(generator) => {
+                tracing::info!("Dossier summary generator ready ({})", generator.model());
+                Arc::new(generator)
+            }
+            None => {
+                tracing::warn!("OPENAI_API_KEY absent: dossier summaries will stay pending");
+                Arc::new(UnavailableDossierSummaryGenerator)
+            }
+        },
+        None => Arc::new(UnavailableDossierSummaryGenerator),
     };
 
     // Le jeton d'ecriture n'est pas pose dans l'environnement: il est derive
@@ -95,6 +159,9 @@ async fn main() {
         db,
         assembly_source,
         dossier_repository,
+        dossier_group_actions_repository,
+        dossier_summary_repository,
+        dossier_summary_generator,
         actor_source,
         actor_repository,
         scrutin_source,

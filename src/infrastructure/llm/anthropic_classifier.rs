@@ -55,9 +55,14 @@ impl AnthropicThemeClassifier {
         let api_key = std::env::var("ANTHROPIC_API_KEY")
             .ok()
             .filter(|k| !k.is_empty())?;
-        let model = std::env::var("ANTHROPIC_MODEL")
+        let model = std::env::var("THEME_MODEL")
             .ok()
-            .filter(|m| !m.is_empty())
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                std::env::var("ANTHROPIC_MODEL")
+                    .ok()
+                    .filter(|value| !value.trim().is_empty())
+            })
             .unwrap_or_else(|| DEFAULT_MODEL.to_string());
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(180))
@@ -101,7 +106,7 @@ impl AnthropicThemeClassifier {
 
 /// Libelles numerotes. Le numero sert a rendre la reponse reattribuable sans
 /// dependre de l'ordre rendu par le modele.
-fn numbered_labels(labels: &[String]) -> String {
+pub(crate) fn numbered_labels(labels: &[String]) -> String {
     labels
         .iter()
         .enumerate()
@@ -112,7 +117,7 @@ fn numbered_labels(labels: &[String]) -> String {
 
 /// Referentiel ferme decrit au modele. Construit depuis le domaine: la page
 /// methode et l'instruction ne peuvent pas diverger (RM-08).
-fn system_prompt() -> String {
+pub(crate) fn system_prompt() -> String {
     let familles = FamilyCode::ALL
         .iter()
         .map(|f| format!("- `{}` — {} : {}", f.as_str(), f.label(), f.scope()))
@@ -143,7 +148,7 @@ fn system_prompt() -> String {
     )
 }
 
-fn response_schema() -> Value {
+pub(crate) fn response_schema() -> Value {
     let codes: Vec<&str> = FamilyCode::ALL.iter().map(|f| f.as_str()).collect();
     json!({
         "type": "object",
@@ -301,6 +306,13 @@ fn parse_answer(
         .and_then(Value::as_str)
         .ok_or_else(|| ClassifierError::Answer("aucun bloc de texte".to_string()))?;
 
+    parse_text(text, expected)
+}
+
+pub(crate) fn parse_text(
+    text: &str,
+    expected: usize,
+) -> Result<Vec<Option<Vec<ProposedFamily>>>, ClassifierError> {
     let answer: Answer =
         serde_json::from_str(text).map_err(|e| ClassifierError::Answer(e.to_string()))?;
 
