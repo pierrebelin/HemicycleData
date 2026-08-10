@@ -304,7 +304,7 @@ impl AmendmentRepository for PgAmendmentRepository {
         query.push_bind(dossier_uid);
         query.push(" AND d.document_uid = a.text_ref)");
         push_filters(&mut query, page);
-        query.push(" ORDER BY a.deposited_on ASC NULLS LAST, a.uid ASC LIMIT ");
+        query.push(" ORDER BY a.deposited_on DESC NULLS LAST, a.uid DESC LIMIT ");
         query.push_bind(page.limit);
         query.push(" OFFSET ");
         query.push_bind(page.offset);
