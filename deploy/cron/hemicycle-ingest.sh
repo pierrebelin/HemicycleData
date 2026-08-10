@@ -40,8 +40,8 @@ APP_DIR="${HEMICYCLE_APP_DIR:-$HOME/app}"
 API="${HEMICYCLE_API:-http://127.0.0.1:8085}"
 HEALTH_RETRIES=30
 
-# Le timer suit le demarrage du service : les migrations sqlx et le reveil a
-# froid de Neon peuvent encore etre en cours. Attendre plutot que de compter
+# Le timer suit le demarrage du service : les migrations sqlx et le demarrage
+# de PostgreSQL peuvent encore etre en cours. Attendre plutot que de compter
 # quatre echecs sur une simple fenetre de demarrage.
 for i in $(seq 1 "$HEALTH_RETRIES"); do
     if curl --fail --silent --show-error --max-time 5 "$API/api/health" >/dev/null 2>&1; then

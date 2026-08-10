@@ -16,8 +16,8 @@ ExecStart=/home/hemicycle/app/target/release/hemicycle-data
 
 Restart=on-failure
 RestartSec=5s
-# Le binaire joue les migrations sqlx au demarrage : laisser le temps a Neon
-# (base serverless, reveil a froid possible) avant de considerer l'echec.
+# Le binaire joue les migrations sqlx au demarrage : laisser le temps au
+# service et a PostgreSQL local avant de considerer l'echec.
 TimeoutStartSec=90s
 
 # Durcissement. Le service n'ecrit rien sur disque : tout est en base.

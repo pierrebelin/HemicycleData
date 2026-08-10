@@ -4,6 +4,35 @@ import { Card, ErrorPanel, Note, Pill, SectionTitle, type PillTone } from './ui'
 import type { AmendmentDto, DossierAmendmentsResponse } from '../types/amendments'
 
 const PAGE_SIZE = 25
+const VISIBLE_AMENDMENTS = 3
+
+/** Fallback pour les lignes historiques, jusqu'à la migration de la base. */
+function displaySummary(raw: string) {
+  return raw
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hexadecimal: string) => {
+      const codePoint = Number.parseInt(hexadecimal, 16)
+      return codePoint <= 0x10ffff && !(codePoint >= 0xd800 && codePoint <= 0xdfff)
+        ? String.fromCodePoint(codePoint)
+        : _
+    })
+    .replace(/&#([0-9]+);?/g, (_, decimal: string) => {
+      const codePoint = Number.parseInt(decimal, 10)
+      return codePoint <= 0x10ffff && !(codePoint >= 0xd800 && codePoint <= 0xdfff)
+        ? String.fromCodePoint(codePoint)
+        : _
+    })
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
 
 /**
  * Teinte du sort. Même échelle que les dossiers : adopté et rejeté se
@@ -22,33 +51,6 @@ function formatDate(iso: string) {
     month: 'short',
     year: 'numeric',
   })
-}
-
-/**
- * Retire le balisage de l'exposé sommaire, sans toucher aux mots.
- *
- * La source publie l'exposé avec un peu de HTML. Le rendre tel quel afficherait
- * des balises au milieu du texte ; l'injecter dans le DOM ferait confiance à
- * une chaîne venue du réseau. On enlève donc les balises et rien d'autre :
- * aucun mot ajouté, retiré ni réordonné (README.md §6, RM-03).
- *
- * C'est un repli. La règle appartient au serveur, sous forme de liste blanche
- * de balises conservées — à écrire quand H9 aura dit quel balisage la source
- * emploie réellement (SPEC-amendements §6).
- */
-function withoutMarkup(raw: string) {
-  return raw
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&quot;/gi, '"')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
 }
 
 /** Un signataire nommé, avec le groupe qu'il avait au dépôt. */
@@ -104,7 +106,11 @@ function Author({ amendment }: { amendment: AmendmentDto }) {
 }
 
 function AmendmentRow({ amendment }: { amendment: AmendmentDto }) {
-  const summary = amendment.summary ? withoutMarkup(amendment.summary) : null
+  const summary = amendment.summary
+    ? /[<&]/.test(amendment.summary)
+      ? displaySummary(amendment.summary)
+      : amendment.summary
+    : null
 
   return (
     <Card className="px-4 py-3">
@@ -157,6 +163,7 @@ function AmendmentRow({ amendment }: { amendment: AmendmentDto }) {
  */
 export default function DossierAmendments({ uid }: { uid: string }) {
   const [offset, setOffset] = useState(0)
+  const [allAmendmentsShown, setAllAmendmentsShown] = useState(false)
 
   const { data, isLoading, isError, error } = useQuery<DossierAmendmentsResponse>({
     queryKey: ['dossier-amendements', uid, offset],
@@ -204,32 +211,54 @@ export default function DossierAmendments({ uid }: { uid: string }) {
             </p>
           ) : (
             <>
-              {data.amendments.map((amendment) => (
+              {data.amendments
+                .slice(0, allAmendmentsShown ? undefined : VISIBLE_AMENDMENTS)
+                .map((amendment) => (
                 <AmendmentRow key={amendment.uid} amendment={amendment} />
-              ))}
+                ))}
+
+              {data.total > VISIBLE_AMENDMENTS && (
+                <button
+                  type="button"
+                  onClick={() => setAllAmendmentsShown(!allAmendmentsShown)}
+                  aria-expanded={allAmendmentsShown}
+                  className="text-xs text-accent hover:underline"
+                >
+                  {allAmendmentsShown
+                    ? 'Réduire la liste'
+                    : 'Afficher la liste complète'}
+                </button>
+              )}
 
               <div className="flex items-center justify-between gap-3 pt-1">
                 <span className="text-xs text-ink-faint">
-                  {offset + 1}–{offset + data.count} sur {data.total}
+                  {offset + 1}–
+                  {offset +
+                    (allAmendmentsShown
+                      ? data.count
+                      : Math.min(data.count, VISIBLE_AMENDMENTS))}{' '}
+                  sur {data.total}
                 </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={!hasPrevious}
-                    onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                    className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft"
-                  >
-                    Précédents
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!hasNext}
-                    onClick={() => setOffset(offset + PAGE_SIZE)}
-                    className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft"
-                  >
-                    Suivants
-                  </button>
-                </div>
+                {allAmendmentsShown && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={!hasPrevious}
+                      onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                      className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft"
+                    >
+                      Précédents
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!hasNext}
+                      onClick={() => setOffset(offset + PAGE_SIZE)}
+                      className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft"
+                    >
+                      Suivants
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}

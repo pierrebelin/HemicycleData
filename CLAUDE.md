@@ -10,7 +10,7 @@ Le produit a pivoté en août 2026 : l'ancienne cible « génération de posts I
 
 ### Backend
 - **Rust** — Axum 0.8.x, Tokio, sqlx (requêtes vérifiées à la compilation), serde, tower-http
-- **Base de données** : Neon (serverless Postgres) — connexion par connection string, pas de couche BaaS
+- **Base de données** : PostgreSQL local sur le VPS — connexion par connection string, pas de couche BaaS
 
 ### Frontend
 - **Vite + React + TypeScript** — SPA sans SSR (le backend est en Rust, pas de couche backend JS)

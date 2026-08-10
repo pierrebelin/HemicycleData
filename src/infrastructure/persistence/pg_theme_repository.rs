@@ -16,12 +16,6 @@ use crate::domain::theme::{
 /// Lignes par instruction `UNNEST`. 8 434 scrutins passent en trois lots.
 const ROW_BATCH: usize = 4000;
 
-/// Toutes les lectures de ce depot portent `persistent(false)`, comme le depot
-/// des scrutins: le pooler Neon garde les instructions preparees cote serveur,
-/// indexees sur le texte SQL, au-dela de la vie du processus. Apres une
-/// migration qui change le type d'une colonne, les connexions porteuses de
-/// l'ancien plan repondent « cached plan must not change result type » de facon
-/// intermittente.
 pub struct PgThemeRepository {
     pool: PgPool,
 }

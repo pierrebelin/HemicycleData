@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ScrutinList, { CoverageNote } from './ScrutinList'
 import GuideLink from './GuideLink'
 import type { DossierScrutinsResponse } from '../types/scrutins'
+
+const VISIBLE_SCRUTINS = 3
 
 /**
  * Section scrutins d'un dossier. Toujours présente, même vide : une section
@@ -9,6 +12,8 @@ import type { DossierScrutinsResponse } from '../types/scrutins'
  * simplement ne rattacher aucun scrutin à ce dossier.
  */
 export default function DossierScrutins({ uid }: { uid: string }) {
+  const [allScrutinsShown, setAllScrutinsShown] = useState(false)
+
   const { data, isLoading, isError, error } = useQuery<DossierScrutinsResponse>({
     queryKey: ['dossier-scrutins', uid],
     queryFn: () =>
@@ -53,7 +58,27 @@ export default function DossierScrutins({ uid }: { uid: string }) {
               </GuideLink>
             </p>
           ) : (
-            <ScrutinList scrutins={data.scrutins} />
+            <>
+              <ScrutinList
+                scrutins={
+                  allScrutinsShown
+                    ? data.scrutins
+                    : data.scrutins.slice(0, VISIBLE_SCRUTINS)
+                }
+              />
+              {data.count > VISIBLE_SCRUTINS && (
+                <button
+                  type="button"
+                  onClick={() => setAllScrutinsShown(!allScrutinsShown)}
+                  aria-expanded={allScrutinsShown}
+                  className="text-xs text-accent hover:underline"
+                >
+                  {allScrutinsShown
+                    ? 'Réduire la liste'
+                    : `Afficher les ${data.count - VISIBLE_SCRUTINS} autres scrutins`}
+                </button>
+              )}
+            </>
           )}
           <CoverageNote note={data.coverage_note} />
         </div>
