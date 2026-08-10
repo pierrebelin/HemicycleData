@@ -12,9 +12,6 @@ use crate::domain::group_profile::{ParticipationCounts, QualityCount};
 /// `domain::actor::MembershipPeriod`.
 const ACTIVE_ON: &str = "m.start_date <= $2 AND (m.end_date IS NULL OR m.end_date >= $2)";
 
-/// Toutes les lectures portent `persistent(false)`, comme les autres depots: le
-/// pooler Neon conserve les instructions preparees au-dela de la vie du
-/// processus.
 pub struct PgGroupRepository {
     pool: PgPool,
 }

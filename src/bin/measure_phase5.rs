@@ -26,8 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Une requete = une section. `.persistent(false)`: le pooler Neon garde les
-/// instructions preparees au-dela du processus (voir CLAUDE.md).
+/// Une requete = une section.
 async fn rows(pool: &PgPool, sql: &str) -> Result<Vec<sqlx::postgres::PgRow>, sqlx::Error> {
     sqlx::query(sql).persistent(false).fetch_all(pool).await
 }
