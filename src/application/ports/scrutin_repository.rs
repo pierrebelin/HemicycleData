@@ -107,10 +107,7 @@ pub trait ScrutinRepository: Send + Sync {
     async fn by_uid(&self, uid: &ScrutinUid) -> Result<Option<Scrutin>, RepositoryError>;
 
     /// Scrutins que la source rattache a ce dossier (CU-04).
-    async fn by_dossier(
-        &self,
-        dossier_uid: &str,
-    ) -> Result<Vec<ScrutinSummary>, RepositoryError>;
+    async fn by_dossier(&self, dossier_uid: &str) -> Result<Vec<ScrutinSummary>, RepositoryError>;
 
     /// Read model de la page « Comprendre » : volumétrie et répartitions.
     async fn dataset_shape(&self) -> Result<DatasetShape, RepositoryError>;

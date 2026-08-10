@@ -11,7 +11,9 @@ use bytes::{Bytes, BytesMut};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use reqwest::header::{ACCEPT_RANGES, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED, RANGE};
+use reqwest::header::{
+    ACCEPT_RANGES, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED, RANGE,
+};
 use reqwest::StatusCode;
 
 use crate::application::ports::SourceError;
@@ -277,8 +279,8 @@ impl ArchiveFetcher {
         let announced = response.content_length();
         // `Accept-Ranges: bytes` est la promesse de la source qu'elle sait
         // reprendre. Sans elle, une coupure impose de tout recommencer.
-        let resumable = header_value(&response, ACCEPT_RANGES)
-            .is_some_and(|v| v.eq_ignore_ascii_case("bytes"));
+        let resumable =
+            header_value(&response, ACCEPT_RANGES).is_some_and(|v| v.eq_ignore_ascii_case("bytes"));
 
         match announced {
             Some(total) => tracing::info!(
@@ -385,7 +387,11 @@ impl ArchiveFetcher {
             .send()
             .await
             .map_err(|e| {
-                SourceError::Download(format!("{}: resume request failed: {}", self.label, causes(&e)))
+                SourceError::Download(format!(
+                    "{}: resume request failed: {}",
+                    self.label,
+                    causes(&e)
+                ))
             })?;
 
         if response.status() != StatusCode::PARTIAL_CONTENT {

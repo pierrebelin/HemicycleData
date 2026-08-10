@@ -109,7 +109,10 @@ impl<'a> ProposeThemeFamilies<'a> {
 
         let remaining = batch - pending.len() as i64;
         if remaining > 0 {
-            let dossiers = self.repository.dossiers_awaiting_proposal(remaining).await?;
+            let dossiers = self
+                .repository
+                .dossiers_awaiting_proposal(remaining)
+                .await?;
             pending.extend(dossiers.into_iter().map(|dossier| Pending {
                 subject: SubjectRef::Dossier(dossier.uid),
                 label: dossier.title,
@@ -296,7 +299,10 @@ mod tests {
             .unwrap();
 
         assert!(repository.proposals.lock().unwrap().is_empty());
-        assert_eq!(repository.attempts.lock().unwrap()[0].2, AttemptOutcome::Ruled);
+        assert_eq!(
+            repository.attempts.lock().unwrap()[0].2,
+            AttemptOutcome::Ruled
+        );
     }
 
     #[tokio::test]
@@ -324,7 +330,11 @@ mod tests {
     async fn a_pass_is_split_along_the_classifier_batch_size() {
         let repository = InMemoryThemeRepository::default();
         *repository.awaiting.lock().unwrap() = (0..5)
-            .map(|i| text(&format!("proposition de loi n° {i} relative à la vie associative")))
+            .map(|i| {
+                text(&format!(
+                    "proposition de loi n° {i} relative à la vie associative"
+                ))
+            })
             .collect();
         let classifier = StubClassifier::new()
             .with_batch_size(2)
@@ -397,7 +407,10 @@ mod tests {
         *repository.awaiting.lock().unwrap() = vec![answered.clone(), skipped.clone()];
         let classifier = StubClassifier::new()
             .with_batch_size(10)
-            .answering(answered.label(), vec![(FamilyCode::SanteSocial, "fin de vie")])
+            .answering(
+                answered.label(),
+                vec![(FamilyCode::SanteSocial, "fin de vie")],
+            )
             .skipping(skipped.label());
 
         let run = ProposeThemeFamilies::new(&repository, &classifier)
@@ -430,7 +443,10 @@ mod tests {
 
         assert_eq!(run.without_family, 1);
         assert_eq!(run.failed, 0);
-        assert_eq!(repository.attempts.lock().unwrap()[0].2, AttemptOutcome::NoFamily);
+        assert_eq!(
+            repository.attempts.lock().unwrap()[0].2,
+            AttemptOutcome::NoFamily
+        );
     }
 
     #[tokio::test]
@@ -461,7 +477,10 @@ mod tests {
         }];
         let classifier = StubClassifier::new().answering(
             "Accès aux soins dans les zones rurales",
-            vec![(FamilyCode::SanteSocial, "Le dossier porte sur l'accès aux soins.")],
+            vec![(
+                FamilyCode::SanteSocial,
+                "Le dossier porte sur l'accès aux soins.",
+            )],
         );
 
         let run = ProposeThemeFamilies::new(&repository, &classifier)

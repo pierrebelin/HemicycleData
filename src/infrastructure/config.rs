@@ -32,7 +32,8 @@ pub fn amendment_batch_per_refresh() -> usize {
 }
 
 pub async fn try_connect_database() -> Result<PgPool, String> {
-    let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?;
+    let database_url =
+        std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?;
 
     let pool = PgPoolOptions::new()
         .max_connections(5)

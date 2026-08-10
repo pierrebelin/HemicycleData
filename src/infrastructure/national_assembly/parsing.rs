@@ -428,9 +428,10 @@ pub fn find_outcome(acts: &Option<RawActsContainer>, fusion: Option<&RawFusion>)
         // Seul le dernier sort connu compte: un rejet en premiere lecture suivi
         // d'une adoption ne doit pas laisser le dossier marque rejete.
         if let (Some(conclusion), Some(date)) = (act.conclusion.as_ref(), act_date(act)) {
-            let (Some(fam_code), Some(label)) =
-                (conclusion.fam_code.as_deref(), conclusion.libelle.as_deref())
-            else {
+            let (Some(fam_code), Some(label)) = (
+                conclusion.fam_code.as_deref(),
+                conclusion.libelle.as_deref(),
+            ) else {
                 return;
             };
             if !fam_code.starts_with("TSORTF") {
@@ -571,7 +572,11 @@ mod outcome_tests {
 
         let outcome = find_outcome(&raw.legislative_acts, raw.fusion.as_ref());
 
-        let DossierOutcome::Promulgated { date: d, publication } = outcome else {
+        let DossierOutcome::Promulgated {
+            date: d,
+            publication,
+        } = outcome
+        else {
             panic!("expected a promulgation, got {outcome:?}");
         };
         assert_eq!(d, date(2026, 4, 21));

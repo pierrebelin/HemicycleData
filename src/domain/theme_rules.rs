@@ -20,9 +20,7 @@
 
 use chrono::NaiveDate;
 
-use super::theme::{
-    FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment, ThemeError,
-};
+use super::theme::{FamilyCode, ProposedFamily, SubjectRef, TextKey, ThemeAssignment, ThemeError};
 
 /// Une regle du referentiel publie.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

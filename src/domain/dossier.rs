@@ -201,9 +201,9 @@ impl LegislativeStage {
             | Self::SecondReadingAN
             | Self::NewReadingAN
             | Self::FinalReading => Chamber::AssembleeNationale,
-            Self::FirstReadingSenate
-            | Self::SecondReadingSenate
-            | Self::NewReadingSenate => Chamber::Senat,
+            Self::FirstReadingSenate | Self::SecondReadingSenate | Self::NewReadingSenate => {
+                Chamber::Senat
+            }
             Self::JointCommittee => Chamber::Joint,
             Self::ConstitutionalReview | Self::Promulgation => Chamber::None,
         }
@@ -581,9 +581,7 @@ impl LegislativeDossier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::actor::{
-        Actor, GroupMembership, MembershipPeriod,
-    };
+    use crate::domain::actor::{Actor, GroupMembership, MembershipPeriod};
 
     fn dossier_deposited_on(deposit_date: Option<NaiveDate>) -> LegislativeDossier {
         LegislativeDossier {
@@ -671,8 +669,7 @@ mod tests {
 
     #[test]
     fn attaches_the_group_held_on_the_deposit_date_not_the_current_one() {
-        let mut dossier =
-            dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 5, 13).unwrap()));
+        let mut dossier = dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 5, 13).unwrap()));
         let directory = directory_with_group_change();
         let refs = vec![ActorUid::new("PA1".into()).unwrap()];
 
@@ -694,8 +691,7 @@ mod tests {
 
     #[test]
     fn a_later_deposit_gets_the_later_group() {
-        let mut dossier =
-            dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 9, 1).unwrap()));
+        let mut dossier = dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 9, 1).unwrap()));
         let directory = directory_with_group_change();
         let refs = vec![ActorUid::new("PA1".into()).unwrap()];
 
@@ -706,8 +702,7 @@ mod tests {
 
     #[test]
     fn unknown_actor_keeps_its_raw_reference_and_no_group() {
-        let mut dossier =
-            dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 5, 13).unwrap()));
+        let mut dossier = dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 5, 13).unwrap()));
         let directory = directory_with_group_change();
         let refs = vec![ActorUid::new("PA_UNKNOWN".into()).unwrap()];
 
@@ -735,8 +730,7 @@ mod tests {
 
     #[test]
     fn actor_outside_every_membership_period_is_reported_without_group() {
-        let mut dossier =
-            dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2024, 7, 1).unwrap()));
+        let mut dossier = dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2024, 7, 1).unwrap()));
         let directory = directory_with_group_change();
         let refs = vec![ActorUid::new("PA1".into()).unwrap()];
 
@@ -749,8 +743,7 @@ mod tests {
 
     #[test]
     fn attaching_twice_replaces_instead_of_accumulating() {
-        let mut dossier =
-            dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 5, 13).unwrap()));
+        let mut dossier = dossier_deposited_on(Some(NaiveDate::from_ymd_opt(2025, 5, 13).unwrap()));
         let directory = directory_with_group_change();
         let refs = vec![ActorUid::new("PA1".into()).unwrap()];
 

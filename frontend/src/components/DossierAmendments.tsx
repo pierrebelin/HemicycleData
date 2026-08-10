@@ -3,8 +3,14 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Card, ErrorPanel, Note, Pill, SectionTitle, type PillTone } from './ui'
 import type { AmendmentDto, DossierAmendmentsResponse } from '../types/amendments'
 
-const PAGE_SIZE = 25
-const VISIBLE_AMENDMENTS = 3
+const PAGE_SIZE = 5
+
+const fates = [
+  { value: '', label: 'Tous' },
+  { value: 'adopted', label: 'Adoptés' },
+  { value: 'rejected', label: 'Rejetés' },
+  { value: 'other', label: 'Autres' },
+]
 
 /** Fallback pour les lignes historiques, jusqu'à la migration de la base. */
 function displaySummary(raw: string) {
@@ -117,6 +123,7 @@ function AmendmentRow({ amendment }: { amendment: AmendmentDto }) {
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="font-mono text-xs text-ink-faint">n° {amendment.number}</span>
         <span className="text-sm font-medium text-ink">{amendment.target_title}</span>
+        <Author amendment={amendment} />
         {amendment.fate_label && (
           <Pill tone={fateTones[amendment.fate_code] ?? 'neutral'}>
             {amendment.fate_label}
@@ -128,10 +135,6 @@ function AmendmentRow({ amendment }: { amendment: AmendmentDto }) {
           </span>
         )}
       </div>
-
-      <p className="mt-1 text-sm">
-        <Author amendment={amendment} />
-      </p>
 
       {summary ? (
         <details className="mt-2">
@@ -163,29 +166,82 @@ function AmendmentRow({ amendment }: { amendment: AmendmentDto }) {
  */
 export default function DossierAmendments({ uid }: { uid: string }) {
   const [offset, setOffset] = useState(0)
-  const [allAmendmentsShown, setAllAmendmentsShown] = useState(false)
+  const [fate, setFate] = useState('')
+  const [group, setGroup] = useState('')
+  const [search, setSearch] = useState('')
+  const [draft, setDraft] = useState('')
+
+  const params = new URLSearchParams({
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
+  })
+  if (fate) params.set('fate', fate)
+  if (group) params.set('group', group)
+  if (search) params.set('search', search)
 
   const { data, isLoading, isError, error } = useQuery<DossierAmendmentsResponse>({
-    queryKey: ['dossier-amendements', uid, offset],
+    queryKey: ['dossier-amendements', uid, params.toString()],
     queryFn: () =>
-      fetch(`/api/dossiers/${uid}/amendements?limit=${PAGE_SIZE}&offset=${offset}`).then(
-        (res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          return res.json()
-        },
-      ),
+      fetch(`/api/dossiers/${uid}/amendements?${params}`).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      }),
     enabled: !!uid,
     placeholderData: keepPreviousData,
   })
 
   const hasPrevious = offset > 0
   const hasNext = data ? offset + data.count < data.total : false
+  const reset = (setter: (value: string) => void) => (value: string) => {
+    setter(value)
+    setOffset(0)
+  }
 
   return (
     <section className="mb-6">
       <SectionTitle count={data && data.total > 0 ? data.total : undefined}>
         Amendements
       </SectionTitle>
+
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            setSearch(draft)
+            setOffset(0)
+          }}
+          className="flex w-full gap-1.5 sm:w-auto"
+        >
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Rechercher un amendement…"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-accent/15 focus:outline-none sm:w-64 sm:flex-none"
+          />
+          <button type="submit" className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:bg-surface-soft">
+            Rechercher
+          </button>
+        </form>
+        <select
+          aria-label="Filtrer par sort"
+          value={fate}
+          onChange={(event) => reset(setFate)(event.target.value)}
+          className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink-soft"
+        >
+          {fates.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <select
+          aria-label="Filtrer par groupe politique"
+          value={group}
+          onChange={(event) => reset(setGroup)(event.target.value)}
+          className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink-soft"
+        >
+          <option value="">Tous les groupes</option>
+          {data?.groups.map((option) => (
+            <option key={option.uid} value={option.uid}>{option.abbrev} — {option.label}</option>
+          ))}
+        </select>
+      </div>
 
       {isLoading && (
         <p className="animate-pulse text-sm text-ink-faint">
@@ -211,54 +267,18 @@ export default function DossierAmendments({ uid }: { uid: string }) {
             </p>
           ) : (
             <>
-              {data.amendments
-                .slice(0, allAmendmentsShown ? undefined : VISIBLE_AMENDMENTS)
-                .map((amendment) => (
+              {data.amendments.map((amendment) => (
                 <AmendmentRow key={amendment.uid} amendment={amendment} />
-                ))}
-
-              {data.total > VISIBLE_AMENDMENTS && (
-                <button
-                  type="button"
-                  onClick={() => setAllAmendmentsShown(!allAmendmentsShown)}
-                  aria-expanded={allAmendmentsShown}
-                  className="text-xs text-accent hover:underline"
-                >
-                  {allAmendmentsShown
-                    ? 'Réduire la liste'
-                    : 'Afficher la liste complète'}
-                </button>
-              )}
+              ))}
 
               <div className="flex items-center justify-between gap-3 pt-1">
                 <span className="text-xs text-ink-faint">
-                  {offset + 1}–
-                  {offset +
-                    (allAmendmentsShown
-                      ? data.count
-                      : Math.min(data.count, VISIBLE_AMENDMENTS))}{' '}
-                  sur {data.total}
+                  {offset + 1}–{offset + data.count} sur {data.total}
                 </span>
-                {allAmendmentsShown && (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={!hasPrevious}
-                      onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                      className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft"
-                    >
-                      Précédents
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!hasNext}
-                      onClick={() => setOffset(offset + PAGE_SIZE)}
-                      className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft"
-                    >
-                      Suivants
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <button type="button" disabled={!hasPrevious} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft">Précédents</button>
+                  <button type="button" disabled={!hasNext} onClick={() => setOffset(offset + PAGE_SIZE)} className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft disabled:opacity-40 enabled:hover:bg-surface-soft">Suivants</button>
+                </div>
               </div>
             </>
           )}

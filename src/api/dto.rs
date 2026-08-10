@@ -350,9 +350,13 @@ impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for Refres
                 .scrutins
                 .map(crate::api::scrutin_dto::ScrutinsRefreshResponse::from),
             scrutins_anomaly: o.scrutins_anomaly,
-            extraction: o.extraction.map(crate::api::theme_dto::ExtractionResponse::from),
+            extraction: o
+                .extraction
+                .map(crate::api::theme_dto::ExtractionResponse::from),
             extraction_anomaly: o.extraction_anomaly,
-            themes: o.themes.map(crate::api::theme_dto::ProposalRunResponse::from),
+            themes: o
+                .themes
+                .map(crate::api::theme_dto::ProposalRunResponse::from),
             themes_anomaly: o.themes_anomaly,
             amendments: o
                 .amendments

@@ -362,7 +362,12 @@ mod tests {
         }
     }
 
-    fn tally_record(uid: &str, abbrev: &str, votes_for: u16, votes_against: u16) -> GroupTallyRecord {
+    fn tally_record(
+        uid: &str,
+        abbrev: &str,
+        votes_for: u16,
+        votes_against: u16,
+    ) -> GroupTallyRecord {
         GroupTallyRecord {
             group_uid: uid.to_string(),
             abbrev: abbrev.to_string(),
@@ -370,7 +375,12 @@ mod tests {
             color: None,
             member_count: Some(60),
             majority_position: Some(
-                if votes_for >= votes_against { "for" } else { "against" }.to_string(),
+                if votes_for >= votes_against {
+                    "for"
+                } else {
+                    "against"
+                }
+                .to_string(),
             ),
             tally: VoteTally {
                 votes_for,
@@ -475,11 +485,8 @@ mod tests {
     #[tokio::test]
     async fn a_group_absent_from_a_scrutin_yields_no_stance() {
         let repository = repository();
-        *repository.groups.lock().unwrap() = vec![
-            group("PO1", "RN"),
-            group("PO2", "SOC"),
-            group("PO3", "UDR"),
-        ];
+        *repository.groups.lock().unwrap() =
+            vec![group("PO1", "RN"), group("PO2", "SOC"), group("PO3", "UDR")];
 
         let view = BrowseFinalVotes::new(&repository)
             .execute(BrowseFinalVotesCommand {
