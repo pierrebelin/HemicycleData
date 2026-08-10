@@ -202,7 +202,8 @@ mod tests {
     use super::*;
     use crate::application::ports::actor_repository::RegistrySummary;
     use crate::application::ports::amendment_repository::{
-        AmendmentPage, AmendmentPageRequest, DossierAmendmentCoverage, SignatoryRow,
+        AmendmentGroupOption, AmendmentPage, AmendmentPageRequest, DossierAmendmentCoverage,
+        SignatoryRow,
     };
     use crate::application::ports::amendment_source::{AmendmentBatches, AmendmentFeed};
     use crate::application::ports::{RepositoryError, SourceError};
@@ -298,6 +299,13 @@ mod tests {
             _dossier_uid: &str,
             _page: &AmendmentPageRequest,
         ) -> Result<AmendmentPage, RepositoryError> {
+            unreachable!()
+        }
+
+        async fn groups_by_dossier(
+            &self,
+            _dossier_uid: &str,
+        ) -> Result<Vec<AmendmentGroupOption>, RepositoryError> {
             unreachable!()
         }
 

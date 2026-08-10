@@ -138,11 +138,7 @@ pub fn merge_lineages(records: Vec<GroupRecord>) -> Vec<GroupSummary> {
         a.is_dissolved()
             .cmp(&b.is_dissolved())
             .then_with(|| b.member_count.cmp(&a.member_count))
-            .then_with(|| {
-                b.window
-                    .map(|w| w.last)
-                    .cmp(&a.window.map(|w| w.last))
-            })
+            .then_with(|| b.window.map(|w| w.last).cmp(&a.window.map(|w| w.last)))
             .then_with(|| a.abbrev.cmp(&b.abbrev))
     });
     groups
@@ -155,7 +151,11 @@ fn seed(key: String, record: GroupRecord, lineage: Option<&GroupLineage>) -> Acc
         Some(lineage) => (
             lineage.abbrev.to_string(),
             lineage.label.to_string(),
-            lineage.former_abbrevs.iter().map(|a| a.to_string()).collect(),
+            lineage
+                .former_abbrevs
+                .iter()
+                .map(|a| a.to_string())
+                .collect(),
         ),
         None => (record.abbrev, record.label, Vec::new()),
     };
@@ -248,7 +248,10 @@ pub(crate) mod tests {
 
     #[async_trait]
     impl GroupRepository for InMemoryGroupRepository {
-        async fn list_groups(&self, _today: NaiveDate) -> Result<Vec<GroupRecord>, RepositoryError> {
+        async fn list_groups(
+            &self,
+            _today: NaiveDate,
+        ) -> Result<Vec<GroupRecord>, RepositoryError> {
             Ok(self.records.lock().unwrap().clone())
         }
 
@@ -344,11 +347,7 @@ pub(crate) mod tests {
         repository.records.lock().unwrap().reverse();
 
         let view = view(&repository).await;
-        let merged = view
-            .groups
-            .iter()
-            .find(|g| g.abbrev == "UDDPLR")
-            .unwrap();
+        let merged = view.groups.iter().find(|g| g.abbrev == "UDDPLR").unwrap();
 
         assert_eq!(merged.uid, "PO872880");
         assert_eq!(merged.member_count, 16);

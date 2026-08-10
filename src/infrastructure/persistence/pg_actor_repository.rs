@@ -182,8 +182,14 @@ impl ActorRepository for PgActorRepository {
         .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
         Ok(ActorDirectory::new(
-            actor_rows.into_iter().filter_map(ActorRow::into_actor).collect(),
-            group_rows.into_iter().filter_map(GroupRow::into_group).collect(),
+            actor_rows
+                .into_iter()
+                .filter_map(ActorRow::into_actor)
+                .collect(),
+            group_rows
+                .into_iter()
+                .filter_map(GroupRow::into_group)
+                .collect(),
             membership_rows
                 .into_iter()
                 .filter_map(MembershipRow::into_membership)

@@ -4,8 +4,7 @@ pub fn compute_score(title: &str, last_activity_label: &str, act_count: usize) -
     let progress = score_progress(last_activity_label);
     let magnitude = score_magnitude(title);
     let momentum = score_momentum(act_count);
-    let total =
-        ((progress as u16 * 3 + magnitude as u16 * 2 + momentum as u16) * 100 / 60) as u8;
+    let total = ((progress as u16 * 3 + magnitude as u16 * 2 + momentum as u16) * 100 / 60) as u8;
     Score::new(progress, magnitude, momentum, total).expect("compute_score produces valid ranges")
 }
 
@@ -42,7 +41,11 @@ fn score_magnitude(title: &str) -> u8 {
         || lower.contains("budget")
     {
         10
-    } else if lower.contains("sécurité") || lower.contains("securite") || lower.contains("défense") || lower.contains("defense") {
+    } else if lower.contains("sécurité")
+        || lower.contains("securite")
+        || lower.contains("défense")
+        || lower.contains("defense")
+    {
         8
     } else if lower.contains("santé")
         || lower.contains("sante")

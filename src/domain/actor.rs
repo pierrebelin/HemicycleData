@@ -479,11 +479,9 @@ impl ActorDirectory {
         let memberships = self.memberships.get(uid).map(Vec::as_slice).unwrap_or(&[]);
 
         let (group, quality, ambiguous) = match membership_at(memberships, date) {
-            MembershipAtDate::Found(m) => (
-                self.groups.get(m.group_uid()),
-                Some(m.quality()),
-                false,
-            ),
+            MembershipAtDate::Found(m) => {
+                (self.groups.get(m.group_uid()), Some(m.quality()), false)
+            }
             MembershipAtDate::None => (None, None, false),
             MembershipAtDate::Ambiguous => (None, None, true),
         };
@@ -673,7 +671,14 @@ mod tests {
     fn membership_at_keeps_president_quality_in_their_own_group() {
         let memberships = vec![
             membership("PM1", "PA1", "PO_A", date(2024, 7, 19), None, "Membre"),
-            membership("PM2", "PA1", "PO_A", date(2025, 3, 1), None, "Pr\u{00e9}sident"),
+            membership(
+                "PM2",
+                "PA1",
+                "PO_A",
+                date(2025, 3, 1),
+                None,
+                "Pr\u{00e9}sident",
+            ),
         ];
 
         match membership_at(&memberships, date(2025, 6, 1)) {

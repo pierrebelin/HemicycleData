@@ -93,11 +93,8 @@ pub struct GroupListResponse {
 
 impl From<GroupListView> for GroupListResponse {
     fn from(view: GroupListView) -> Self {
-        let groups: Vec<GroupSummaryDto> = view
-            .groups
-            .into_iter()
-            .map(GroupSummaryDto::from)
-            .collect();
+        let groups: Vec<GroupSummaryDto> =
+            view.groups.into_iter().map(GroupSummaryDto::from).collect();
         Self {
             total: groups.len(),
             groups,
@@ -214,7 +211,11 @@ impl From<GroupProfileView> for GroupDetailResponse {
             }),
             group: view.summary.into(),
             total_member_count: view.total_member_count,
-            qualities: view.qualities.into_iter().map(QualityCountDto::from).collect(),
+            qualities: view
+                .qualities
+                .into_iter()
+                .map(QualityCountDto::from)
+                .collect(),
             published_member_range: view.published_member_range.map(MemberCountRangeDto::from),
             line_count: view.line_count,
             reconstructed_count: view.reconstructed_count,

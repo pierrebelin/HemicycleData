@@ -1,6 +1,7 @@
 use crate::application::ports::actor_repository::ActorRepository;
 use crate::application::ports::amendment_repository::{
-    AmendmentPageRequest, AmendmentRepository, AmendmentSummary, DossierAmendmentCoverage,
+    AmendmentGroupOption, AmendmentPageRequest, AmendmentRepository, AmendmentSummary,
+    DossierAmendmentCoverage,
 };
 use crate::application::ports::RepositoryError;
 use crate::domain::actor::{ActorDirectory, ActorUid, GroupUid};
@@ -25,6 +26,7 @@ pub struct DossierAmendments {
     pub items: Vec<AmendmentView>,
     pub total: i64,
     pub coverage: DossierAmendmentCoverage,
+    pub groups: Vec<AmendmentGroupOption>,
 }
 
 /// CU-02 — Consulter les amendements d'un dossier.
@@ -45,6 +47,7 @@ impl<'a> BrowseDossierAmendments<'a> {
     ) -> Result<DossierAmendments, RepositoryError> {
         let page = self.amendments.by_dossier(dossier_uid, page).await?;
         let coverage = self.amendments.dossier_coverage(dossier_uid).await?;
+        let groups = self.amendments.groups_by_dossier(dossier_uid).await?;
 
         // Le referentiel n'est charge que pour les auteurs de la page affichee.
         let uids: Vec<ActorUid> = page
@@ -65,6 +68,7 @@ impl<'a> BrowseDossierAmendments<'a> {
             items,
             total: page.total,
             coverage,
+            groups,
         })
     }
 }

@@ -97,7 +97,10 @@ impl ScrutinClient {
                 .then_with(|| b.uid().as_str().cmp(a.uid().as_str()))
         });
 
-        tracing::info!("Parsed {} scrutins (legislature {legislature})", scrutins.len());
+        tracing::info!(
+            "Parsed {} scrutins (legislature {legislature})",
+            scrutins.len()
+        );
         Ok(scrutins)
     }
 
@@ -118,7 +121,9 @@ impl ScrutinClient {
             .and_then(|d| NaiveDate::parse_from_str(d.trim(), "%Y-%m-%d").ok())
             .ok_or_else(|| format!("{uid}: unusable date"))?;
 
-        let raw_type = raw.type_vote.ok_or_else(|| format!("{uid}: no ballot type"))?;
+        let raw_type = raw
+            .type_vote
+            .ok_or_else(|| format!("{uid}: no ballot type"))?;
         let ballot_type = BallotType::new(
             raw_type.code_type_vote.unwrap_or_default(),
             raw_type.libelle_type_vote.unwrap_or_default(),
@@ -139,16 +144,16 @@ impl ScrutinClient {
             .and_then(|o| o.libelle.clone())
             .unwrap_or_default();
 
-        let dossier = objet
-            .and_then(|o| o.dossier_legislatif)
-            .and_then(|d| match (non_empty(d.dossier_ref), d.libelle) {
+        let dossier = objet.and_then(|o| o.dossier_legislatif).and_then(|d| {
+            match (non_empty(d.dossier_ref), d.libelle) {
                 (Some(uid), label) => Some(DossierReference {
                     uid,
                     label: label.unwrap_or_default(),
                 }),
                 // RM-10: pas de dossier, le scrutin passe quand meme.
                 (None, _) => None,
-            });
+            }
+        });
 
         let raw_synthese = raw
             .synthese_vote
@@ -222,11 +227,7 @@ impl ScrutinClient {
         // RM-04: le votant est range sous la ligne de groupe du scrutin. Sous la
         // sentinelle, la source ne dit rien: aucun groupe n'est pose, la
         // reconstruction s'en chargera (RM-03).
-        let attributed = if is_sentinel {
-            None
-        } else {
-            Some(group_uid)
-        };
+        let attributed = if is_sentinel { None } else { Some(group_uid) };
 
         let mut votes = Vec::new();
         if let Some(nominal) = vote.and_then(|v| v.decompte_nominatif) {
@@ -497,13 +498,19 @@ mod tests {
         let votes = s.nominal_votes();
 
         assert_eq!(votes.len(), 4);
-        let pa1 = votes.iter().find(|v| v.actor_uid.as_str() == "PA1").unwrap();
+        let pa1 = votes
+            .iter()
+            .find(|v| v.actor_uid.as_str() == "PA1")
+            .unwrap();
         assert_eq!(pa1.group_uid.as_ref().unwrap().as_str(), "PO845401");
         assert_eq!(pa1.position, VotePosition::For);
         assert!(pa1.by_delegation);
         assert_eq!(pa1.seat, Some(12));
 
-        let pa3 = votes.iter().find(|v| v.actor_uid.as_str() == "PA3").unwrap();
+        let pa3 = votes
+            .iter()
+            .find(|v| v.actor_uid.as_str() == "PA3")
+            .unwrap();
         assert_eq!(pa3.position, VotePosition::NotVoting);
         assert_eq!(pa3.cause.as_ref().unwrap().as_str(), "PAN");
     }
@@ -596,7 +603,10 @@ mod tests {
         assert!(scrutins.iter().all(|s| !s.nominal_votes().is_empty()));
 
         // H9: mises au point et dysfonctionnements, sans toucher aux decomptes.
-        let with_corrections = scrutins.iter().filter(|s| !s.corrections().is_empty()).count();
+        let with_corrections = scrutins
+            .iter()
+            .filter(|s| !s.corrections().is_empty())
+            .count();
         assert_eq!(with_corrections, 1544);
         let declarations: usize = scrutins.iter().map(|s| s.corrections().len()).sum();
         assert_eq!(declarations, 3206);

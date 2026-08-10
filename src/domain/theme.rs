@@ -651,14 +651,8 @@ mod tests {
             .into_iter()
             .map(|f| ProposedFamily::new(f, "justification".into()).unwrap())
             .collect();
-        let proposal = ThemeProposal::new(
-            subject,
-            families,
-            "modele".into(),
-            "v1".into(),
-            date(),
-        )
-        .unwrap();
+        let proposal =
+            ThemeProposal::new(subject, families, "modele".into(), "v1".into(), date()).unwrap();
         assert_eq!(proposal.families().len(), MAX_FAMILIES);
         assert_eq!(
             proposal.families()[0].family(),
@@ -714,14 +708,9 @@ mod tests {
     #[test]
     fn closing_keeps_the_assignment_readable() {
         let subject = SubjectRef::Text(TextKey("texte".into()));
-        let mut assignment = ThemeAssignment::open(
-            subject,
-            FamilyCode::Logement,
-            date(),
-            "modele".into(),
-            None,
-        )
-        .unwrap();
+        let mut assignment =
+            ThemeAssignment::open(subject, FamilyCode::Logement, date(), "modele".into(), None)
+                .unwrap();
         let later = NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
         assignment.close(later).unwrap();
         assert!(!assignment.is_current());
@@ -732,14 +721,9 @@ mod tests {
     #[test]
     fn closing_before_opening_is_refused() {
         let subject = SubjectRef::Text(TextKey("texte".into()));
-        let mut assignment = ThemeAssignment::open(
-            subject,
-            FamilyCode::Logement,
-            date(),
-            "modele".into(),
-            None,
-        )
-        .unwrap();
+        let mut assignment =
+            ThemeAssignment::open(subject, FamilyCode::Logement, date(), "modele".into(), None)
+                .unwrap();
         let earlier = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         assert!(assignment.close(earlier).is_err());
         assert!(assignment.is_current());

@@ -1,9 +1,7 @@
 use chrono::NaiveDate;
 
 use crate::application::ports::theme_repository::{RepositoryError, ThemeRepository};
-use crate::domain::theme::{
-    FamilyCode, SubjectRef, ThemeAssignment, ThemeError, MAX_FAMILIES,
-};
+use crate::domain::theme::{FamilyCode, SubjectRef, ThemeAssignment, ThemeError, MAX_FAMILIES};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ArbitrationError {
@@ -118,14 +116,8 @@ mod tests {
     }
 
     async fn seed_proposal(repository: &InMemoryThemeRepository, family: FamilyCode) {
-        let assignment = ThemeAssignment::open(
-            subject(),
-            family,
-            today(),
-            "modèle".into(),
-            None,
-        )
-        .unwrap();
+        let assignment =
+            ThemeAssignment::open(subject(), family, today(), "modèle".into(), None).unwrap();
         repository
             .replace_assignments(&subject(), today(), &[assignment])
             .await
@@ -242,6 +234,9 @@ mod tests {
 
         let result = ArbitrateTheme::new(&repository).execute(cmd, today()).await;
 
-        assert!(matches!(result, Err(ArbitrationError::UnknownSubject { .. })));
+        assert!(matches!(
+            result,
+            Err(ArbitrationError::UnknownSubject { .. })
+        ));
     }
 }

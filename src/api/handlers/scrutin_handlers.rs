@@ -54,17 +54,26 @@ pub async fn get_scrutin_detail(
 pub async fn get_dossier_scrutins(
     State(state): State<AppState>,
     Path(uid): Path<String>,
+    Query(params): Query<ScrutinListQuery>,
 ) -> Result<Json<DossierScrutinsResponse>, (StatusCode, String)> {
-    let scrutins = ListScrutins::new(state.scrutin_repository.as_ref())
-        .for_dossier(&uid)
+    let mut filter: ScrutinFilter = params.into();
+    filter.dossier_uid = Some(uid);
+    let offset = filter.offset.max(0);
+    let page = ListScrutins::new(state.scrutin_repository.as_ref())
+        .execute(filter)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let scrutins: Vec<ScrutinSummaryDto> =
-        scrutins.into_iter().map(ScrutinSummaryDto::from).collect();
+    let scrutins: Vec<ScrutinSummaryDto> = page
+        .items
+        .into_iter()
+        .map(ScrutinSummaryDto::from)
+        .collect();
 
     Ok(Json(DossierScrutinsResponse {
         count: scrutins.len(),
+        total: page.total,
+        offset,
         scrutins,
         coverage_note: SHOW_OF_HANDS_NOTE,
     }))
