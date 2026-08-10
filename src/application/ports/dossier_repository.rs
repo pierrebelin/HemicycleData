@@ -11,7 +11,7 @@ pub use super::RepositoryError;
 ///
 /// Le rafraichissement compare cet etat a celui de la source pour n'ecrire
 /// que ce qui a bouge : reecrire les 3 035 dossiers coute une quinzaine
-/// d'allers-retours chacun sur une base serverless.
+/// d'allers-retours chacun sur la base PostgreSQL locale du VPS.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredDossierState {
     pub last_activity_date: NaiveDate,

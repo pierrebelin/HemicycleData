@@ -20,9 +20,6 @@ use crate::domain::theme::FamilyCode;
 const FINAL_VOTE_PREDICATE: &str =
     "(s.subject LIKE 'l''ensemble %' OR s.subject LIKE 'l\u{2019}ensemble %')";
 
-/// Toutes les lectures de ce depot portent `persistent(false)`, comme les
-/// autres depots: le pooler Neon conserve les instructions preparees au-dela de
-/// la vie du processus.
 pub struct PgFinalVoteRepository {
     pool: PgPool,
 }

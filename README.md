@@ -183,7 +183,7 @@ API officielle : textes promulgués, droit en vigueur, Journal officiel. Auth OA
 
 - **Backend Rust** — Axum, Tokio, sqlx, serde.
 - **Frontend React/TypeScript** — Vite, SPA, TanStack Query, Tailwind.
-- **Base** : Postgres (Neon, serverless).
+- **Base** : PostgreSQL local sur le VPS.
 - Clean Architecture + DDD, couche application découpée par use case. Détails dans `CLAUDE.md`.
 - LLM en BYOK, cantonné à la thématisation et au routage du chat — **jamais à la production de chiffres**.
 
