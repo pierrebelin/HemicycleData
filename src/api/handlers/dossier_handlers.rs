@@ -3,6 +3,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use chrono::Utc;
 
+use crate::api::dossier_group_actions_dto::DossierGroupActionsResponse;
 use crate::api::dto::{
     CurateBody, DossierDetailDto, DossierDto, DossierPageQuery, DossierPageResponse,
     RecentActivityQuery, RecentDossiersResponse, RefreshQuery, RefreshResponse, RegistryResponse,
@@ -13,8 +14,10 @@ use crate::application::use_cases::browse_dossiers::{BrowseDossiers, DossierQuer
 use crate::application::use_cases::curate_dossier::CurateDossier;
 use crate::application::use_cases::fetch_recent_dossiers::FetchRecentDossiers;
 use crate::application::use_cases::get_dossier_detail::GetDossierDetail;
+use crate::application::use_cases::get_dossier_group_actions::GetDossierGroupActions;
 use crate::application::use_cases::refresh_actor_registry::RefreshActorRegistry;
 use crate::application::use_cases::refresh_all::RefreshAll;
+use crate::application::use_cases::refresh_dossier_group_summaries::RefreshDossierGroupSummaries;
 use crate::application::use_cases::refresh_dossiers::RefreshScope;
 use crate::application::use_cases::save_dossier::SaveDossier;
 use crate::application::use_cases::suggest_dossiers::SuggestDossiers;
@@ -87,6 +90,22 @@ pub async fn get_dossier_detail(
         .ok_or((StatusCode::NOT_FOUND, "Dossier not found".to_string()))?;
 
     Ok(Json(DossierDetailDto::from_result(result)))
+}
+
+pub async fn get_dossier_group_actions(
+    State(state): State<AppState>,
+    Path(uid): Path<String>,
+) -> Result<Json<DossierGroupActionsResponse>, (StatusCode, String)> {
+    let result = GetDossierGroupActions::new(
+        state.dossier_group_actions_repository.as_ref(),
+        state.dossier_summary_repository.as_ref(),
+    )
+    .execute(&uid)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .ok_or((StatusCode::NOT_FOUND, "Dossier not found".to_string()))?;
+
+    Ok(Json(DossierGroupActionsResponse::from(result)))
 }
 
 pub async fn save_dossier(
@@ -181,7 +200,16 @@ pub async fn refresh_dossiers(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    Ok(Json(RefreshResponse::from(outcome)))
+    let summary_report = RefreshDossierGroupSummaries::new(
+        state.dossier_group_actions_repository.as_ref(),
+        state.dossier_summary_repository.as_ref(),
+        state.dossier_summary_generator.as_ref(),
+    )
+    .execute(config::dossier_summary_batch_per_refresh())
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(RefreshResponse::from((outcome, summary_report))))
 }
 
 pub async fn refresh_actor_registry(

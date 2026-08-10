@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router'
+import { useParams, Link, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import DossierAmendments from '../components/DossierAmendments'
 import DossierScrutins from '../components/DossierScrutins'
+import DossierGroupActions from '../components/DossierGroupActions'
 import { OutcomePanel } from '../components/OutcomeBadge'
 import { Card, ErrorPanel, Loading, Pill, SectionTitle } from '../components/ui'
 import type { OutcomeDto } from '../types/dossiers'
@@ -101,6 +102,7 @@ function scoreTotalColor(score: number) {
  */
 export default function DossierDetailPage() {
   const { uid } = useParams<{ uid: string }>()
+  const [searchParams] = useSearchParams()
   const [allActsShown, setAllActsShown] = useState(false)
 
   const { data, isLoading, isError, error } = useQuery<DossierDetailDto>({
@@ -224,6 +226,8 @@ export default function DossierDetailPage() {
         </div>
       )}
 
+      <DossierGroupActions uid={data.uid} />
+
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <Card className="p-4">
           <div className="mb-3 flex items-baseline justify-between">
@@ -337,7 +341,7 @@ export default function DossierDetailPage() {
 
       {/* Les votes d'abord, les raisons ensuite : on lit ce qui a ete decide,
           puis ce que les signataires ont ecrit pour le justifier. */}
-      <DossierAmendments uid={data.uid} />
+      <DossierAmendments uid={data.uid} initialGroup={searchParams.get('amendements_group') ?? ''} />
 
       <div className="text-center">
         <a

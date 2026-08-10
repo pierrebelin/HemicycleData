@@ -22,6 +22,7 @@ use tower::ServiceExt;
 use hemicycle_data::api::routes::create_router;
 use hemicycle_data::api::security::AdminGuard;
 use hemicycle_data::infrastructure::llm::unavailable_classifier::UnavailableClassifier;
+use hemicycle_data::infrastructure::llm::unavailable_dossier_summary::UnavailableDossierSummaryGenerator;
 use hemicycle_data::infrastructure::national_assembly::actor_client::AmoActorClient;
 use hemicycle_data::infrastructure::national_assembly::amendment_client::AmendmentClient;
 use hemicycle_data::infrastructure::national_assembly::client::NationalAssemblyClient;
@@ -66,6 +67,13 @@ fn state() -> AppState {
         db: db.clone(),
         assembly_source: Arc::new(NationalAssemblyClient::new()),
         dossier_repository: Arc::new(PgDossierRepository::new(db.clone())),
+        dossier_group_actions_repository: Arc::new(
+            hemicycle_data::infrastructure::persistence::pg_dossier_group_actions_repository::PgDossierGroupActionsRepository::new(db.clone()),
+        ),
+        dossier_summary_repository: Arc::new(
+            hemicycle_data::infrastructure::persistence::pg_dossier_summary_repository::PgDossierSummaryRepository::new(db.clone()),
+        ),
+        dossier_summary_generator: Arc::new(UnavailableDossierSummaryGenerator),
         actor_source: Arc::new(AmoActorClient::new()),
         actor_repository: Arc::new(PgActorRepository::new(db.clone())),
         scrutin_source: Arc::new(ScrutinClient::new()),
@@ -175,6 +183,7 @@ async fn les_routes_de_consultation_restent_ouvertes() {
         "/api/scrutins",
         "/api/groupes",
         "/api/dossiers",
+        "/api/dossiers/D1/lecture-groupes",
         "/api/themes",
         "/api/votes-finaux",
     ] {

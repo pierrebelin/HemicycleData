@@ -31,6 +31,14 @@ pub fn amendment_batch_per_refresh() -> usize {
         .unwrap_or(40_000)
 }
 
+pub fn dossier_summary_batch_per_refresh() -> usize {
+    std::env::var("DOSSIER_SUMMARY_BATCH_PER_REFRESH")
+        .ok()
+        .and_then(|raw| raw.parse().ok())
+        .unwrap_or(10)
+        .clamp(1, 100)
+}
+
 pub async fn try_connect_database() -> Result<PgPool, String> {
     let database_url =
         std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?;

@@ -1,6 +1,7 @@
 pub mod actor;
 pub mod amendment;
 pub mod dossier;
+pub mod dossier_summary;
 pub mod final_vote;
 pub mod group_lineage;
 pub mod group_profile;

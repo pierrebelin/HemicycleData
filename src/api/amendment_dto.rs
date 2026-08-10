@@ -170,6 +170,7 @@ pub struct AmendmentsRefreshResponse {
     pub groups_ambiguous: usize,
     pub groups_undated: usize,
     pub registry_anomaly: Option<String>,
+    pub dossier_summaries: Option<crate::api::dto::DossierSummaryRefreshResponse>,
 }
 
 impl From<AmendmentsSummary> for AmendmentsRefreshResponse {
@@ -188,6 +189,7 @@ impl From<AmendmentsSummary> for AmendmentsRefreshResponse {
             groups_ambiguous: summary.groups.ambiguous,
             groups_undated: summary.groups.undated,
             registry_anomaly: summary.registry_anomaly,
+            dossier_summaries: None,
         }
     }
 }

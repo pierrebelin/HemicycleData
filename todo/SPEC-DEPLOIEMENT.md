@@ -278,15 +278,19 @@ Fichier `/home/hemicycle/shared/.env`, propriétaire `hemicycle`, mode `600`,
 
 ```
 DATABASE_URL=postgresql://hemicycle:mot_de_passe@127.0.0.1:5432/hemicycle?sslmode=disable
+LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-proj-...
 ADMIN_TOKEN_SECRET=<openssl rand -hex 32>
 BIND_ADDR=127.0.0.1
 PORT=8085
 RUST_LOG=info
 ```
 
-`ANTHROPIC_API_KEY` est facultative : sans clé, la thématisation ne propose rien
-et le site tourne (RM-01). `ADMIN_TOKEN_SECRET` ne l'est pas en pratique : sans
+Les clés LLM sont facultatives : sans la clé du fournisseur choisi par
+`LLM_PROVIDER`, la thématisation ne propose rien, les synthèses restent en
+attente et le site tourne (RM-01). Le fournisseur peut être changé dans ce
+fichier, puis le service redémarré. `ADMIN_TOKEN_SECRET` ne l'est pas en pratique : sans
 lui, les huit routes d'écriture répondent `403` et l'ingestion devient
 impossible, CRON compris. Moins de 32 caractères : refusé au démarrage, écriture
 fermée de la même façon.

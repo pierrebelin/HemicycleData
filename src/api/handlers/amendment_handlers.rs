@@ -7,6 +7,7 @@ use crate::api::amendment_dto::{AmendmentsRefreshResponse, DossierAmendmentsResp
 use crate::application::ports::amendment_repository::AmendmentPageRequest;
 use crate::application::use_cases::browse_dossier_amendments::BrowseDossierAmendments;
 use crate::application::use_cases::refresh_amendments::RefreshAmendments;
+use crate::application::use_cases::refresh_dossier_group_summaries::RefreshDossierGroupSummaries;
 use crate::infrastructure::config;
 use crate::AppState;
 
@@ -66,5 +67,28 @@ pub async fn refresh_amendments(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    Ok(Json(AmendmentsRefreshResponse::from(summary)))
+    let mut response = AmendmentsRefreshResponse::from(summary);
+    match RefreshDossierGroupSummaries::new(
+        state.dossier_group_actions_repository.as_ref(),
+        state.dossier_summary_repository.as_ref(),
+        state.dossier_summary_generator.as_ref(),
+    )
+    .execute(config::dossier_summary_batch_per_refresh())
+    .await
+    {
+        Ok(report) => {
+            response.dossier_summaries = Some(crate::api::dto::DossierSummaryRefreshResponse {
+                dossiers_seen: report.dossiers_seen,
+                dossiers_refreshed: report.dossiers_refreshed,
+                summaries_ready: report.summaries_ready,
+                summaries_pending: report.summaries_pending,
+                anomaly: report.anomaly,
+            });
+        }
+        Err(error) => {
+            tracing::warn!(%error, "Dossier summaries refresh failed after amendments");
+        }
+    }
+
+    Ok(Json(response))
 }
