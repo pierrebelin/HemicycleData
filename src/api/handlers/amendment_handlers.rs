@@ -14,6 +14,9 @@ use crate::AppState;
 pub struct AmendmentPageQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+    pub search: Option<String>,
+    pub fate: Option<String>,
+    pub group: Option<String>,
 }
 
 /// CU-02 — Amendements d'un dossier.
@@ -27,6 +30,12 @@ pub async fn get_dossier_amendments(
     Query(query): Query<AmendmentPageQuery>,
 ) -> Result<Json<DossierAmendmentsResponse>, (StatusCode, String)> {
     let page = AmendmentPageRequest::new(query.limit, query.offset);
+    let page = AmendmentPageRequest {
+        search: query.search.filter(|s| !s.trim().is_empty()),
+        fate_code: query.fate.filter(|s| !s.trim().is_empty()),
+        author_group_uid: query.group.filter(|s| !s.trim().is_empty()),
+        ..page
+    };
 
     let amendments = BrowseDossierAmendments::new(
         state.amendment_repository.as_ref(),

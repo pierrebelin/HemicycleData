@@ -8,6 +8,13 @@ use chrono::NaiveDate;
 
 use crate::domain::amendment::Amendment;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AmendmentGroupOption {
+    pub uid: String,
+    pub label: String,
+    pub abbrev: String,
+}
+
 pub use super::RepositoryError;
 
 /// Bornage mecanique de l'affichage.
@@ -18,6 +25,9 @@ pub use super::RepositoryError;
 pub struct AmendmentPageRequest {
     pub limit: i64,
     pub offset: i64,
+    pub search: Option<String>,
+    pub fate_code: Option<String>,
+    pub author_group_uid: Option<String>,
 }
 
 /// Borne dure. Une requete qui demande davantage est ramenee ici plutot que
@@ -30,6 +40,9 @@ impl AmendmentPageRequest {
         Self {
             limit: limit.unwrap_or(DEFAULT_PAGE_SIZE).clamp(1, MAX_PAGE_SIZE),
             offset: offset.unwrap_or(0).max(0),
+            search: None,
+            fate_code: None,
+            author_group_uid: None,
         }
     }
 }
@@ -110,6 +123,11 @@ pub trait AmendmentRepository: Send + Sync {
         dossier_uid: &str,
         page: &AmendmentPageRequest,
     ) -> Result<AmendmentPage, RepositoryError>;
+
+    async fn groups_by_dossier(
+        &self,
+        dossier_uid: &str,
+    ) -> Result<Vec<AmendmentGroupOption>, RepositoryError>;
 
     async fn dossier_coverage(
         &self,

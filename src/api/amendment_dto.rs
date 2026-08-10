@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use serde::Serialize;
 
+use crate::application::ports::amendment_repository::AmendmentGroupOption;
 use crate::application::ports::amendment_repository::DossierAmendmentCoverage;
 use crate::application::use_cases::browse_dossier_amendments::{AmendmentView, DossierAmendments};
 use crate::application::use_cases::refresh_amendments::AmendmentsSummary;
@@ -107,10 +108,28 @@ pub struct DossierAmendmentsResponse {
     pub offset: i64,
     pub limit: i64,
     pub amendments: Vec<AmendmentDto>,
+    pub groups: Vec<AmendmentGroupDto>,
     pub coverage: AmendmentCoverageDto,
     pub coverage_note: &'static str,
     pub pagination_note: &'static str,
     pub source_note: &'static str,
+}
+
+#[derive(Serialize)]
+pub struct AmendmentGroupDto {
+    pub uid: String,
+    pub label: String,
+    pub abbrev: String,
+}
+
+impl From<AmendmentGroupOption> for AmendmentGroupDto {
+    fn from(group: AmendmentGroupOption) -> Self {
+        Self {
+            uid: group.uid,
+            label: group.label,
+            abbrev: group.abbrev,
+        }
+    }
 }
 
 impl DossierAmendmentsResponse {
@@ -123,6 +142,11 @@ impl DossierAmendmentsResponse {
             offset,
             limit,
             amendments,
+            groups: page
+                .groups
+                .into_iter()
+                .map(AmendmentGroupDto::from)
+                .collect(),
             coverage: AmendmentCoverageDto::from(page.coverage),
             coverage_note: AMENDMENT_COVERAGE_NOTE,
             pagination_note: AMENDMENT_PAGINATION_NOTE,

@@ -47,12 +47,12 @@ impl<'a> GetDossierDetail<'a> {
             }));
         }
 
-        if let Some((mut dossier, refs)) =
-            self.source.fetch_dossier_by_uid_with_refs(uid).await?
-        {
+        if let Some((mut dossier, refs)) = self.source.fetch_dossier_by_uid_with_refs(uid).await? {
             if !refs.is_empty() && dossier.initiators.is_empty() {
-                let uids: Vec<ActorUid> =
-                    refs.into_iter().filter_map(|r| ActorUid::new(r).ok()).collect();
+                let uids: Vec<ActorUid> = refs
+                    .into_iter()
+                    .filter_map(|r| ActorUid::new(r).ok())
+                    .collect();
                 let directory = self.actor_repository.load_directory_for(&uids).await?;
                 dossier.attach_initiators(&uids, &directory);
             }

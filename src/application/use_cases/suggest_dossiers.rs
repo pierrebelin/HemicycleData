@@ -24,7 +24,9 @@ mod tests {
     use std::sync::Mutex;
 
     use crate::application::ports::dossier_repository::RepositoryError;
-    use crate::domain::dossier::{CurationStatus, DossierOutcome, DossierUid, LegislativeDossier, Score};
+    use crate::domain::dossier::{
+        CurationStatus, DossierOutcome, DossierUid, LegislativeDossier, Score,
+    };
 
     struct InMemoryDossierRepository {
         dossiers: Mutex<HashMap<String, LegislativeDossier>>,
@@ -141,9 +143,15 @@ mod tests {
     #[tokio::test]
     async fn excludes_non_new_dossiers() {
         let mut map = HashMap::new();
-        map.insert("D1".into(), make_dossier("D1", 90, CurationStatus::Selected));
+        map.insert(
+            "D1".into(),
+            make_dossier("D1", 90, CurationStatus::Selected),
+        );
         map.insert("D2".into(), make_dossier("D2", 80, CurationStatus::New));
-        map.insert("D3".into(), make_dossier("D3", 70, CurationStatus::Dismissed));
+        map.insert(
+            "D3".into(),
+            make_dossier("D3", 70, CurationStatus::Dismissed),
+        );
 
         let repo = InMemoryDossierRepository {
             dossiers: Mutex::new(map),

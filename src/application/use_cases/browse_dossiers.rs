@@ -173,9 +173,9 @@ mod tests {
             .outcome_kind
             .as_ref()
             .is_none_or(|kind| dossier.outcome.kind() == kind);
-        let initiative_matches = criteria.initiative.is_none_or(|initiative| {
-            dossier.procedure.starts_with(initiative.procedure_prefix())
-        });
+        let initiative_matches = criteria
+            .initiative
+            .is_none_or(|initiative| dossier.procedure.starts_with(initiative.procedure_prefix()));
 
         title_matches && outcome_matches && initiative_matches
     }

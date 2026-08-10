@@ -252,8 +252,18 @@ impl ScrutinRepository for PgScrutinRepository {
                      SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::bool[])",
                 )
                 .bind(chunk.iter().map(|(uid, _)| *uid).collect::<Vec<_>>())
-                .bind(chunk.iter().map(|(_, c)| c.actor_uid.as_str()).collect::<Vec<_>>())
-                .bind(chunk.iter().map(|(_, c)| c.claimed_position.as_str()).collect::<Vec<_>>())
+                .bind(
+                    chunk
+                        .iter()
+                        .map(|(_, c)| c.actor_uid.as_str())
+                        .collect::<Vec<_>>(),
+                )
+                .bind(
+                    chunk
+                        .iter()
+                        .map(|(_, c)| c.claimed_position.as_str())
+                        .collect::<Vec<_>>(),
+                )
                 .bind(chunk.iter().map(|(_, c)| c.malfunction).collect::<Vec<_>>())
                 .execute(&mut *tx)
                 .await
@@ -468,16 +478,15 @@ impl ScrutinRepository for PgScrutinRepository {
         .await
         .map_err(db)?;
 
-        let legislatures = sqlx::query(
-            "SELECT DISTINCT legislature FROM scrutins ORDER BY legislature",
-        )
-        .persistent(false)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(db)?
-        .iter()
-        .map(|row| row.get::<i16, _>("legislature") as i64)
-        .collect();
+        let legislatures =
+            sqlx::query("SELECT DISTINCT legislature FROM scrutins ORDER BY legislature")
+                .persistent(false)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db)?
+                .iter()
+                .map(|row| row.get::<i16, _>("legislature") as i64)
+                .collect();
 
         let dossiers_total: i64 = sqlx::query("SELECT count(*) FROM legislative_dossiers")
             .persistent(false)
@@ -493,9 +502,7 @@ impl ScrutinRepository for PgScrutinRepository {
             first_scrutin_date: totals.get("first_date"),
             last_scrutin_date: totals.get("last_date"),
             legislatures,
-            outcomes: self
-                .code_counts("outcome_code", "outcome_label")
-                .await?,
+            outcomes: self.code_counts("outcome_code", "outcome_label").await?,
             ballot_types: self
                 .code_counts("ballot_type_code", "ballot_type_label")
                 .await?,

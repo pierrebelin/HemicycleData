@@ -146,8 +146,10 @@ pub trait ThemeRepository: Send + Sync {
 
     /// Textes sans rattachement courant et jamais rattaches avec succes, du plus
     /// vote au moins vote: le travail utile d'abord.
-    async fn texts_awaiting_proposal(&self, limit: i64)
-        -> Result<Vec<DebatedText>, RepositoryError>;
+    async fn texts_awaiting_proposal(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<DebatedText>, RepositoryError>;
 
     /// Dossiers sans scrutin, sans rattachement courant et jamais rattaches
     /// avec succes. Ceux qui ont des scrutins heritent de leur texte et ne

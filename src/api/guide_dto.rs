@@ -6,7 +6,8 @@ use crate::application::use_cases::describe_dataset::DatasetOverview;
 
 /// Les deux grandeurs dérivées sont des divisions, pas des mesures. La formule
 /// est publiée avec le chiffre pour que le lecteur puisse la refaire.
-pub const DERIVATION_NOTE: &str = "Part sans dossier et nombre de scrutins par texte sont calculés \
+pub const DERIVATION_NOTE: &str =
+    "Part sans dossier et nombre de scrutins par texte sont calculés \
      à partir des totaux ci-dessus, arrondis respectivement à l'entier et à la décimale.";
 
 #[derive(Debug, Serialize)]

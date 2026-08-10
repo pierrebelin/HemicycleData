@@ -20,3 +20,6 @@ id_ed25519*
 # Instructions locales Codex/agents
 .agents/
 **/AGENTS.md
+
+# Configuration et worktrees locaux
+.claude/

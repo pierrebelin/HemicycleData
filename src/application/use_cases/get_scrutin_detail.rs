@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::application::ports::actor_repository::ActorRepository;
-use crate::application::ports::scrutin_repository::{
-    RepositoryError, ScrutinRepository,
-};
+use crate::application::ports::scrutin_repository::{RepositoryError, ScrutinRepository};
 use crate::domain::actor::{ActorDirectory, ActorUid};
 use crate::domain::scrutin::{
     GroupTally, NonVotingCause, Scrutin, ScrutinUid, TallyOrigin, VotePosition,
@@ -89,7 +87,10 @@ impl<'a> GetScrutinDetail<'a> {
         actor_uids.sort();
         actor_uids.dedup();
 
-        let directory = self.actor_repository.load_directory_for(&actor_uids).await?;
+        let directory = self
+            .actor_repository
+            .load_directory_for(&actor_uids)
+            .await?;
 
         let mut unknown_actors = 0usize;
         let mut votes_by_group: HashMap<Option<String>, Vec<VoteView>> = HashMap::new();
@@ -220,9 +221,7 @@ mod tests {
     use crate::application::ports::scrutin_repository::{
         DatasetShape, ScrutinFilter, ScrutinPage, ScrutinSummary,
     };
-    use crate::domain::actor::{
-        Actor, ActorRegistry, ActorRole, GroupUid, ParliamentaryGroup,
-    };
+    use crate::domain::actor::{Actor, ActorRegistry, ActorRole, GroupUid, ParliamentaryGroup};
     use crate::domain::scrutin::{
         BallotType, NominalVote, Outcome, VoteCorrection, VoteSynthesis, VoteTally,
     };
@@ -416,11 +415,7 @@ mod tests {
         let detail = detail().await;
         let group = &detail.groups[0];
 
-        let known = group
-            .votes
-            .iter()
-            .find(|v| v.actor_uid == "PA1")
-            .unwrap();
+        let known = group.votes.iter().find(|v| v.actor_uid == "PA1").unwrap();
         assert_eq!(known.full_name.as_deref(), Some("Jean Dupont"));
         assert_eq!(
             known.official_url.as_deref(),
@@ -455,8 +450,14 @@ mod tests {
         let detail = detail().await;
 
         assert_eq!(detail.corrections.len(), 1);
-        assert_eq!(detail.corrections[0].full_name.as_deref(), Some("Jean Dupont"));
-        assert_eq!(detail.corrections[0].claimed_position, VotePosition::Against);
+        assert_eq!(
+            detail.corrections[0].full_name.as_deref(),
+            Some("Jean Dupont")
+        );
+        assert_eq!(
+            detail.corrections[0].claimed_position,
+            VotePosition::Against
+        );
         // RM-05: la synthese et la ventilation restent celles de la source.
         assert_eq!(detail.scrutin.synthesis().tally.votes_for, 2);
         assert_eq!(detail.groups[0].tally.votes_for, 2);

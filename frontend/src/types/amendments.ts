@@ -38,8 +38,15 @@ export interface DossierAmendmentsResponse {
   offset: number
   limit: number
   amendments: AmendmentDto[]
+  groups: AmendmentGroupDto[]
   coverage: AmendmentCoverageDto
   coverage_note: string
   pagination_note: string
   source_note: string
+}
+
+export interface AmendmentGroupDto {
+  uid: string
+  label: string
+  abbrev: string
 }

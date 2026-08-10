@@ -101,7 +101,13 @@ mod tests {
         }
     }
 
-    fn make_dossier(uid: &str, title: &str, procedure: &str, date: NaiveDate, label: &str) -> LegislativeDossier {
+    fn make_dossier(
+        uid: &str,
+        title: &str,
+        procedure: &str,
+        date: NaiveDate,
+        label: &str,
+    ) -> LegislativeDossier {
         let score = compute_score(title, label, 0);
         LegislativeDossier {
             uid: DossierUid::new(uid.into()).unwrap(),
@@ -127,8 +133,20 @@ mod tests {
     #[tokio::test]
     async fn returns_dossiers_sorted_by_date_desc() {
         let mut map = HashMap::new();
-        let d1 = make_dossier("D1", "Ancien", "PL", NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(), "Dépôt");
-        let d2 = make_dossier("D2", "Récent", "PPL", NaiveDate::from_ymd_opt(2026, 6, 27).unwrap(), "Vote");
+        let d1 = make_dossier(
+            "D1",
+            "Ancien",
+            "PL",
+            NaiveDate::from_ymd_opt(2026, 6, 20).unwrap(),
+            "Dépôt",
+        );
+        let d2 = make_dossier(
+            "D2",
+            "Récent",
+            "PPL",
+            NaiveDate::from_ymd_opt(2026, 6, 27).unwrap(),
+            "Vote",
+        );
         map.insert("D1".into(), d1);
         map.insert("D2".into(), d2);
 

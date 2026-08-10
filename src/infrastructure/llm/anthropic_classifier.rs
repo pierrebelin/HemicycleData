@@ -312,7 +312,10 @@ fn parse_answer(
             continue;
         };
         if out[slot].is_some() {
-            tracing::warn!(numero = entry.numero, "numéro rendu deux fois, doublon écarté");
+            tracing::warn!(
+                numero = entry.numero,
+                "numéro rendu deux fois, doublon écarté"
+            );
             continue;
         }
 
@@ -414,8 +417,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(parsed[0].as_ref().unwrap()[0].family(), FamilyCode::Immigration);
-        assert_eq!(parsed[1].as_ref().unwrap()[0].family(), FamilyCode::Logement);
+        assert_eq!(
+            parsed[0].as_ref().unwrap()[0].family(),
+            FamilyCode::Immigration
+        );
+        assert_eq!(
+            parsed[1].as_ref().unwrap()[0].family(),
+            FamilyCode::Logement
+        );
     }
 
     #[test]
@@ -447,7 +456,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed[0].as_ref().unwrap()[0].family(), FamilyCode::Numerique);
+        assert_eq!(
+            parsed[0].as_ref().unwrap()[0].family(),
+            FamilyCode::Numerique
+        );
         assert!(parsed[1].is_none());
     }
 
@@ -464,7 +476,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(parsed[0].as_ref().unwrap().len(), 1);
-        assert_eq!(parsed[0].as_ref().unwrap()[0].family(), FamilyCode::Logement);
+        assert_eq!(
+            parsed[0].as_ref().unwrap()[0].family(),
+            FamilyCode::Logement
+        );
     }
 
     #[test]

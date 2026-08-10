@@ -47,11 +47,7 @@ pub async fn browse_dossiers(
     State(state): State<AppState>,
     Query(params): Query<DossierPageQuery>,
 ) -> Result<Json<DossierPageResponse>, (StatusCode, String)> {
-    let query = DossierQuery::new(
-        params.page,
-        params.per_page,
-        DossierCriteria::from(&params),
-    );
+    let query = DossierQuery::new(params.page, params.per_page, DossierCriteria::from(&params));
     let uc = BrowseDossiers::new(state.dossier_repository.as_ref());
 
     let per_page = query.per_page();
@@ -76,8 +72,7 @@ pub async fn get_dossier_detail(
     State(state): State<AppState>,
     Path(uid): Path<String>,
 ) -> Result<Json<DossierDetailDto>, (StatusCode, String)> {
-    let uid = DossierUid::new(uid)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let uid = DossierUid::new(uid).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
     let uc = GetDossierDetail::new(
         state.dossier_repository.as_ref(),
@@ -98,8 +93,7 @@ pub async fn save_dossier(
     State(state): State<AppState>,
     Path(uid): Path<String>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    let uid = DossierUid::new(uid)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let uid = DossierUid::new(uid).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
     let uc = SaveDossier::new(
         state.assembly_source.as_ref(),
@@ -138,19 +132,16 @@ pub async fn curate_dossier(
     Path(uid): Path<String>,
     Json(body): Json<CurateBody>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    let uid = DossierUid::new(uid)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let uid = DossierUid::new(uid).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
     let uc = CurateDossier::new(state.dossier_repository.as_ref());
 
-    uc.execute(&uid, body.status)
-        .await
-        .map_err(|e| match &e {
-            crate::application::use_cases::curate_dossier::CurateError::NotFound(_) => {
-                (StatusCode::NOT_FOUND, e.to_string())
-            }
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-        })?;
+    uc.execute(&uid, body.status).await.map_err(|e| match &e {
+        crate::application::use_cases::curate_dossier::CurateError::NotFound(_) => {
+            (StatusCode::NOT_FOUND, e.to_string())
+        }
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    })?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -196,10 +187,8 @@ pub async fn refresh_dossiers(
 pub async fn refresh_actor_registry(
     State(state): State<AppState>,
 ) -> Result<Json<RegistryResponse>, (StatusCode, String)> {
-    let uc = RefreshActorRegistry::new(
-        state.actor_source.as_ref(),
-        state.actor_repository.as_ref(),
-    );
+    let uc =
+        RefreshActorRegistry::new(state.actor_source.as_ref(), state.actor_repository.as_ref());
 
     let summary = uc
         .execute()

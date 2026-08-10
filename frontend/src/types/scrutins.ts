@@ -42,7 +42,9 @@ export interface ScrutinListResponse {
 }
 
 export interface DossierScrutinsResponse {
+  total: number
   count: number
+  offset: number
   scrutins: ScrutinSummaryDto[]
   coverage_note: string
 }

@@ -178,7 +178,9 @@ mod tests {
         };
         let repository = InMemoryActorRepository::new();
 
-        let result = RefreshActorRegistry::new(&source, &repository).execute().await;
+        let result = RefreshActorRegistry::new(&source, &repository)
+            .execute()
+            .await;
 
         assert!(matches!(result, Err(RefreshRegistryError::Source(_))));
         assert!(repository.registry.lock().unwrap().is_none());

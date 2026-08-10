@@ -8,7 +8,11 @@ use crate::application::ports::dossier_repository::{
     DossierCriteria, DossierPage, DossierRepository, RepositoryError, StoredDossierState,
 };
 use crate::domain::actor::{ActorRole, ActorUid, GroupUid, MembershipQuality};
-use crate::domain::dossier::{Committee, CurationStatus, DossierOutcome, DossierUid, Initiator, InitiatorGroup, LawPublication, LegislativeAct, LegislativeDocument, LegislativeStage, LegislativeDossier, Score};
+use crate::domain::dossier::{
+    Committee, CurationStatus, DossierOutcome, DossierUid, Initiator, InitiatorGroup,
+    LawPublication, LegislativeAct, LegislativeDocument, LegislativeDossier, LegislativeStage,
+    Score,
+};
 
 pub struct PgDossierRepository {
     pool: PgPool,
@@ -38,7 +42,10 @@ impl PgDossierRepository {
             .collect())
     }
 
-    async fn fetch_documents(&self, dossier_uid: &str) -> Result<Vec<LegislativeDocument>, RepositoryError> {
+    async fn fetch_documents(
+        &self,
+        dossier_uid: &str,
+    ) -> Result<Vec<LegislativeDocument>, RepositoryError> {
         let rows = sqlx::query_as::<_, DocumentRow>(
             "SELECT document_uid, title, short_title, doc_type, doc_date FROM dossier_documents WHERE dossier_uid = $1 ORDER BY id",
         )
@@ -237,7 +244,8 @@ const BATCH_SIZE: usize = 50;
 
 /// Colonnes de la ligne de liste : ni actes, ni initiateurs, ni documents, que
 /// la page ne montre pas et qui coûteraient une requête par dossier.
-const PAGE_SELECT: &str = "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
+const PAGE_SELECT: &str =
+    "SELECT uid, title, procedure_label, last_activity_date, last_activity_label,
             score_progress, score_magnitude, score_momentum, score_total,
             current_stage_code, committee, curation_status,
             legislature, url, summary, deposit_date,
@@ -350,7 +358,10 @@ impl DossierRepository for PgDossierRepository {
         .await
         .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|r| r.into_dossier(vec![], vec![], vec![])).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| r.into_dossier(vec![], vec![], vec![]))
+            .collect())
     }
 
     async fn find_page(
@@ -448,7 +459,10 @@ impl DossierRepository for PgDossierRepository {
         .await
         .map_err(|e| RepositoryError::Database(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|r| r.into_dossier(vec![], vec![], vec![])).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| r.into_dossier(vec![], vec![], vec![]))
+            .collect())
     }
 
     async fn update_curation_status(
@@ -543,7 +557,12 @@ impl DossierRow {
         }
     }
 
-    fn into_dossier(self, acts: Vec<LegislativeAct>, initiators: Vec<Initiator>, documents: Vec<LegislativeDocument>) -> LegislativeDossier {
+    fn into_dossier(
+        self,
+        acts: Vec<LegislativeAct>,
+        initiators: Vec<Initiator>,
+        documents: Vec<LegislativeDocument>,
+    ) -> LegislativeDossier {
         let outcome = self.outcome();
         LegislativeDossier {
             uid: DossierUid::new(self.uid).expect("DB uid is non-empty"),
@@ -569,8 +588,11 @@ impl DossierRow {
                 .as_deref()
                 .and_then(LegislativeStage::from_code),
             initiators,
-            committee: self.committee.map(|c| Committee::new(c).expect("DB committee is non-empty")),
-            curation_status: CurationStatus::parse(&self.curation_status).unwrap_or(CurationStatus::New),
+            committee: self
+                .committee
+                .map(|c| Committee::new(c).expect("DB committee is non-empty")),
+            curation_status: CurationStatus::parse(&self.curation_status)
+                .unwrap_or(CurationStatus::New),
             outcome,
         }
     }
@@ -614,16 +636,16 @@ impl InitiatorRow {
         // RM-01: la contrainte SQL garantit deja qu'un groupe stocke porte sa
         // date de reference; la construction du domaine la revalide.
         let group = match (self.group_uid, self.group_abbrev, self.group_label) {
-            (Some(uid), Some(abbrev), Some(label)) => GroupUid::new(uid).ok().map(|uid| {
-                InitiatorGroup {
+            (Some(uid), Some(abbrev), Some(label)) => {
+                GroupUid::new(uid).ok().map(|uid| InitiatorGroup {
                     uid,
                     abbrev,
                     label,
                     quality: self
                         .membership_quality
                         .and_then(|q| MembershipQuality::new(q).ok()),
-                }
-            }),
+                })
+            }
             _ => None,
         };
 
