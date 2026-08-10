@@ -324,11 +324,8 @@ mod tests {
                     ActorUid::new("PA2".into()).unwrap(),
                     GroupUid::new("PO_A".into()).unwrap(),
                     17,
-                    MembershipPeriod::new(
-                        NaiveDate::from_ymd_opt(2025, 6, 1).unwrap(),
-                        None,
-                    )
-                    .unwrap(),
+                    MembershipPeriod::new(NaiveDate::from_ymd_opt(2025, 6, 1).unwrap(), None)
+                        .unwrap(),
                     MembershipQuality::new("Membre".into()).unwrap(),
                 ),
             ];
@@ -364,10 +361,7 @@ mod tests {
     #[tokio::test]
     async fn stores_every_scrutin_including_those_without_a_dossier() {
         let (summary, stored, requested) = run(
-            vec![
-                scrutin("V1", vec![], vec![]),
-                scrutin("V2", vec![], vec![]),
-            ],
+            vec![scrutin("V1", vec![], vec![]), scrutin("V2", vec![], vec![])],
             false,
         )
         .await;

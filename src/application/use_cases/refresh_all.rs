@@ -154,19 +154,24 @@ impl<'a> RefreshAll<'a> {
 
         // L'extraction relit les objets de scrutin deja stockes: elle reste
         // utile meme quand la source des scrutins n'a pas repondu.
-        let (extraction, extraction_anomaly) =
-            match ExtractDebatedTexts::new(self.theme_repository).execute().await {
-                Ok(report) => (Some(report), None),
-                Err(e) => {
-                    tracing::warn!("Debated text extraction failed: {e}");
-                    (None, Some(e.to_string()))
-                }
-            };
+        let (extraction, extraction_anomaly) = match ExtractDebatedTexts::new(self.theme_repository)
+            .execute()
+            .await
+        {
+            Ok(report) => (Some(report), None),
+            Err(e) => {
+                tracing::warn!("Debated text extraction failed: {e}");
+                (None, Some(e.to_string()))
+            }
+        };
 
         // Sans extraction, aucun texte nouveau n'est en attente: soumettre
         // reviendrait a rejouer l'ancien etat.
         let (themes, themes_anomaly) = if extraction.is_none() {
-            (None, Some("extraction indisponible, aucun rattachement tenté".to_string()))
+            (
+                None,
+                Some("extraction indisponible, aucun rattachement tenté".to_string()),
+            )
         } else {
             match ProposeThemeFamilies::new(self.theme_repository, self.theme_classifier)
                 .execute(self.theme_batch, today)
@@ -225,7 +230,7 @@ mod tests {
 
     use crate::application::ports::actor_source::SourceError as ActorSourceError;
     use crate::application::ports::amendment_repository::{
-        AmendmentPage, AmendmentPageRequest, DossierAmendmentCoverage,
+        AmendmentGroupOption, AmendmentPage, AmendmentPageRequest, DossierAmendmentCoverage,
         RepositoryError as AmendmentRepositoryError, SignatoryRow,
     };
     use crate::application::ports::amendment_source::{
@@ -379,6 +384,13 @@ mod tests {
             _dossier_uid: &str,
             _page: &AmendmentPageRequest,
         ) -> Result<AmendmentPage, AmendmentRepositoryError> {
+            unreachable!()
+        }
+
+        async fn groups_by_dossier(
+            &self,
+            _dossier_uid: &str,
+        ) -> Result<Vec<AmendmentGroupOption>, AmendmentRepositoryError> {
             unreachable!()
         }
 
@@ -557,7 +569,8 @@ mod tests {
         let theme_repository = InMemoryThemeRepository::default();
         *theme_repository.subjects.lock().unwrap() = vec![ScrutinSubject {
             uid: "VTANR5L17V1".into(),
-            subject: "l'article 12 du projet de loi de finances pour 2026 (première lecture).".into(),
+            subject: "l'article 12 du projet de loi de finances pour 2026 (première lecture)."
+                .into(),
         }];
         let awaiting = DebatedText::new("projet de loi de finances pour 2026".into()).unwrap();
         *theme_repository.awaiting.lock().unwrap() = vec![awaiting.clone()];
@@ -609,8 +622,10 @@ mod tests {
 
         let theme_repository = InMemoryThemeRepository::default();
         *theme_repository.awaiting.lock().unwrap() =
-            vec![DebatedText::new("proposition de loi relative au droit à l'aide à mourir".into())
-                .unwrap()];
+            vec![
+                DebatedText::new("proposition de loi relative au droit à l'aide à mourir".into())
+                    .unwrap(),
+            ];
         let theme_classifier = StubClassifier::new().failing_batches();
 
         let outcome = refresh!(

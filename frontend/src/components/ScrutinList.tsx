@@ -24,16 +24,13 @@ export function CoverageNote({ note }: { note: string }) {
  * qui fait foi, et lui seul distingue un vote sur l'ensemble d'un vote sur un
  * amendement du même texte.
  */
-function titles(scrutin: ScrutinSummaryDto) {
-  if (scrutin.dossier_label) {
-    return { lead: scrutin.dossier_label, official: scrutin.subject }
-  }
-  return { lead: scrutin.subject, official: null }
-}
-
-export function ScrutinRow({ scrutin }: { scrutin: ScrutinSummaryDto }) {
-  const { lead, official } = titles(scrutin)
-
+export function ScrutinRow({
+  scrutin,
+  showDossier = true,
+}: {
+  scrutin: ScrutinSummaryDto
+  showDossier?: boolean
+}) {
   return (
     <Link
       to={`/scrutins/${scrutin.uid}`}
@@ -53,6 +50,9 @@ export function ScrutinRow({ scrutin }: { scrutin: ScrutinSummaryDto }) {
           <Meta>
             n° {scrutin.number} · {formatDateShort(scrutin.date)}
           </Meta>
+          {showDossier && scrutin.dossier_label && (
+            <Meta>{scrutin.dossier_label}</Meta>
+          )}
           {scrutin.has_reconstructed_tallies && (
             <Pill
               tone="info"
@@ -64,13 +64,8 @@ export function ScrutinRow({ scrutin }: { scrutin: ScrutinSummaryDto }) {
         </div>
 
         <p className="text-[15px] font-semibold leading-snug text-ink transition-colors group-hover:text-accent">
-          {lead}
+          {scrutin.subject}
         </p>
-        {official && (
-          <p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-ink-faint">
-            {official}
-          </p>
-        )}
       </div>
 
       {/* Colonne de largeur fixe, pour que les barres s'alignent d'une ligne à
@@ -87,13 +82,15 @@ export function ScrutinRow({ scrutin }: { scrutin: ScrutinSummaryDto }) {
 
 export default function ScrutinList({
   scrutins,
+  showDossier = true,
 }: {
   scrutins: ScrutinSummaryDto[]
+  showDossier?: boolean
 }) {
   return (
     <ListCard>
       {scrutins.map((scrutin) => (
-        <ScrutinRow key={scrutin.uid} scrutin={scrutin} />
+        <ScrutinRow key={scrutin.uid} scrutin={scrutin} showDossier={showDossier} />
       ))}
     </ListCard>
   )

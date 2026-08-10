@@ -149,7 +149,10 @@ impl<'a> RefreshDossiers<'a> {
             .filter_map(|r| ActorUid::new(r).ok())
             .collect();
 
-        let directory = self.actor_repository.load_directory_for(&actor_uids).await?;
+        let directory = self
+            .actor_repository
+            .load_directory_for(&actor_uids)
+            .await?;
         if directory.is_empty() && !actor_uids.is_empty() {
             tracing::warn!(
                 "Actor registry is empty: {} initiator references cannot be resolved",
@@ -164,8 +167,10 @@ impl<'a> RefreshDossiers<'a> {
             .into_iter()
             .map(|(mut dossier, refs)| {
                 if !refs.is_empty() && dossier.initiators.is_empty() {
-                    let uids: Vec<ActorUid> =
-                        refs.into_iter().filter_map(|r| ActorUid::new(r).ok()).collect();
+                    let uids: Vec<ActorUid> = refs
+                        .into_iter()
+                        .filter_map(|r| ActorUid::new(r).ok())
+                        .collect();
                     let report = dossier.attach_initiators(&uids, &directory);
 
                     totals.resolved += report.resolved;
@@ -337,7 +342,10 @@ pub(crate) mod tests {
             &self,
             actor_uids: &[ActorUid],
         ) -> Result<ActorDirectory, RepositoryError> {
-            self.requested_uids.lock().unwrap().extend_from_slice(actor_uids);
+            self.requested_uids
+                .lock()
+                .unwrap()
+                .extend_from_slice(actor_uids);
 
             let registry = self.registry.lock().unwrap();
             let actors: Vec<Actor> = registry
@@ -389,7 +397,10 @@ pub(crate) mod tests {
         ) -> Result<usize, crate::application::ports::dossier_repository::RepositoryError> {
             let mut store = self.dossiers.lock().unwrap();
             for d in dossiers {
-                self.written.lock().unwrap().push(d.uid.as_str().to_string());
+                self.written
+                    .lock()
+                    .unwrap()
+                    .push(d.uid.as_str().to_string());
                 store.insert(d.uid.as_str().to_string(), d.clone());
             }
             Ok(dossiers.len())
@@ -419,8 +430,10 @@ pub(crate) mod tests {
         async fn find_recent(
             &self,
             _since: NaiveDate,
-        ) -> Result<Vec<LegislativeDossier>, crate::application::ports::dossier_repository::RepositoryError>
-        {
+        ) -> Result<
+            Vec<LegislativeDossier>,
+            crate::application::ports::dossier_repository::RepositoryError,
+        > {
             unreachable!()
         }
 
@@ -447,8 +460,10 @@ pub(crate) mod tests {
         async fn find_suggestions(
             &self,
             _count: usize,
-        ) -> Result<Vec<LegislativeDossier>, crate::application::ports::dossier_repository::RepositoryError>
-        {
+        ) -> Result<
+            Vec<LegislativeDossier>,
+            crate::application::ports::dossier_repository::RepositoryError,
+        > {
             unreachable!()
         }
 
@@ -652,12 +667,7 @@ mod incremental_tests {
             &self,
             _since: NaiveDate,
         ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
-            Ok(self
-                .dossiers
-                .iter()
-                .cloned()
-                .map(|d| (d, vec![]))
-                .collect())
+            Ok(self.dossiers.iter().cloned().map(|d| (d, vec![])).collect())
         }
 
         async fn fetch_dossier_by_uid(

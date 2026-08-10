@@ -5,15 +5,18 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::assembly_source::{AssemblySource, SourceError};
-use crate::domain::dossier::{Committee, CurationStatus, DossierUid, Initiative, Initiator, LegislativeAct, LegislativeDocument, LegislativeDossier};
+use crate::domain::dossier::{
+    Committee, CurationStatus, DossierUid, Initiative, Initiator, LegislativeAct,
+    LegislativeDocument, LegislativeDossier,
+};
 use crate::domain::scoring::compute_score;
 
 use super::archive_fetcher::ArchiveFetcher;
 use super::committees::resolve_committee;
 use super::parsing::{
-    collect_all_acts, extract_document_refs, extract_initiator_refs,
-    find_committee_organe_ref, find_current_stage, find_deposit_date, find_latest_act,
-    find_outcome, RawDocumentWrapper, RawDossierWrapper,
+    collect_all_acts, extract_document_refs, extract_initiator_refs, find_committee_organe_ref,
+    find_current_stage, find_deposit_date, find_latest_act, find_outcome, RawDocumentWrapper,
+    RawDossierWrapper,
 };
 
 const DOSSIERS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/dossiers_legislatifs/Dossiers_Legislatifs.json.zip";
@@ -55,9 +58,7 @@ impl NationalAssemblyClient {
             .unwrap_or(17);
 
         let url = raw.dossier_title.titre_chemin.as_ref().map(|chemin| {
-            format!(
-                "https://www.assemblee-nationale.fr/dyn/{legislature}/dossiers/{chemin}"
-            )
+            format!("https://www.assemblee-nationale.fr/dyn/{legislature}/dossiers/{chemin}")
         });
 
         let all_acts: Vec<LegislativeAct> = collect_all_acts(&raw.legislative_acts)
@@ -104,9 +105,8 @@ impl NationalAssemblyClient {
             .and_then(|c| Committee::new(c).ok());
         let initiator_refs = extract_initiator_refs(&raw.initiator);
 
-        let is_government_bill =
-            Initiative::from_procedure(&raw.parliamentary_procedure.libelle)
-                == Some(Initiative::Government);
+        let is_government_bill = Initiative::from_procedure(&raw.parliamentary_procedure.libelle)
+            == Some(Initiative::Government);
 
         let initiators = if initiator_refs.is_empty() && is_government_bill {
             vec![Initiator::unresolved("Gouvernement".to_string()).expect("non-empty")]
@@ -138,7 +138,9 @@ impl NationalAssemblyClient {
         ))
     }
 
-    fn build_document_index(archive: &mut zip::ZipArchive<Cursor<&[u8]>>) -> HashMap<String, DocumentMeta> {
+    fn build_document_index(
+        archive: &mut zip::ZipArchive<Cursor<&[u8]>>,
+    ) -> HashMap<String, DocumentMeta> {
         let mut index = HashMap::new();
 
         for i in 0..archive.len() {
@@ -163,7 +165,9 @@ impl NationalAssemblyClient {
             };
 
             let doc = &wrapper.document;
-            let title = doc.titres.as_ref()
+            let title = doc
+                .titres
+                .as_ref()
                 .and_then(|t| t.titre_principal.clone())
                 .unwrap_or_default();
 
@@ -171,24 +175,33 @@ impl NationalAssemblyClient {
                 continue;
             }
 
-            let short_title = doc.titres.as_ref()
+            let short_title = doc
+                .titres
+                .as_ref()
                 .and_then(|t| t.titre_principal_court.clone());
 
-            let doc_type = doc.denomination.clone()
+            let doc_type = doc
+                .denomination
+                .clone()
                 .or_else(|| doc.provenance.clone())
                 .unwrap_or_else(|| "Document".to_string());
 
-            let date = doc.cycle_de_vie.as_ref()
+            let date = doc
+                .cycle_de_vie
+                .as_ref()
                 .and_then(|c| c.chrono.as_ref())
                 .and_then(|c| c.date_depot.as_deref())
                 .and_then(|d| NaiveDate::parse_from_str(&d[..10.min(d.len())], "%Y-%m-%d").ok());
 
-            index.insert(doc.uid.clone(), DocumentMeta {
-                title,
-                short_title,
-                doc_type,
-                date,
-            });
+            index.insert(
+                doc.uid.clone(),
+                DocumentMeta {
+                    title,
+                    short_title,
+                    doc_type,
+                    date,
+                },
+            );
         }
 
         tracing::info!("Built document index with {} entries", index.len());
@@ -275,7 +288,10 @@ impl NationalAssemblyClient {
                 continue;
             }
 
-            return Ok(Self::parse_raw_dossier(&wrapper.parliamentary_dossier, &doc_index));
+            return Ok(Self::parse_raw_dossier(
+                &wrapper.parliamentary_dossier,
+                &doc_index,
+            ));
         }
 
         Ok(None)
@@ -298,10 +314,9 @@ impl AssemblySource for NationalAssemblyClient {
     ) -> Result<Vec<(LegislativeDossier, Vec<String>)>, SourceError> {
         let zip_data = self.get_zip().await?;
 
-        let parsed =
-            tokio::task::spawn_blocking(move || Self::parse_dossiers(&zip_data, since))
-                .await
-                .map_err(|e| SourceError::Parse(e.to_string()))??;
+        let parsed = tokio::task::spawn_blocking(move || Self::parse_dossiers(&zip_data, since))
+            .await
+            .map_err(|e| SourceError::Parse(e.to_string()))??;
 
         tracing::info!("Found {} dossiers since {since}", parsed.len());
         Ok(parsed)

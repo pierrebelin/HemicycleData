@@ -1,9 +1,9 @@
 use async_trait::async_trait;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 
 use crate::application::ports::amendment_repository::{
-    AmendmentPage, AmendmentPageRequest, AmendmentRepository, AmendmentSummary,
-    DossierAmendmentCoverage, RepositoryError, SignatoryRow,
+    AmendmentGroupOption, AmendmentPage, AmendmentPageRequest, AmendmentRepository,
+    AmendmentSummary, DossierAmendmentCoverage, RepositoryError, SignatoryRow,
 };
 use crate::domain::amendment::{Amendment, Author};
 
@@ -39,6 +39,37 @@ const FROM_DOSSIER: &str = "FROM amendments a
            SELECT 1 FROM dossier_documents d
            WHERE d.dossier_uid = $1 AND d.document_uid = a.text_ref
        )";
+
+fn push_filters(query: &mut QueryBuilder<'_, Postgres>, page: &AmendmentPageRequest) {
+    if let Some(search) = page.search.as_deref() {
+        query.push(" AND (a.number ILIKE ");
+        query.push_bind(format!("%{search}%"));
+        query.push(" OR a.target_title ILIKE ");
+        query.push_bind(format!("%{search}%"));
+        query.push(" OR COALESCE(a.author_label, '') ILIKE ");
+        query.push_bind(format!("%{search}%"));
+        query.push(" OR EXISTS (SELECT 1 FROM actors actor WHERE actor.uid = a.author_actor_uid AND (actor.first_name ILIKE ");
+        query.push_bind(format!("%{search}%"));
+        query.push(" OR actor.last_name ILIKE ");
+        query.push_bind(format!("%{search}%"));
+        query.push("))");
+        query.push(" OR COALESCE(a.summary, '') ILIKE ");
+        query.push_bind(format!("%{search}%"));
+        query.push(")");
+    }
+    if let Some(fate) = page.fate_code.as_deref() {
+        if fate == "other" {
+            query.push(" AND a.fate_code NOT IN ('adopted', 'rejected')");
+        } else {
+            query.push(" AND a.fate_code = ");
+            query.push_bind(fate.to_string());
+        }
+    }
+    if let Some(group_uid) = page.author_group_uid.as_deref() {
+        query.push(" AND a.author_group_uid = ");
+        query.push_bind(group_uid.to_string());
+    }
+}
 
 #[async_trait]
 impl AmendmentRepository for PgAmendmentRepository {
@@ -239,8 +270,17 @@ impl AmendmentRepository for PgAmendmentRepository {
         dossier_uid: &str,
         page: &AmendmentPageRequest,
     ) -> Result<AmendmentPage, RepositoryError> {
-        let total: i64 = sqlx::query_scalar(&format!("SELECT count(*) {FROM_DOSSIER}"))
-            .bind(dossier_uid)
+        let mut count_query: QueryBuilder<Postgres> = QueryBuilder::new(
+            "SELECT count(*) FROM amendments a
+             WHERE a.text_ref IS NOT NULL
+               AND EXISTS (SELECT 1 FROM dossier_documents d
+                           WHERE d.dossier_uid = ",
+        );
+        count_query.push_bind(dossier_uid);
+        count_query.push(" AND d.document_uid = a.text_ref)");
+        push_filters(&mut count_query, page);
+        let total: i64 = count_query
+            .build_query_scalar()
             .fetch_one(&self.pool)
             .await
             .map_err(db)?;
@@ -249,23 +289,26 @@ impl AmendmentRepository for PgAmendmentRepository {
         // publie melerait « 100 » et « 99 »; trier sur le nombre de
         // cosignataires serait un classement (README.md §6). Les amendements
         // sans date publiee ferment la liste plutot que d'ouvrir dessus.
-        let rows = sqlx::query(&format!(
+        let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
             "SELECT a.uid, a.number, a.target_title, a.target_kind,
                     a.author_kind, a.author_actor_uid, a.author_label,
                     a.author_group_uid, a.author_group_origin, a.author_group_ambiguous,
                     a.fate_code, a.fate_label, a.state_label, a.deposited_on, a.summary,
                     (SELECT count(*) FROM amendment_signatories s
                       WHERE s.amendment_uid = a.uid AND s.role = 'cosignatory') AS cosignatory_count
-             {FROM_DOSSIER}
-             ORDER BY a.deposited_on ASC NULLS LAST, a.uid ASC
-             LIMIT $2 OFFSET $3"
-        ))
-        .bind(dossier_uid)
-        .bind(page.limit)
-        .bind(page.offset)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(db)?;
+             FROM amendments a
+             WHERE a.text_ref IS NOT NULL
+               AND EXISTS (SELECT 1 FROM dossier_documents d
+                           WHERE d.dossier_uid = ",
+        );
+        query.push_bind(dossier_uid);
+        query.push(" AND d.document_uid = a.text_ref)");
+        push_filters(&mut query, page);
+        query.push(" ORDER BY a.deposited_on ASC NULLS LAST, a.uid ASC LIMIT ");
+        query.push_bind(page.limit);
+        query.push(" OFFSET ");
+        query.push_bind(page.offset);
+        let rows = query.build().fetch_all(&self.pool).await.map_err(db)?;
 
         let items = rows
             .iter()
@@ -290,6 +333,33 @@ impl AmendmentRepository for PgAmendmentRepository {
             .collect();
 
         Ok(AmendmentPage { items, total })
+    }
+
+    async fn groups_by_dossier(
+        &self,
+        dossier_uid: &str,
+    ) -> Result<Vec<AmendmentGroupOption>, RepositoryError> {
+        let rows = sqlx::query(&format!(
+            "SELECT DISTINCT g.uid, g.label, g.abbrev
+             FROM amendments a
+             JOIN dossier_documents d ON d.document_uid = a.text_ref
+             JOIN parliamentary_groups g ON g.uid = a.author_group_uid
+             WHERE d.dossier_uid = $1
+             ORDER BY g.label, g.uid"
+        ))
+        .bind(dossier_uid)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db)?;
+
+        Ok(rows
+            .iter()
+            .map(|row| AmendmentGroupOption {
+                uid: row.get("uid"),
+                label: row.get("label"),
+                abbrev: row.get("abbrev"),
+            })
+            .collect())
     }
 
     async fn dossier_coverage(

@@ -136,7 +136,11 @@ pub struct BallotType {
 }
 
 impl BallotType {
-    pub fn new(code: String, label: String, majority: Option<String>) -> Result<Self, ScrutinError> {
+    pub fn new(
+        code: String,
+        label: String,
+        majority: Option<String>,
+    ) -> Result<Self, ScrutinError> {
         if code.trim().is_empty() {
             return Err(ScrutinError::EmptyBallotTypeCode);
         }
@@ -673,7 +677,10 @@ mod tests {
 
     #[test]
     fn position_reads_the_source_labels_and_refuses_the_rest() {
-        assert_eq!(VotePosition::from_source("pour").unwrap(), VotePosition::For);
+        assert_eq!(
+            VotePosition::from_source("pour").unwrap(),
+            VotePosition::For
+        );
         assert_eq!(
             VotePosition::from_source("contre").unwrap(),
             VotePosition::Against

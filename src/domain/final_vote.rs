@@ -298,7 +298,10 @@ mod tests {
 
     #[test]
     fn a_subject_without_parenthesis_carries_no_reading() {
-        assert_eq!(reading_of("l'ensemble du projet de loi X.", "projet de loi X"), None);
+        assert_eq!(
+            reading_of("l'ensemble du projet de loi X.", "projet de loi X"),
+            None
+        );
     }
 
     #[test]
@@ -315,7 +318,11 @@ mod tests {
     fn a_unanimous_group_shows_a_hundred_percent() {
         let share = VoterShare::from_tally(&tally(3, 0, 0, 1)).unwrap();
         assert_eq!(
-            (share.for_percent, share.against_percent, share.abstention_percent),
+            (
+                share.for_percent,
+                share.against_percent,
+                share.abstention_percent
+            ),
             (100, 0, 0)
         );
     }

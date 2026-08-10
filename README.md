@@ -184,7 +184,7 @@ API officielle : textes promulgués, droit en vigueur, Journal officiel. Auth OA
 - **Backend Rust** — Axum, Tokio, sqlx, serde.
 - **Frontend React/TypeScript** — Vite, SPA, TanStack Query, Tailwind.
 - **Base** : PostgreSQL local sur le VPS.
-- Clean Architecture + DDD, couche application découpée par use case. Détails dans `CLAUDE.md`.
+- Clean Architecture + DDD, couche application découpée par use case. Les consignes détaillées vivent dans les fichiers locaux `.agents/`.
 - LLM en BYOK, cantonné à la thématisation et au routage du chat — **jamais à la production de chiffres**.
 
 ## 12. Feuille de route
@@ -277,7 +277,7 @@ Les tests de use case reposent sur des fakes in-memory : aucune base n'est néce
 
 Les règles des sections §1 à §12 encadrent toute évolution. Une contribution qui ajoute un jugement, un classement ou un filtrage de votes sera refusée sur ce motif, même bien intentionnée.
 
-Ne jamais versionner de secret, d'adresse d'hôte ni de donnée personnelle — voir la section « Dépôt public » de `CLAUDE.md`.
+Ne jamais versionner de secret, d'adresse d'hôte ni de donnée personnelle — voir la section « Dépôt public » ci-dessus.
 
 ## Licence et données
 

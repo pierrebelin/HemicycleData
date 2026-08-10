@@ -710,7 +710,9 @@ impl ThemeRepository for PgThemeRepository {
                 ))
                 .await?,
             texts_without_family: self
-                .count("SELECT count(*) FROM debated_texts WHERE last_attempt_outcome = 'no_family'")
+                .count(
+                    "SELECT count(*) FROM debated_texts WHERE last_attempt_outcome = 'no_family'",
+                )
                 .await?,
             texts_attempt_failed: self
                 .count("SELECT count(*) FROM debated_texts WHERE last_attempt_outcome = 'failed'")
@@ -732,7 +734,9 @@ impl ThemeRepository for PgThemeRepository {
                      )",
                 )
                 .await?,
-            dossiers_total: self.count("SELECT count(*) FROM legislative_dossiers").await?,
+            dossiers_total: self
+                .count("SELECT count(*) FROM legislative_dossiers")
+                .await?,
             dossiers_linked_to_text: self
                 .count("SELECT count(DISTINCT dossier_uid) FROM dossier_debated_texts")
                 .await?,

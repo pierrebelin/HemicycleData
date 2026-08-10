@@ -55,7 +55,10 @@ pub trait DossierRepository: Send + Sync {
     async fn save_all(&self, dossiers: &[LegislativeDossier]) -> Result<usize, RepositoryError>;
     /// Etat stocke de tous les dossiers, indexe par uid. Une seule requete.
     async fn load_states(&self) -> Result<HashMap<String, StoredDossierState>, RepositoryError>;
-    async fn find_recent(&self, since: NaiveDate) -> Result<Vec<LegislativeDossier>, RepositoryError>;
+    async fn find_recent(
+        &self,
+        since: NaiveDate,
+    ) -> Result<Vec<LegislativeDossier>, RepositoryError>;
     /// Les dossiers répondant aux critères, du plus récent au plus ancien.
     async fn find_page(
         &self,
@@ -63,7 +66,17 @@ pub trait DossierRepository: Send + Sync {
         limit: i64,
         offset: i64,
     ) -> Result<DossierPage, RepositoryError>;
-    async fn find_by_uid(&self, uid: &DossierUid) -> Result<Option<LegislativeDossier>, RepositoryError>;
-    async fn find_suggestions(&self, count: usize) -> Result<Vec<LegislativeDossier>, RepositoryError>;
-    async fn update_curation_status(&self, uid: &DossierUid, status: CurationStatus) -> Result<bool, RepositoryError>;
+    async fn find_by_uid(
+        &self,
+        uid: &DossierUid,
+    ) -> Result<Option<LegislativeDossier>, RepositoryError>;
+    async fn find_suggestions(
+        &self,
+        count: usize,
+    ) -> Result<Vec<LegislativeDossier>, RepositoryError>;
+    async fn update_curation_status(
+        &self,
+        uid: &DossierUid,
+        status: CurationStatus,
+    ) -> Result<bool, RepositoryError>;
 }

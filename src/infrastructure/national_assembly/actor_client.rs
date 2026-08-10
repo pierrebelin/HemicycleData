@@ -9,11 +9,11 @@ use crate::domain::actor::{
     MembershipQuality, ParliamentaryGroup,
 };
 
-use super::archive_fetcher::ArchiveFetcher;
 use super::actor_parsing::{
     mandates, parse_date, text, RawActorWrapper, RawOrganeWrapper, ASSEMBLY_MANDATE_CODE,
     GROUP_ORGANE_CODE, MINISTRY_MANDATE_CODE, SENATE_MANDATE_CODE,
 };
+use super::archive_fetcher::ArchiveFetcher;
 
 /// Jeu historique: tous les acteurs, tous leurs mandats, tous les organes.
 ///
@@ -73,7 +73,12 @@ impl AmoActorClient {
             if raw.code_type.as_deref() != Some(GROUP_ORGANE_CODE) {
                 continue;
             }
-            if raw.legislature.as_deref().and_then(|l| l.parse::<u16>().ok()) != Some(legislature) {
+            if raw
+                .legislature
+                .as_deref()
+                .and_then(|l| l.parse::<u16>().ok())
+                != Some(legislature)
+            {
                 continue;
             }
 
@@ -192,7 +197,10 @@ impl AmoActorClient {
                 };
                 if !known_groups.contains(group_ref) {
                     orphan_memberships += 1;
-                    tracing::warn!("Membership {} points to unknown group {group_ref}", mandat.uid);
+                    tracing::warn!(
+                        "Membership {} points to unknown group {group_ref}",
+                        mandat.uid
+                    );
                     continue;
                 }
 

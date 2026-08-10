@@ -137,7 +137,9 @@ impl From<(ScrutinPage, i64)> for ScrutinListResponse {
 
 #[derive(Serialize)]
 pub struct DossierScrutinsResponse {
+    pub total: i64,
     pub count: usize,
+    pub offset: i64,
     pub scrutins: Vec<ScrutinSummaryDto>,
     pub coverage_note: &'static str,
 }
@@ -245,10 +247,8 @@ impl From<ScrutinDetail> for ScrutinDetailDto {
                 .groups
                 .into_iter()
                 .map(|g| {
-                    let reconstructed = matches!(
-                        g.origin,
-                        crate::domain::scrutin::TallyOrigin::Reconstructed
-                    );
+                    let reconstructed =
+                        matches!(g.origin, crate::domain::scrutin::TallyOrigin::Reconstructed);
                     GroupBreakdownDto {
                         group_uid: g.group_uid,
                         abbrev: g.abbrev,

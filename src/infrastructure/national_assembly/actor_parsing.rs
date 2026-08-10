@@ -167,10 +167,8 @@ mod tests {
 
     #[test]
     fn actor_uid_reads_object_form() {
-        let raw: RawUid = serde_json::from_str(
-            r##"{"@xsi:type":"IdActeur_type","#text":"PA720916"}"##,
-        )
-        .unwrap();
+        let raw: RawUid =
+            serde_json::from_str(r##"{"@xsi:type":"IdActeur_type","#text":"PA720916"}"##).unwrap();
         assert_eq!(raw.as_str(), "PA720916");
     }
 
@@ -182,8 +180,7 @@ mod tests {
 
     #[test]
     fn nil_object_reads_as_absent_text() {
-        let raw: Option<RawText> =
-            serde_json::from_str(r#"{"@xsi:nil":"true"}"#).unwrap();
+        let raw: Option<RawText> = serde_json::from_str(r#"{"@xsi:nil":"true"}"#).unwrap();
         assert_eq!(text(&raw), None);
     }
 

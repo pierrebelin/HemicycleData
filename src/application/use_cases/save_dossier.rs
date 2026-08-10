@@ -41,8 +41,10 @@ impl<'a> SaveDossier<'a> {
             .ok_or_else(|| SaveDossierError::NotFound(uid.as_str().to_string()))?;
 
         if !refs.is_empty() && dossier.initiators.is_empty() {
-            let uids: Vec<ActorUid> =
-                refs.into_iter().filter_map(|r| ActorUid::new(r).ok()).collect();
+            let uids: Vec<ActorUid> = refs
+                .into_iter()
+                .filter_map(|r| ActorUid::new(r).ok())
+                .collect();
             let directory = self.actor_repository.load_directory_for(&uids).await?;
             dossier.attach_initiators(&uids, &directory);
         }
@@ -192,7 +194,7 @@ mod tests {
                     initiators: vec![],
                     committee: None,
                     curation_status: CurationStatus::New,
-            outcome: DossierOutcome::NoRecordedConclusion,
+                    outcome: DossierOutcome::NoRecordedConclusion,
                 },
                 vec!["PA111111".into()],
             ),

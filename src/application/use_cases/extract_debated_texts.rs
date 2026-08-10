@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::application::ports::theme_repository::{
-    RepositoryError, TextLink, ThemeRepository,
-};
+use crate::application::ports::theme_repository::{RepositoryError, TextLink, ThemeRepository};
 use crate::domain::theme::DebatedText;
 
 /// Ce que l'extraction a produit, en chiffres lus depuis les donnees.
@@ -45,9 +43,7 @@ impl<'a> ExtractDebatedTexts<'a> {
                 scrutin_uid: subject.uid.clone(),
                 text_key: text.key().as_str().to_string(),
             });
-            texts
-                .entry(text.key().as_str().to_string())
-                .or_insert(text);
+            texts.entry(text.key().as_str().to_string()).or_insert(text);
         }
 
         let texts: Vec<DebatedText> = texts.into_values().collect();
@@ -93,7 +89,10 @@ mod tests {
             ),
         ];
 
-        let report = ExtractDebatedTexts::new(&repository).execute().await.unwrap();
+        let report = ExtractDebatedTexts::new(&repository)
+            .execute()
+            .await
+            .unwrap();
 
         assert_eq!(report.texts_found, 1);
         assert_eq!(report.scrutins_linked, 2);
@@ -113,7 +112,10 @@ mod tests {
             ),
         ];
 
-        let report = ExtractDebatedTexts::new(&repository).execute().await.unwrap();
+        let report = ExtractDebatedTexts::new(&repository)
+            .execute()
+            .await
+            .unwrap();
 
         assert_eq!(report.scrutins_read, 2);
         assert_eq!(report.scrutins_without_text, 1);
@@ -130,8 +132,14 @@ mod tests {
              (première lecture).",
         )];
 
-        let first = ExtractDebatedTexts::new(&repository).execute().await.unwrap();
-        let second = ExtractDebatedTexts::new(&repository).execute().await.unwrap();
+        let first = ExtractDebatedTexts::new(&repository)
+            .execute()
+            .await
+            .unwrap();
+        let second = ExtractDebatedTexts::new(&repository)
+            .execute()
+            .await
+            .unwrap();
 
         assert_eq!(first, second);
         assert_eq!(repository.texts.lock().unwrap().len(), 1);

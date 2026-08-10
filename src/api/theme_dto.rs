@@ -93,7 +93,11 @@ impl From<TextSummary> for TextSummaryDto {
             last_vote: text.last_vote,
             dossier_uid: text.dossier_uid,
             dossier_label: text.dossier_label,
-            families: text.families.into_iter().map(AssignedFamilyDto::from).collect(),
+            families: text
+                .families
+                .into_iter()
+                .map(AssignedFamilyDto::from)
+                .collect(),
             last_attempt_outcome: text.last_attempt_outcome,
         }
     }
@@ -218,7 +222,11 @@ impl TextDetailResponse {
         Self {
             text: TextSummaryDto::from(detail.summary),
             scrutins: scrutins.into_iter().map(TextScrutinDto::from).collect(),
-            history: detail.history.iter().map(AssignmentHistoryDto::from).collect(),
+            history: detail
+                .history
+                .iter()
+                .map(AssignmentHistoryDto::from)
+                .collect(),
             proposal: detail.proposal.as_ref().map(ProposalDto::from),
             method_note: METHOD_NOTE,
         }
@@ -323,7 +331,11 @@ const RULE_SCOPE: &str = "Certains textes portent leur famille dans leur nature 
 impl From<MethodReport> for MethodResponse {
     fn from(report: MethodReport) -> Self {
         Self {
-            families: report.families.into_iter().map(FamilyCoverageDto::from).collect(),
+            families: report
+                .families
+                .into_iter()
+                .map(FamilyCoverageDto::from)
+                .collect(),
             max_families_per_text: MAX_FAMILIES,
             rules: RULES.iter().map(ThemeRuleDto::from).collect(),
             texts_total: report.texts_total,

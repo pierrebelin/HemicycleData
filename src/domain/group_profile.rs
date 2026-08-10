@@ -213,7 +213,8 @@ mod tests {
     fn the_three_shares_always_total_a_thousand() {
         // Un tiers chacun: trois arrondis independants donneraient 999.
         let rates = ParticipationRates::from_counts(&counts(1, 0, 1, 1, 0)).unwrap();
-        let total = rates.expressed_per_mille + rates.abstention_per_mille + rates.absence_per_mille;
+        let total =
+            rates.expressed_per_mille + rates.abstention_per_mille + rates.absence_per_mille;
         assert_eq!(total, 1_000);
     }
 
