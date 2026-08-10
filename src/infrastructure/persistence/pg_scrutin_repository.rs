@@ -13,7 +13,7 @@ use crate::domain::scrutin::{
 };
 
 /// Scrutins par transaction. Chaque lot supprime puis reecrit ses lignes filles:
-/// borner la transaction garde l'ecriture reprenable sur une base serverless.
+/// borner la transaction garde l'ecriture reprenable sur la base locale.
 const SCRUTIN_BATCH: usize = 100;
 /// Lignes par instruction `UNNEST`. Un scrutin porte jusqu'a 574 positions
 /// nominales, un lot de 100 scrutins en porte donc jusqu'a 57 400.
@@ -267,16 +267,6 @@ impl ScrutinRepository for PgScrutinRepository {
         Ok(written)
     }
 
-    /// Toutes les lectures de ce depot portent `persistent(false)`:
-    /// instructions anonymes, jamais mises en cache.
-    ///
-    /// La base est atteinte par un pooler (Neon `-pooler`), qui garde les
-    /// instructions preparees cote serveur, indexees sur le texte SQL, au-dela
-    /// de la vie du processus. Apres une migration qui change le type d'une
-    /// colonne, les connexions serveur porteuses de l'ancien plan repondent
-    /// « cached plan must not change result type » — de facon intermittente,
-    /// selon la connexion tiree. Ni un redemarrage ni la reecriture des donnees
-    /// ne les evincent.
     async fn list(&self, filter: &ScrutinFilter) -> Result<ScrutinPage, RepositoryError> {
         let mut count_query: QueryBuilder<Postgres> =
             QueryBuilder::new("SELECT COUNT(*) FROM scrutins s");

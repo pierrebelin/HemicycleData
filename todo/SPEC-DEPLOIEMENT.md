@@ -13,7 +13,7 @@ chaque merge sur `main` via GitHub Actions.
 | Compilation | sur le VPS (Rust + Node installés sur la machine) |
 | Stratégie release | écrasement en place, pas de dossiers horodatés, pas de rollback automatique |
 | Migrations | jouées par le binaire au démarrage, `sqlx` ne rejoue jamais une migration déjà appliquée |
-| Base | Neon (externe), inchangée |
+| Base | PostgreSQL local sur le VPS |
 | Secrets | posés à la main une fois dans `/home/hemicycle/shared/.env`, jamais dans GitHub |
 | Port backend | `8085` en local (le `3000` par défaut est supposé pris par l'application Node) |
 | Écriture publique | tous les `POST /api/` renvoient `403` sur le vhost public |
@@ -277,7 +277,7 @@ Fichier `/home/hemicycle/shared/.env`, propriétaire `hemicycle`, mode `600`,
 écrit à la main, jamais versionné, jamais dans les secrets GitHub :
 
 ```
-DATABASE_URL=postgresql://user:password@host.neon.tech/neondb?sslmode=require
+DATABASE_URL=postgresql://hemicycle:mot_de_passe@127.0.0.1:5432/hemicycle?sslmode=disable
 ANTHROPIC_API_KEY=sk-ant-...
 ADMIN_TOKEN_SECRET=<openssl rand -hex 32>
 BIND_ADDR=127.0.0.1
@@ -442,8 +442,8 @@ Une migration déjà appliquée n'est pas défaite par ce retour arrière — vo
 une migration déjà appliquée n'est jamais rejouée, seules les nouvelles passent.
 
 Aucune sauvegarde n'est prise avant. En clair : une migration destructrice part
-en production sans filet, et le retour arrière du code ne la défait pas. Neon
-fournit du *point-in-time restore* — c'est le seul recours en cas de dégât.
+en production sans filet, et le retour arrière du code ne la défait pas. Les
+sauvegardes PostgreSQL et leur restauration sont opérées séparément sur le VPS.
 Contrainte de travail à respecter : écrire des migrations additives (ajout de
 colonne nullable, nouvelle table), jamais de `DROP` ni de `ALTER` réducteur sans
 étape de transition.
@@ -510,7 +510,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<DOMAINE_PUBLIC>/api/re
 `hemicycle-ingest.timer` déclenche `deploy/cron/hemicycle-ingest.sh` toutes les
 deux heures (00:07, 02:07, 04:07… plus un décalage aléatoire de 5 min au plus).
 Le script attend que `/api/health` réponde — un redémarrage laisse les
-migrations sqlx et le réveil à froid de Neon en cours — puis appelle les quatre
+migrations sqlx et le démarrage du service en cours — puis appelle les quatre
 routes d'ingestion avec le jeton du jour (§3.3).
 
 Côté dossiers, `POST /api/refresh` enchaîne référentiel des acteurs, dossiers,

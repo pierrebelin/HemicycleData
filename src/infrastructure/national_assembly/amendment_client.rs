@@ -14,6 +14,7 @@ use crate::domain::amendment::{
 
 use super::amendment_parsing::{actor_refs_in, RawAmendment, RawAmendmentWrapper};
 use super::archive_fetcher::ArchiveFetcher;
+use super::html_text::normalize_source_text;
 use super::scrutin_parsing::non_empty;
 
 /// Archive complete des amendements de la legislature. Comme les scrutins, il
@@ -254,7 +255,8 @@ impl AmendmentClient {
         let summary = raw
             .corps
             .and_then(|c| c.contenu_auteur)
-            .and_then(|c| non_empty(c.expose_sommaire));
+            .and_then(|c| non_empty(c.expose_sommaire))
+            .map(|summary| normalize_source_text(&summary));
 
         let parent_uid = non_empty(raw.amendement_parent.or(raw.amendement_parent_ref))
             .map(AmendmentUid::new)
