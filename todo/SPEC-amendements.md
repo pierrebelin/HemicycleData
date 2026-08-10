@@ -2,6 +2,33 @@
 
 > Ingérer tous les amendements de la législature en cours, les rattacher au dossier par l'identifiant de texte publié, et les rapprocher du scrutin quand l'objet du scrutin en cite le numéro. Exposer l'exposé sommaire *verbatim*, signé et daté. Objectif : donner au lecteur les raisons on-record d'un vote, sans qu'aucune phrase ne soit écrite par le site.
 
+## Extension — synthèse automatique sur la fiche dossier
+
+La fiche dossier peut publier, par groupe parlementaire et sous le label
+**« Synthèse automatique »**, un court paragraphe généré après l'ingestion.
+Cette extension est une aide de lecture descriptive, pas une nouvelle preuve et
+pas une position du groupe.
+
+- Le générateur reçoit le titre du dossier, des faits structurés sur les votes
+  finaux et les amendements, ainsi que des identifiants de sources officielles.
+- Il ne reçoit ni déclaration externe, ni contexte politique, ni exposé
+  sommaire complet. Le verbatim reste consultable dans cette fiche.
+- La réponse est rejetée si un groupe attendu manque, si une source est
+  inconnue, si le paragraphe contient un chiffre, une évaluation, un classement,
+  une comparaison, une intention, une causalité ou une position globale.
+- Les chiffres, répartitions, dates de vote et liens officiels rendus dans la
+  vue sont produits par le code à partir des données ingérées.
+- Une modification des faits invalide la synthèse et la masque jusqu'à une
+  génération réussie. Une erreur ou l'absence de clé ne bloque pas l'ingestion.
+- Les groupes sans vote final ni amendement restent visibles avec un état
+  explicite ; ils ne sont jamais transformés en abstention par l'absence de
+  ligne.
+
+Les routes et composants de cette vue ne remplacent pas la liste exhaustive
+des amendements ni leur exposé sommaire verbatim. Les URL directes des
+amendements restent à confirmer par la source ; aucune URL fabriquée n'est
+affichée en attendant.
+
 ## 1. Contexte
 
 Le site montre *comment* chaque groupe a voté, jamais *ce que les députés ont écrit* en votant. La promesse de vérification s'arrête au décompte.
@@ -97,7 +124,7 @@ L'amendement est le premier gisement traité parce qu'il est le seul **structur�
 - **Non conforme** : joindre sur l'appartenance courante « faute de mieux ». Deux groupes concurrents à cette date → aucun groupe affiché, jamais un choix arbitraire.
 
 ### RM-03 — Exposé sommaire verbatim ou rien
-- **Énoncé** : l'exposé sommaire est reproduit mot pour mot, attribué à son signataire. Aucun résumé, aucune reformulation, aucun extrait choisi par le site, aucun appel à un modèle. · **Origine** : README.md §6 et §8 · **Sévérité** : bloquant · **Applies to** : transverse
+- **Énoncé** : l'exposé sommaire est reproduit mot pour mot, attribué à son signataire. Aucun résumé, aucune reformulation, aucun extrait choisi par le site, aucun appel à un modèle **sur le texte de l'exposé**. La synthèse automatique de la fiche dossier est une couche séparée : elle ne reçoit pas l'exposé complet et ne le remplace jamais. · **Origine** : README.md §6 et §8 · **Sévérité** : bloquant · **Applies to** : transverse
 - Un aperçu tronqué n'est admis que s'il est strictement les N premiers caractères, N affiché, avec un lien vers le texte complet. Les 200 premiers caractères d'un exposé peuvent être une formule de politesse ou une attaque : le choix du site doit être mécanique et annoncé.
 - Le rendu HTML passe par une liste blanche de balises. Aucun mot ajouté, retiré ni réordonné : seules des balises tombent.
 

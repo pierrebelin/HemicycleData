@@ -17,7 +17,7 @@ impl ThemeClassifier for UnavailableClassifier {
         _labels: &[String],
     ) -> Result<Vec<Option<Vec<ProposedFamily>>>, ClassifierError> {
         Err(ClassifierError::Unavailable(
-            "ANTHROPIC_API_KEY absent".to_string(),
+            "clé du fournisseur LLM absente".to_string(),
         ))
     }
 

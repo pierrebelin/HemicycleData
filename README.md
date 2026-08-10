@@ -128,6 +128,24 @@ Règles :
 
 URL stables et partageables : thème, groupe, dossier, scrutin, député. Servies directement depuis la base : aucun risque d'invention, indexables, citables.
 
+La fiche dossier comporte aussi une vue « Actes publiés par groupe ». Elle
+réunit, dans un ordre stable et sans classement, les groupes dont la période
+d'existence recouvre celle du dossier, les seuls votes finaux séparés par
+lecture, et les amendements associés à la date du dépôt. Un groupe sans acte
+reste affiché avec cet état explicite : son absence de ligne ne devient jamais
+une abstention.
+
+Un court paragraphe peut être publié sous le label **« Synthèse automatique »**.
+Il est généré après ingestion à partir d'un paquet fermé de faits officiels et
+d'identifiants de sources. Il est descriptif uniquement : aucun chiffre,
+classement, comparaison, évaluation, intention, causalité ou position globale
+de groupe ne peut y figurer. Les chiffres sont calculés et rendus par le code,
+et les sources originales restent accessibles dans les listes exhaustives
+« Scrutins » et « Amendements ».
+
+Cette synthèse ne remplace donc jamais le verbatim des exposés sommaires. Les
+déclarations externes de partis ou de groupes sont hors périmètre.
+
 ### 8.2 Chat — surcouche
 
 Le chat **route et cite**, il ne rédige pas les faits.
@@ -185,7 +203,8 @@ API officielle : textes promulgués, droit en vigueur, Journal officiel. Auth OA
 - **Frontend React/TypeScript** — Vite, SPA, TanStack Query, Tailwind.
 - **Base** : PostgreSQL local sur le VPS.
 - Clean Architecture + DDD, couche application découpée par use case. Les consignes détaillées vivent dans les fichiers locaux `.agents/`.
-- LLM en BYOK, cantonné à la thématisation et au routage du chat — **jamais à la production de chiffres**.
+- LLM en BYOK, cantonné à la thématisation et aux synthèses descriptives
+  strictement bornées — **jamais à la production de chiffres**.
 
 ## 12. Feuille de route
 
@@ -195,6 +214,7 @@ API officielle : textes promulgués, droit en vigueur, Journal officiel. Auth OA
 - [x] **Phase 3** — **Scrutins** : ingestion, positions nominales, répartition par groupe.
 - [x] **Phase 4** — **Thématisation** : textes débattus, familles, méthode publiée (§5).
 - [x] **Phase 4bis** — **Amendements** : ingestion, rattachement au dossier, exposé sommaire verbatim sur la page dossier.
+- [x] **Phase 4ter** — **Actes par groupe** : votes finaux par lecture, amendements associés et synthèse automatique descriptive pré-calculée.
 - [ ] **Phase 5** — Pages publiques thème × groupe × période.
 - [ ] **Phase 6** — Chat de routage (§8.2).
 - [ ] **Phase 7** — Page méthodologie, journal des corrections (§9).
@@ -228,8 +248,20 @@ Variables reconnues :
 | `BIND_ADDR` | adresse d'écoute (défaut `127.0.0.1`) |
 | `ADMIN_TOKEN_SECRET` | secret maître des routes d'écriture ; absent, toute écriture est fermée |
 | `ALLOWED_ORIGINS` | origines tierces autorisées par CORS, séparées par des virgules ; vide par défaut |
-| `ANTHROPIC_API_KEY` | propositions de thématisation ; absente, la fonction est désactivée |
+| `LLM_PROVIDER` | fournisseur des traitements LLM : `anthropic`/`claude` ou `openai`/`chatgpt` ; défaut `anthropic` |
+| `ANTHROPIC_API_KEY` | clé Claude, utilisée seulement si `LLM_PROVIDER=anthropic` |
+| `OPENAI_API_KEY` | clé OpenAI/ChatGPT, utilisée seulement si `LLM_PROVIDER=openai` |
+| `ANTHROPIC_MODEL` / `OPENAI_MODEL` | modèle par défaut du fournisseur correspondant |
+| `THEME_MODEL` | surcharge facultative du modèle de thématisation |
 | `AMENDMENT_BATCH_PER_REFRESH` | amendements écrits par passe d'ingestion (défaut `40000`) ; `0` lève la borne |
+| `DOSSIER_SUMMARY_BATCH_PER_REFRESH` | dossiers examinés pour les synthèses après ingestion (défaut `10`) |
+| `DOSSIER_SUMMARY_MODEL` | surcharge facultative du modèle de synthèse ; à défaut, modèle du fournisseur sélectionné |
+
+Le fournisseur se change dans `.env`, puis le service doit être redémarré. Les
+deux adaptateurs envoient le même paquet de faits et appliquent les mêmes
+validations ; aucune clé n'est utilisée en repli automatique. Une clé absente
+ou une erreur d'appel laisse les données brutes accessibles et les synthèses
+indisponibles, sans faire échouer l'ingestion.
 
 ### Routes d'écriture
 

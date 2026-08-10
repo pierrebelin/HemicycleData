@@ -36,6 +36,10 @@ fn read_routes() -> Router<AppState> {
             "/api/dossiers/{uid}",
             get(dossier_handlers::get_dossier_detail),
         )
+        .route(
+            "/api/dossiers/{uid}/lecture-groupes",
+            get(dossier_handlers::get_dossier_group_actions),
+        )
         .route("/api/suggestions", get(dossier_handlers::get_suggestions))
         .route(
             "/api/dossiers/{uid}/scrutins",

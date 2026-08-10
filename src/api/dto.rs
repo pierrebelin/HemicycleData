@@ -337,6 +337,16 @@ pub struct RefreshResponse {
     /// Renseigne quand la source des amendements n'a pas repondu: ceux deja
     /// stockes restent en place.
     pub amendments_anomaly: Option<String>,
+    pub dossier_summaries: Option<DossierSummaryRefreshResponse>,
+}
+
+#[derive(Serialize)]
+pub struct DossierSummaryRefreshResponse {
+    pub dossiers_seen: usize,
+    pub dossiers_refreshed: usize,
+    pub summaries_ready: usize,
+    pub summaries_pending: usize,
+    pub anomaly: Option<String>,
 }
 
 impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for RefreshResponse {
@@ -362,7 +372,32 @@ impl From<crate::application::use_cases::refresh_all::RefreshOutcome> for Refres
                 .amendments
                 .map(crate::api::amendment_dto::AmendmentsRefreshResponse::from),
             amendments_anomaly: o.amendments_anomaly,
+            dossier_summaries: None,
         }
+    }
+}
+
+impl
+    From<(
+        crate::application::use_cases::refresh_all::RefreshOutcome,
+        crate::application::use_cases::refresh_dossier_group_summaries::DossierSummaryRefreshReport,
+    )> for RefreshResponse
+{
+    fn from(
+        (o, summaries): (
+        crate::application::use_cases::refresh_all::RefreshOutcome,
+        crate::application::use_cases::refresh_dossier_group_summaries::DossierSummaryRefreshReport,
+    ),
+    ) -> Self {
+        let mut response = RefreshResponse::from(o);
+        response.dossier_summaries = Some(DossierSummaryRefreshResponse {
+            dossiers_seen: summaries.dossiers_seen,
+            dossiers_refreshed: summaries.dossiers_refreshed,
+            summaries_ready: summaries.summaries_ready,
+            summaries_pending: summaries.summaries_pending,
+            anomaly: summaries.anomaly,
+        });
+        response
     }
 }
 
