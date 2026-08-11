@@ -17,13 +17,6 @@ interface ActeDto {
   label: string
 }
 
-interface ScoreDto {
-  progress: number
-  magnitude: number
-  momentum: number
-  total: number
-}
-
 interface StageDto {
   label: string
   chamber: string
@@ -53,47 +46,10 @@ interface DossierDetailDto {
   last_activity_date: string
   last_activity_label: string
   acts: ActeDto[]
-  score: ScoreDto
   current_stage: StageDto | null
   initiators: InitiatorDto[]
   committee: string | null
   outcome: OutcomeDto
-}
-
-function ScoreBar({
-  label,
-  value,
-  weight,
-  color,
-}: {
-  label: string
-  value: number
-  weight: number
-  color: string
-}) {
-  const pct = (value / 10) * 100
-  return (
-    <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span className="text-ink-soft">
-          {label} <span className="text-ink-faint">&times;{weight}</span>
-        </span>
-        <span className="text-ink-soft">{value}/10</span>
-      </div>
-      <div className="h-1.5 bg-surface-soft rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function scoreTotalColor(score: number) {
-  if (score >= 60) return 'text-yes'
-  if (score >= 30) return 'text-abstain'
-  return 'text-ink-soft'
 }
 
 /**
@@ -239,54 +195,38 @@ export default function DossierDetailPage() {
 
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <Card className="p-4">
-          <div className="mb-3 flex items-baseline justify-between">
-            <SectionTitle>Score</SectionTitle>
-            <span
-              className={`text-2xl font-semibold tracking-tight ${scoreTotalColor(data.score.total)}`}
-            >
-              {data.score.total}
-              <span className="text-sm font-normal text-ink-faint">/100</span>
-            </span>
-          </div>
-          <div className="space-y-2">
-            <ScoreBar
-              label="Avancement"
-              value={data.score.progress}
-              weight={3}
-              color="bg-accent"
-            />
-            <ScoreBar
-              label="Ampleur"
-              value={data.score.magnitude}
-              weight={2}
-              color="bg-info"
-            />
-            <ScoreBar
-              label="Vélocité"
-              value={data.score.momentum}
-              weight={1}
-              color="bg-ink-faint"
-            />
-          </div>
-          {/* Définitions repliées : elles ne changent pas d'un dossier à
-              l'autre et n'ont pas à occuper le haut de chaque page. */}
-          <details className="mt-3 pt-2 border-t border-line">
-            <summary className="text-xs text-ink-faint cursor-pointer hover:text-ink-soft">
-              Comment ce score est calculé
-            </summary>
-            <p className="text-xs text-ink-faint mt-1.5">
-              <span className="text-ink-soft font-medium">Avancement</span> —
-              stade législatif atteint (dépôt → promulgation)
-            </p>
-            <p className="text-xs text-ink-faint mt-1">
-              <span className="text-ink-soft font-medium">Ampleur</span> —
-              importance thématique (budget, santé, sécurité…)
-            </p>
-            <p className="text-xs text-ink-faint mt-1">
-              <span className="text-ink-soft font-medium">Vélocité</span> —
-              nombre d'actes législatifs enregistrés
-            </p>
-          </details>
+          <SectionTitle>Repères du dossier</SectionTitle>
+          <dl className="mt-3 grid gap-x-5 gap-y-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-ink-faint">Procédure</dt>
+              <dd className="mt-0.5 font-medium text-ink">{data.procedure}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-faint">Dernière activité</dt>
+              <dd className="mt-0.5 font-medium text-ink">
+                {new Date(data.last_activity_date + 'T00:00:00').toLocaleDateString(
+                  'fr-FR',
+                  { day: 'numeric', month: 'long', year: 'numeric' },
+                )}
+              </dd>
+              <dd className="text-xs text-ink-soft">{data.last_activity_label}</dd>
+            </div>
+            {data.current_stage && (
+              <div>
+                <dt className="text-xs text-ink-faint">Étape publiée</dt>
+                <dd className="mt-0.5 font-medium text-ink">
+                  {data.current_stage.label}
+                  {data.current_stage.chamber && ` — ${data.current_stage.chamber}`}
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-xs text-ink-faint">Actes enregistrés</dt>
+              <dd className="mt-0.5 font-medium text-ink">
+                {data.acts.length} acte{data.acts.length > 1 ? 's' : ''}
+              </dd>
+            </div>
+          </dl>
         </Card>
 
         <Card className="p-4">

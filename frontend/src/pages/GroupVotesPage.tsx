@@ -11,6 +11,7 @@ import {
   Pill,
 } from '../components/ui'
 import { GroupDot } from './GroupListPage'
+import { fetchJson } from '../lib/fetchJson'
 import type {
   FinalVoteDto,
   FinalVoteListResponse,
@@ -310,24 +311,20 @@ export default function GroupVotesPage() {
     useQuery<FinalVoteListResponse>({
       queryKey: ['votes-finaux', query.toString()],
       queryFn: () =>
-        fetch(`/api/votes-finaux?${query}`).then(async (res) => {
-          if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`)
-          return res.json()
-        }),
+        fetchJson<FinalVoteListResponse>(`/api/votes-finaux?${query}`),
       // Changer de groupes ne doit pas vider le haut de la page : le référentiel
       // du sélecteur voyage dans la même réponse, et le laisser disparaître
       // ferait clignoter les pastilles au moment même où on clique dessus. La
       // réponse précédente tient le décor pendant que les votes se rechargent.
       placeholderData: keepPreviousData,
+      retry: false,
     })
 
   const families = useQuery<FamiliesResponse>({
     queryKey: ['themes'],
     queryFn: () =>
-      fetch('/api/themes').then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      }),
+      fetchJson<FamiliesResponse>('/api/themes'),
+    retry: false,
   })
 
   function update(next: Record<string, string>) {
@@ -402,12 +399,18 @@ export default function GroupVotesPage() {
       />
 
       <div className="mb-4 space-y-3">
-        <GroupPicker
-          groups={groups}
-          selected={selectedAbbrevs}
-          max={maxGroups}
-          onToggle={toggleGroup}
-        />
+        {data ? (
+          <GroupPicker
+            groups={groups}
+            selected={selectedAbbrevs}
+            max={maxGroups}
+            onToggle={toggleGroup}
+          />
+        ) : isLoading ? (
+          <Card className="px-4 py-3">
+            <Loading>Chargement des groupes disponibles…</Loading>
+          </Card>
+        ) : null}
 
         {/*
           Les notes de lecture sont dues (README.md §6) mais tiennent dans un
@@ -449,7 +452,7 @@ export default function GroupVotesPage() {
         )}
       </div>
 
-      {!hasSelection && (
+      {!hasSelection && data && (
         <Card className="px-4 py-3">
           <p className="text-sm font-semibold">
             Aucun groupe n'est sélectionné au départ.

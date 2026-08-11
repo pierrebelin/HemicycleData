@@ -4,7 +4,8 @@ import { Link } from 'react-router'
 import Hemicycle from '../components/Hemicycle'
 import ScrutinList, { CoverageNote } from '../components/ScrutinList'
 import { siegesDesGroupes, tallyDesVotes } from '../components/sieges'
-import { Card, ErrorPanel, Note, TallyLine } from '../components/ui'
+import { Card, ErrorPanel, Loading, Note, TallyLine } from '../components/ui'
+import { fetchJson } from '../lib/fetchJson'
 import type { MethodResponse } from '../types/themes'
 import type { ScrutinDetailDto, ScrutinListResponse } from '../types/scrutins'
 import { formatDate } from '../types/scrutins'
@@ -193,10 +194,8 @@ export default function HomePage() {
   const scrutins = useQuery({
     queryKey: ['scrutins', 'accueil'],
     queryFn: (): Promise<ScrutinListResponse> =>
-      fetch(`/api/scrutins?limit=${DERNIERS}&offset=0`).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      }),
+      fetchJson(`/api/scrutins?limit=${DERNIERS}&offset=0`),
+    retry: false,
   })
 
   const dernier = scrutins.data?.scrutins[0]
@@ -210,10 +209,8 @@ export default function HomePage() {
     queryKey: ['scrutin', dernier?.uid],
     enabled: Boolean(dernier),
     queryFn: (): Promise<ScrutinDetailDto> =>
-      fetch(`/api/scrutins/${dernier!.uid}`).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      }),
+      fetchJson(`/api/scrutins/${dernier!.uid}`),
+    retry: false,
   })
 
   /* Avancement de la thématisation, affiché avec la porte d’entrée « thèmes » :
@@ -222,10 +219,8 @@ export default function HomePage() {
   const methode = useQuery({
     queryKey: ['themes', 'method'],
     queryFn: (): Promise<MethodResponse> =>
-      fetch('/api/themes/method').then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      }),
+      fetchJson('/api/themes/method'),
+    retry: false,
   })
 
   const votesNominaux = detail.data && siegesDesGroupes(detail.data.groups)
@@ -324,11 +319,36 @@ export default function HomePage() {
               </p>
             </>
           ) : (
-            <p className="flex h-64 items-center justify-center text-sm text-ink-faint">
-              {scrutins.isError || detail.isError
-                ? 'Dernier scrutin indisponible.'
-                : 'Chargement du dernier scrutin…'}
-            </p>
+            <div className="flex min-h-52 flex-col justify-center">
+              {scrutins.isError || detail.isError ? (
+                <>
+                  <p className="text-sm font-semibold text-ink">
+                    Le dernier scrutin n’est pas disponible pour le moment.
+                  </p>
+                  <p className="mt-1 max-w-md text-sm leading-relaxed text-ink-soft">
+                    Les données restent accessibles dès que la connexion est
+                    rétablie. Aucun résultat n’est remplacé par une estimation.
+                  </p>
+                  <Link
+                    to="/scrutins"
+                    className="mt-3 text-sm font-medium text-accent hover:underline"
+                  >
+                    Parcourir les scrutins →
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void scrutins.refetch()}
+                    className="mt-2 w-fit text-xs font-medium text-accent hover:underline"
+                  >
+                    Réessayer
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-ink-faint">
+                  Chargement du dernier scrutin…
+                </p>
+              )}
+            </div>
           )}
         </Card>
       </section>
@@ -401,6 +421,11 @@ export default function HomePage() {
           </Link>
         }
       >
+        {scrutins.isLoading && (
+          <Card className="px-4 py-3">
+            <Loading>Chargement des derniers scrutins…</Loading>
+          </Card>
+        )}
         {scrutins.isError && <ErrorPanel error={scrutins.error} />}
         {scrutins.data && (
           <div className="space-y-3">

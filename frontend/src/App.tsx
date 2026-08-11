@@ -10,14 +10,15 @@ import ThemeToggle from './components/ThemeToggle'
  * fait porter au lecteur le travail de savoir laquelle le concerne.
  */
 const NAV = [
-  { to: '/dossiers', label: 'Dossiers', end: false },
+  { to: '/dossiers', label: 'Dossiers', mobileLabel: 'Dossiers', end: false },
   {
     to: '/votes-par-groupe',
     label: 'Comparer les votes des groupes',
+    mobileLabel: 'Comparer',
     end: false,
   },
-  { to: '/themes', label: 'Thèmes', end: false },
-  { to: '/comprendre', label: 'Comprendre', end: false },
+  { to: '/themes', label: 'Thèmes', mobileLabel: 'Thèmes', end: false },
+  { to: '/comprendre', label: 'Comprendre', mobileLabel: 'Comprendre', end: false },
 ]
 
 export default function App() {
@@ -30,19 +31,24 @@ export default function App() {
       <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur-md">
         {/* Sur petit écran le titre et la navigation s'empilent : côte à côte,
             la nav se replie sur trois lignes contre le logo. */}
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-          <Link
-            to="/"
-            className="flex items-center gap-2 transition-opacity hover:opacity-70"
-          >
-            <Logo className="h-9 w-auto shrink-0" />
-            <h1 className="text-[15px] font-semibold tracking-tight">
-              hémicycle
-              <span className="text-accent">.data</span>
-            </h1>
-          </Link>
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-6">
+          <div className="flex w-full items-center justify-between sm:w-auto">
+            <Link
+              to="/"
+              className="flex items-center gap-2 transition-opacity hover:opacity-70"
+            >
+              <Logo className="h-9 w-auto shrink-0" />
+              <h1 className="text-[15px] font-semibold tracking-tight">
+                hémicycle
+                <span className="text-accent">.data</span>
+              </h1>
+            </Link>
+            <span className="sm:hidden">
+              <ThemeToggle />
+            </span>
+          </div>
 
-          <nav className="-mx-1 flex flex-wrap items-center gap-0.5 sm:justify-end">
+          <nav className="-mx-1 flex flex-wrap items-center gap-0.5 sm:justify-end" aria-label="Navigation principale">
             {NAV.map((item) => (
               <NavLink
                 key={item.to}
@@ -56,11 +62,14 @@ export default function App() {
                   }`
                 }
               >
-                {item.label}
+                <span className="sm:hidden">{item.mobileLabel}</span>
+                <span className="hidden sm:inline">{item.label}</span>
               </NavLink>
             ))}
-            <span className="mx-1 h-4 w-px bg-line" aria-hidden />
-            <ThemeToggle />
+            <span className="mx-1 hidden h-4 w-px bg-line sm:block" aria-hidden />
+            <span className="hidden sm:block">
+              <ThemeToggle />
+            </span>
           </nav>
         </div>
       </header>
