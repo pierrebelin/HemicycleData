@@ -1,0 +1,22 @@
+# Base de développement uniquement. Elle ne démarre jamais toute seule :
+# docker compose -f compose.dev.yml up -d la lance, et `down` l'arrête.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: hemicycle_dev
+      POSTGRES_USER: hemicycle
+      # Mot de passe fictif, réservé au poste local de développement.
+      POSTGRES_PASSWORD: hemicycle_dev_only
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - hemicycle_dev_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hemicycle -d hemicycle_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  hemicycle_dev_postgres:
