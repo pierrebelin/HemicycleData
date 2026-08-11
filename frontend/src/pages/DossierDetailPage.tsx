@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import DossierAmendments from '../components/DossierAmendments'
 import DossierScrutins from '../components/DossierScrutins'
 import DossierGroupActions from '../components/DossierGroupActions'
+import DossierFinalScrutin from '../components/DossierFinalScrutin'
 import { OutcomePanel } from '../components/OutcomeBadge'
 import { Card, ErrorPanel, Loading, Pill, SectionTitle } from '../components/ui'
 import type { OutcomeDto } from '../types/dossiers'
@@ -102,7 +103,7 @@ function scoreTotalColor(score: number) {
  */
 export default function DossierDetailPage() {
   const { uid } = useParams<{ uid: string }>()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [allActsShown, setAllActsShown] = useState(false)
 
   const { data, isLoading, isError, error } = useQuery<DossierDetailDto>({
@@ -132,6 +133,14 @@ export default function DossierDetailPage() {
   }
 
   if (!data) return null
+
+  const activeTab = searchParams.get('tab') === 'tableaux' ? 'tableaux' : 'actes'
+  const selectTab = (tab: 'actes' | 'tableaux') => {
+    const next = new URLSearchParams(searchParams)
+    if (tab === 'actes') next.delete('tab')
+    else next.set('tab', tab)
+    setSearchParams(next)
+  }
 
   return (
     <div>
@@ -226,7 +235,7 @@ export default function DossierDetailPage() {
         </div>
       )}
 
-      <DossierGroupActions uid={data.uid} />
+      <DossierFinalScrutin uid={data.uid} />
 
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <Card className="p-4">
@@ -337,11 +346,35 @@ export default function DossierDetailPage() {
         </Card>
       </div>
 
-      <DossierScrutins uid={data.uid} />
+      <div className="mb-6 border-b border-line" role="tablist" aria-label="Contenu du dossier">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'actes'}
+          onClick={() => selectTab('actes')}
+          className={`mr-4 border-b-2 px-1 pb-2 text-sm font-medium ${activeTab === 'actes' ? 'border-accent text-ink' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+        >
+          Avis des groupes
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'tableaux'}
+          onClick={() => selectTab('tableaux')}
+          className={`border-b-2 px-1 pb-2 text-sm font-medium ${activeTab === 'tableaux' ? 'border-accent text-ink' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+        >
+          Scrutins et amendements
+        </button>
+      </div>
 
-      {/* Les votes d'abord, les raisons ensuite : on lit ce qui a ete decide,
-          puis ce que les signataires ont ecrit pour le justifier. */}
-      <DossierAmendments uid={data.uid} initialGroup={searchParams.get('amendements_group') ?? ''} />
+      {activeTab === 'actes' ? (
+        <DossierGroupActions uid={data.uid} />
+      ) : (
+        <>
+          <DossierScrutins uid={data.uid} />
+          <DossierAmendments uid={data.uid} initialGroup={searchParams.get('amendements_group') ?? ''} />
+        </>
+      )}
 
       <div className="text-center">
         <a
