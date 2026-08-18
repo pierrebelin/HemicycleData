@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{PgPool, Postgres, QueryBuilder};
 
 use crate::application::ports::dossier_repository::{
@@ -47,7 +47,10 @@ impl PgDossierRepository {
         dossier_uid: &str,
     ) -> Result<Vec<LegislativeDocument>, RepositoryError> {
         let rows = sqlx::query_as::<_, DocumentRow>(
-            "SELECT document_uid, title, short_title, doc_type, doc_date FROM dossier_documents WHERE dossier_uid = $1 ORDER BY id",
+            "SELECT document_uid, title, short_title, doc_type, doc_date,
+                    official_url, source_archive_url, source_license,
+                    source_metadata_fingerprint, source_retrieved_at
+             FROM dossier_documents WHERE dossier_uid = $1 ORDER BY id",
         )
         .bind(dossier_uid)
         .fetch_all(&self.pool)
@@ -62,6 +65,11 @@ impl PgDossierRepository {
                 short_title: r.short_title,
                 doc_type: r.doc_type,
                 date: r.doc_date,
+                official_url: r.official_url,
+                source_archive_url: r.source_archive_url,
+                source_license: r.source_license,
+                source_metadata_fingerprint: r.source_metadata_fingerprint,
+                source_retrieved_at: r.source_retrieved_at,
             })
             .collect())
     }
@@ -206,7 +214,11 @@ impl PgDossierRepository {
 
             for doc in &dossier.documents {
                 sqlx::query(
-                    "INSERT INTO dossier_documents (dossier_uid, document_uid, title, short_title, doc_type, doc_date) VALUES ($1, $2, $3, $4, $5, $6)",
+                    "INSERT INTO dossier_documents (
+                        dossier_uid, document_uid, title, short_title, doc_type, doc_date,
+                        official_url, source_archive_url, source_license,
+                        source_metadata_fingerprint, source_retrieved_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())",
                 )
                 .bind(dossier.uid.as_str())
                 .bind(&doc.document_uid)
@@ -214,6 +226,10 @@ impl PgDossierRepository {
                 .bind(&doc.short_title)
                 .bind(&doc.doc_type)
                 .bind(doc.date)
+                .bind(&doc.official_url)
+                .bind(&doc.source_archive_url)
+                .bind(&doc.source_license)
+                .bind(&doc.source_metadata_fingerprint)
                 .execute(&mut *tx)
                 .await
                 .map_err(|e| RepositoryError::Database(e.to_string()))?;
@@ -668,4 +684,9 @@ struct DocumentRow {
     short_title: Option<String>,
     doc_type: String,
     doc_date: Option<NaiveDate>,
+    official_url: Option<String>,
+    source_archive_url: Option<String>,
+    source_license: Option<String>,
+    source_metadata_fingerprint: Option<String>,
+    source_retrieved_at: Option<DateTime<Utc>>,
 }

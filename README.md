@@ -117,6 +117,8 @@ Règles :
 ## 7. Traitement des votes
 
 - **Répartition par groupe** (pour / contre / abstention / non-votants), chiffres bruts.
+- **Vote sur l’ensemble** : un « vote final » désigne ici un scrutin dont l’objet officiel porte sur l’ensemble d’un texte. Il tranche la version soumise à cette lecture, pas nécessairement le devenir final de la loi. Un même texte peut donc avoir plusieurs votes sur l’ensemble.
+- **Vote le plus récent d’un dossier** : lorsqu’un aperçu doit n’en retenir qu’un, il prend le vote sur l’ensemble le plus récent parmi ceux que la source rattache explicitement à ce dossier (date décroissante, puis numéro de scrutin publié). Les autres lectures restent accessibles. Aucun lien dossier ↔ scrutin n’est déduit d’une ressemblance de titres ; un scrutin sans dossier reste affiché comme tel.
 - **Position nominale par député** disponible au détail du scrutin — c'est le niveau de preuve qui rend le site vérifiable.
 - **Trou de couverture, pas second régime** : tous les scrutins publiés par l'Assemblée portent le décompte nominatif. Les votes à main levée ne sont pas publiés *sans* répartition — ils sont **absents du jeu de données**. Le site ne peut donc rien en dire. Cette lacune est **affichée comme telle** sur les pages concernées ; la taire laisserait croire à une exhaustivité que la source ne permet pas.
 - **Scrutins sans dossier** : conservés et exposés. **69 % des scrutins de la législature en cours ne portent aucun rattachement à un dossier** — les écarter viderait le site des deux tiers des votes.

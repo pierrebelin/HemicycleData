@@ -192,6 +192,39 @@ function VoteRow({ vote, selected }: { vote: FinalVoteDto; selected: GroupDto[] 
         </Link>
       </div>
 
+      {vote.official_text ? (
+        <div className="mt-2 rounded-md bg-surface-soft px-3 py-2 text-xs text-ink-soft">
+          <p>
+            Version liée au vote :{' '}
+            <a
+              href={vote.official_text.official_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-accent underline"
+            >
+              {vote.official_text.version_label}
+            </a>{' '}
+            <span className="text-ink-faint">· {vote.official_text.document_uid}</span>
+          </p>
+          <p className="mt-1 text-ink-faint">
+            Référence établie par {vote.official_text.source_producer} · licence :{' '}
+            {vote.official_text.source_license} ·{' '}
+            <a
+              href={vote.official_text.mapping_source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent underline"
+            >
+              voir la source du rattachement
+            </a>
+          </p>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-ink-faint">
+          La version exacte du texte lié à ce vote n’est pas encore référencée.
+        </p>
+      )}
+
       {selected.length > 0 && (
         <div className={`mt-2 grid gap-2 ${stanceGridCols(selected.length)}`}>
           {selected.map((group) => {
@@ -397,6 +430,12 @@ export default function GroupVotesPage() {
           </label>
         }
       />
+
+      <p className="-mt-8 mb-4 text-xs text-ink-faint">
+        <Link to="/votes-par-groupe/methode" className="text-accent underline">
+          Comment sont retenus les votes sur l’ensemble ?
+        </Link>
+      </p>
 
       <div className="mb-4 space-y-3">
         {data ? (

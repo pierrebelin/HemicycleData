@@ -39,6 +39,18 @@ interface InitiatorDto {
   official_url: string | null
 }
 
+interface DocumentDto {
+  document_uid: string
+  title: string
+  short_title: string | null
+  doc_type: string
+  date: string | null
+  official_url: string | null
+  source_archive_url: string | null
+  source_license: string | null
+  source_retrieved_at: string | null
+}
+
 interface DossierDetailDto {
   uid: string
   title: string
@@ -46,6 +58,7 @@ interface DossierDetailDto {
   last_activity_date: string
   last_activity_label: string
   acts: ActeDto[]
+  documents: DocumentDto[]
   current_stage: StageDto | null
   initiators: InitiatorDto[]
   committee: string | null
@@ -285,6 +298,54 @@ export default function DossierDetailPage() {
           )}
         </Card>
       </div>
+
+      {data.documents.length > 0 && (
+        <Card className="mb-6 p-4">
+          <SectionTitle>Documents officiels du dossier</SectionTitle>
+          <p className="mt-1 text-xs leading-relaxed text-ink-faint">
+            Chaque lien ouvre le document identifié dans l’archive de l’Assemblée
+            nationale. Ces documents ne sont pas encore associés automatiquement à
+            un scrutin : plusieurs versions peuvent exister pour un même dossier.
+          </p>
+          <ul className="mt-3 divide-y divide-line">
+            {data.documents.map((document) => (
+              <li key={document.document_uid} className="py-2.5 first:pt-0 last:pb-0">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  {document.official_url ? (
+                    <a
+                      href={document.official_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-medium text-ink hover:text-accent hover:underline"
+                    >
+                      {document.title}
+                    </a>
+                  ) : (
+                    <span className="text-sm font-medium text-ink">{document.title}</span>
+                  )}
+                  <span className="text-xs text-ink-faint">{document.doc_type}</span>
+                  {document.date && (
+                    <span className="text-xs text-ink-faint">
+                      ·{' '}
+                      {new Date(document.date + 'T00:00:00').toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-ink-faint">
+                  Référence officielle : {document.document_uid}
+                  {document.source_license && ` · ${document.source_license}`}
+                  {document.source_retrieved_at &&
+                    ` · relevée le ${new Date(document.source_retrieved_at).toLocaleDateString('fr-FR')}`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="mb-6 border-b border-line" role="tablist" aria-label="Contenu du dossier">
         <button

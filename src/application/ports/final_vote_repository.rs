@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use crate::application::ports::theme_repository::AssignedFamily;
+use crate::domain::final_vote::OfficialTextVersion;
 use crate::domain::scrutin::VoteTally;
 use crate::domain::theme::FamilyCode;
 
@@ -45,6 +46,9 @@ pub struct FinalVoteRecord {
     pub text_label: String,
     pub dossier_uid: Option<String>,
     pub dossier_label: Option<String>,
+    /// Présent seulement quand une source officielle établit explicitement le
+    /// lien entre ce scrutin et cette version de document.
+    pub official_text: Option<OfficialTextVersion>,
     pub synthesis: VoteTally,
     pub families: Vec<AssignedFamily>,
     pub tallies: Vec<GroupTallyRecord>,

@@ -250,6 +250,7 @@ fn build_entry(record: FinalVoteRecord, selected: &[GroupOption]) -> FinalVoteEn
         text_label: record.text_label,
         dossier_uid: record.dossier_uid,
         dossier_label: record.dossier_label,
+        official_text: record.official_text,
         synthesis: record.synthesis,
         stances,
     };
@@ -406,6 +407,7 @@ mod tests {
             text_label: "proposition de loi sur le logement".to_string(),
             dossier_uid: None,
             dossier_label: None,
+            official_text: None,
             synthesis: VoteTally {
                 votes_for: 300,
                 votes_against: 200,
@@ -682,5 +684,37 @@ mod tests {
         assert_eq!(view.total, 1);
         assert_eq!(view.total_unfiltered, 2);
         assert_eq!(view.total_with_family, 1);
+    }
+
+    #[tokio::test]
+    async fn an_official_text_is_exposed_only_when_explicitly_referenced() {
+        let repository = repository();
+        let retrieved_at = chrono::DateTime::parse_from_rfc3339("2026-08-16T08:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        repository.records.lock().unwrap()[0].official_text =
+            Some(crate::domain::final_vote::OfficialTextVersion {
+                document_uid: "PIONANR5L17B1560".to_string(),
+                document_title: "Proposition de loi n° 1560".to_string(),
+                version_label: "Texte adopté en première lecture".to_string(),
+                document_published_on: Some(NaiveDate::from_ymd_opt(2026, 5, 27).unwrap()),
+                official_url: "https://www.assemblee-nationale.fr/dyn/docs/PIONANR5L17B1560.raw"
+                    .to_string(),
+                mapping_source_url: "https://www.assemblee-nationale.fr/dyn/17/scrutins/42"
+                    .to_string(),
+                source_producer: "Assemblée nationale".to_string(),
+                source_license: "Licence Ouverte / Open Licence".to_string(),
+                source_metadata_fingerprint: Some("sha256:test".to_string()),
+                source_retrieved_at: retrieved_at,
+            });
+
+        let view = BrowseFinalVotes::new(&repository)
+            .execute(BrowseFinalVotesCommand::default())
+            .await
+            .unwrap();
+
+        let text = view.items[0].vote.official_text.as_ref().unwrap();
+        assert_eq!(text.document_uid, "PIONANR5L17B1560");
+        assert_eq!(text.version_label, "Texte adopté en première lecture");
     }
 }

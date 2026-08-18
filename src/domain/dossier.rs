@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::actor::{
@@ -77,6 +77,15 @@ pub struct LegislativeDocument {
     pub short_title: Option<String>,
     pub doc_type: String,
     pub date: Option<NaiveDate>,
+    /// Page officielle qui porte le document précis, et non le seul dossier.
+    pub official_url: Option<String>,
+    /// Archive open data d'où viennent l'identifiant et les métadonnées.
+    pub source_archive_url: Option<String>,
+    pub source_license: Option<String>,
+    /// Empreinte SHA-256 de la notice officielle archivée, pas du texte brut.
+    /// Elle rend détectable une mise à jour des métadonnées lors d'une ingestion.
+    pub source_metadata_fingerprint: Option<String>,
+    pub source_retrieved_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize)]

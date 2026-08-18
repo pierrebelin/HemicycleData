@@ -12,6 +12,14 @@ default-run = "hemicycle-data"
 name = "admin-token"
 path = "src/bin/admin_token.rs"
 
+[[bin]]
+name = "sync-official-text-versions"
+path = "src/bin/sync_official_text_versions.rs"
+
+[[bin]]
+name = "capture-official-text-versions"
+path = "src/bin/capture_official_text_versions.rs"
+
 [dependencies]
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }

@@ -189,6 +189,11 @@ pub struct DocumentDto {
     pub short_title: Option<String>,
     pub doc_type: String,
     pub date: Option<NaiveDate>,
+    pub official_url: Option<String>,
+    pub source_archive_url: Option<String>,
+    pub source_license: Option<String>,
+    pub source_metadata_fingerprint: Option<String>,
+    pub source_retrieved_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Serialize)]
@@ -457,6 +462,11 @@ impl DossierDetailDto {
                     short_title: doc.short_title,
                     doc_type: doc.doc_type,
                     date: doc.date,
+                    official_url: doc.official_url,
+                    source_archive_url: doc.source_archive_url,
+                    source_license: doc.source_license,
+                    source_metadata_fingerprint: doc.source_metadata_fingerprint,
+                    source_retrieved_at: doc.source_retrieved_at,
                 })
                 .collect(),
             score: ScoreDto {

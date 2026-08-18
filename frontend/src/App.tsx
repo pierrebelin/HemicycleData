@@ -3,11 +3,11 @@ import Logo from './components/Logo'
 import ThemeToggle from './components/ThemeToggle'
 
 /*
- * Quatre entrées, pas sept. « Accueil » est déjà porté par le logo ; les
- * scrutins s'atteignent depuis les dossiers, dont ils sont le détail ; les
- * fiches de groupes depuis la page qui compare leurs votes, où l'on va
- * justement chercher qui est qui. Une barre qui liste les tables du modèle
- * fait porter au lecteur le travail de savoir laquelle le concerne.
+ * Cinq entrées lisibles. « Accueil » est porté par le logo ; les scrutins
+ * s'atteignent depuis les dossiers, dont ils sont le détail ; les fiches de
+ * groupes depuis la page qui compare leurs votes, où l'on va justement
+ * chercher qui est qui. « À propos » conserve la promesse, les sources et les
+ * règles déplacées de l'ancien accueil.
  */
 const NAV = [
   { to: '/dossiers', label: 'Dossiers', mobileLabel: 'Dossiers', end: false },
@@ -19,6 +19,7 @@ const NAV = [
   },
   { to: '/themes', label: 'Thèmes', mobileLabel: 'Thèmes', end: false },
   { to: '/comprendre', label: 'Comprendre', mobileLabel: 'Comprendre', end: false },
+  { to: '/a-propos', label: 'À propos', mobileLabel: 'À propos', end: false },
 ]
 
 export default function App() {

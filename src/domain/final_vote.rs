@@ -10,7 +10,7 @@
 //! affichee: les autres scrutins restent tous consultables sur `/scrutins`
 //! (README.md §2).
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
 use crate::domain::actor::GroupUid;
@@ -219,11 +219,36 @@ pub struct FinalVote {
     /// 222 votes sur l'ensemble: le titre vient donc du texte, pas du dossier.
     pub dossier_uid: Option<String>,
     pub dossier_label: Option<String>,
+    /// Version exacte du texte dont une source officielle établit le lien avec
+    /// ce scrutin. `None` signifie que ce lien n'a pas encore été vérifié : le
+    /// titre du scrutin ne permet jamais de le déduire.
+    pub official_text: Option<OfficialTextVersion>,
     /// Decompte officiel de l'ensemble de l'Assemblee, publie tel quel.
     pub synthesis: VoteTally,
     /// Positions des groupes demandes, dans l'ordre de la demande. Un groupe
     /// absent de la liste n'avait pas de ligne dans ce scrutin.
     pub stances: Vec<GroupStance>,
+}
+
+/// Version officielle explicitement rattachée à un vote sur l'ensemble.
+///
+/// La référence qui établit le lien est distincte du document lui-même : une
+/// page de séance, d'analyse de scrutin ou de dossier peut en être la preuve.
+/// Cette séparation évite de confondre une version simplement présente dans un
+/// dossier avec celle qui a effectivement été soumise au vote.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct OfficialTextVersion {
+    pub document_uid: String,
+    pub document_title: String,
+    pub version_label: String,
+    pub document_published_on: Option<NaiveDate>,
+    pub official_url: String,
+    pub mapping_source_url: String,
+    pub source_producer: String,
+    pub source_license: String,
+    /// Empreinte de la source de rattachement, quand elle a pu être calculée.
+    pub source_metadata_fingerprint: Option<String>,
+    pub source_retrieved_at: DateTime<Utc>,
 }
 
 impl FinalVote {

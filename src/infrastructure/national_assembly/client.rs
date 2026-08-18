@@ -3,6 +3,7 @@ use std::io::{Cursor, Read};
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use sha2::{Digest, Sha256};
 
 use crate::application::ports::assembly_source::{AssemblySource, SourceError};
 use crate::domain::dossier::{
@@ -20,12 +21,21 @@ use super::parsing::{
 };
 
 const DOSSIERS_URL: &str = "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/dossiers_legislatifs/Dossiers_Legislatifs.json.zip";
+const OPEN_LICENSE: &str = "Licence Ouverte / Open Licence (Etalab)";
+
+/// Le lecteur peut ouvrir la version précise dont la notice est publiée par
+/// l'Assemblée. Le suffixe `.raw` est celui utilisé par les pages dynamiques
+/// de l'Assemblée pour embarquer le document, quel que soit son type.
+fn official_document_url(document_uid: &str) -> String {
+    format!("https://www.assemblee-nationale.fr/dyn/docs/{document_uid}.raw")
+}
 
 struct DocumentMeta {
     title: String,
     short_title: Option<String>,
     doc_type: String,
     date: Option<NaiveDate>,
+    metadata_fingerprint: String,
 }
 
 pub struct NationalAssemblyClient {
@@ -85,6 +95,11 @@ impl NationalAssemblyClient {
                     short_title: meta.short_title.clone(),
                     doc_type: meta.doc_type.clone(),
                     date: meta.date,
+                    official_url: Some(official_document_url(doc_uid)),
+                    source_archive_url: Some(DOSSIERS_URL.to_string()),
+                    source_license: Some(OPEN_LICENSE.to_string()),
+                    source_metadata_fingerprint: Some(meta.metadata_fingerprint.clone()),
+                    source_retrieved_at: None,
                 })
             })
             .collect();
@@ -200,6 +215,7 @@ impl NationalAssemblyClient {
                     short_title,
                     doc_type,
                     date,
+                    metadata_fingerprint: format!("{:x}", Sha256::digest(content.as_bytes())),
                 },
             );
         }
@@ -347,5 +363,18 @@ impl AssemblySource for NationalAssemblyClient {
         tokio::task::spawn_blocking(move || Self::find_dossier_by_uid(&zip_data, &uid))
             .await
             .map_err(|e| SourceError::Parse(e.to_string()))?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::official_document_url;
+
+    #[test]
+    fn points_to_the_exact_official_document() {
+        assert_eq!(
+            official_document_url("PIONANR5L17B1560"),
+            "https://www.assemblee-nationale.fr/dyn/docs/PIONANR5L17B1560.raw"
+        );
     }
 }

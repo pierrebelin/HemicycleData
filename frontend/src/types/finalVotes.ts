@@ -58,9 +58,24 @@ export interface FinalVoteDto {
   adopted: boolean
   dossier_uid: string | null
   dossier_label: string | null
+  /** Version exacte seulement lorsqu'un acte officiel établit le rattachement. */
+  official_text: OfficialTextVersionDto | null
   synthesis: TallyDto
   families: AssignedFamilyDto[]
   stances: StanceDto[]
+}
+
+export interface OfficialTextVersionDto {
+  document_uid: string
+  document_title: string
+  version_label: string
+  document_published_on: string | null
+  official_url: string
+  mapping_source_url: string
+  source_producer: string
+  source_license: string
+  source_metadata_fingerprint: string | null
+  source_retrieved_at: string
 }
 
 export interface FinalVoteListResponse {

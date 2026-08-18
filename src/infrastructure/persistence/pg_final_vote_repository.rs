@@ -8,6 +8,7 @@ use crate::application::ports::final_vote_repository::{
     GroupOption, GroupTallyRecord, RepositoryError,
 };
 use crate::application::ports::theme_repository::AssignedFamily;
+use crate::domain::final_vote::OfficialTextVersion;
 use crate::domain::scrutin::VoteTally;
 use crate::domain::theme::FamilyCode;
 
@@ -127,6 +128,24 @@ fn tally_from_row(row: &sqlx::postgres::PgRow) -> VoteTally {
     }
 }
 
+/// Reconstitue la référence seulement si les colonnes de la jointure sont
+/// toutes présentes. Une ligne partielle ne doit jamais devenir un texte
+/// affichable : le lecteur doit alors voir la limite de couverture.
+fn official_text_from_row(row: &sqlx::postgres::PgRow) -> Option<OfficialTextVersion> {
+    Some(OfficialTextVersion {
+        document_uid: row.get("official_document_uid"),
+        document_title: row.get("official_document_title"),
+        version_label: row.get("official_version_label"),
+        document_published_on: row.get("official_document_published_on"),
+        official_url: row.get("official_document_url"),
+        mapping_source_url: row.get("official_mapping_source_url"),
+        source_producer: row.get("official_source_producer"),
+        source_license: row.get("official_source_license"),
+        source_metadata_fingerprint: row.get("official_source_metadata_fingerprint"),
+        source_retrieved_at: row.get("official_source_retrieved_at"),
+    })
+}
+
 #[async_trait]
 impl FinalVoteRepository for PgFinalVoteRepository {
     async fn list_final_votes(
@@ -143,10 +162,21 @@ impl FinalVoteRepository for PgFinalVoteRepository {
                     s.not_voting, s.voluntary_not_voting,
                     s.dossier_uid, s.dossier_label,
                     dt.text_key, dt.label AS text_label,
+                    fvtv.document_uid AS official_document_uid,
+                    fvtv.document_title AS official_document_title,
+                    fvtv.version_label AS official_version_label,
+                    fvtv.document_published_on AS official_document_published_on,
+                    fvtv.official_url AS official_document_url,
+                    fvtv.mapping_source_url AS official_mapping_source_url,
+                    fvtv.source_producer AS official_source_producer,
+                    fvtv.source_license AS official_source_license,
+                    fvtv.source_metadata_fingerprint AS official_source_metadata_fingerprint,
+                    fvtv.source_retrieved_at AS official_source_retrieved_at,
                     count(*) OVER () AS total
              FROM scrutins s
              JOIN scrutin_debated_texts sdt ON sdt.scrutin_uid = s.uid
              JOIN debated_texts dt ON dt.text_key = sdt.text_key
+             LEFT JOIN final_vote_text_versions fvtv ON fvtv.scrutin_uid = s.uid
              WHERE {FINAL_VOTE_PREDICATE}
                AND ($1::text IS NULL OR EXISTS (
                      SELECT 1 FROM theme_assignments ta
@@ -183,6 +213,9 @@ impl FinalVoteRepository for PgFinalVoteRepository {
             .map(|row| {
                 let uid: String = row.get("uid");
                 let text_key: String = row.get("text_key");
+                let official_text = row
+                    .get::<Option<String>, _>("official_document_uid")
+                    .and_then(|_| official_text_from_row(row));
                 FinalVoteRecord {
                     number: row.get("number"),
                     date: row.get("scrutin_date"),
@@ -193,6 +226,7 @@ impl FinalVoteRepository for PgFinalVoteRepository {
                     text_label: row.get("text_label"),
                     dossier_uid: row.get("dossier_uid"),
                     dossier_label: row.get("dossier_label"),
+                    official_text,
                     synthesis: tally_from_row(row),
                     families: families.remove(&text_key).unwrap_or_default(),
                     tallies: tallies.remove(&uid).unwrap_or_default(),

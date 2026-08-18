@@ -1,0 +1,79 @@
+{
+  "versions": [
+    {
+      "legislature": 17,
+      "scrutin_number": "611",
+      "document_uid": "l17t0029",
+      "document_title": "Proposition de loi, adoptée par l'Assemblée nationale, visant à lutter contre les pannes d'ascenseurs non prises en charge, T.A. n° 29",
+      "version_label": "Texte adopté par l'Assemblée nationale en première lecture (T.A. n° 29)",
+      "document_published_on": "2025-01-24",
+      "official_url": "https://www.assemblee-nationale.fr/dyn/17/textes/l17t0029_texte-adopte-seance",
+      "content_url": "https://www.assemblee-nationale.fr/dyn/opendata/PIONANR5L17BTA0029.html",
+      "mapping_source_url": "https://www.assemblee-nationale.fr/dyn/17/dossiers/lutte_panne_ascenseurs",
+      "source_producer": "Assemblée nationale",
+      "source_license": "Licence Ouverte / Open Licence",
+      "source_metadata_fingerprint": "sha256:0709e26f40c0f963231262fb67feab0bb789933fdbe55869a696f7bd8b066a8e (PDF officiel)",
+      "source_retrieved_at": "2026-08-16T17:04:51Z"
+    },
+    {
+      "legislature": 17,
+      "scrutin_number": "612",
+      "document_uid": "l17t0030",
+      "document_title": "Proposition de loi, adoptée par l'Assemblée nationale, prenant des mesures d'urgence pour protéger nos enfants accueillis en crèches privées à but lucratif, T.A. n° 30",
+      "version_label": "Texte adopté par l'Assemblée nationale en première lecture (T.A. n° 30)",
+      "document_published_on": "2025-01-24",
+      "official_url": "https://www.assemblee-nationale.fr/dyn/17/textes/l17t0030_texte-adopte-seance",
+      "content_url": "https://www.assemblee-nationale.fr/dyn/opendata/PIONANR5L17BTA0030.html",
+      "mapping_source_url": "https://www.assemblee-nationale.fr/dyn/17/dossiers/DLR5L17N50775",
+      "source_producer": "Assemblée nationale",
+      "source_license": "Licence Ouverte / Open Licence",
+      "source_metadata_fingerprint": "sha256:4bbc4f317310639b408338ade25c0a70428d7df52f5cca9b217e703e73c06242 (PDF officiel)",
+      "source_retrieved_at": "2026-08-16T17:04:51Z"
+    },
+    {
+      "legislature": 17,
+      "scrutin_number": "617",
+      "document_uid": "l17t0031",
+      "document_title": "Proposition de loi, adoptée par l'Assemblée nationale, visant à améliorer le traitement des maladies affectant les cultures végétales à l'aide d'aéronefs télépilotés, T.A. n° 31",
+      "version_label": "Texte adopté par l'Assemblée nationale en première lecture (T.A. n° 31)",
+      "document_published_on": "2025-01-27",
+      "official_url": "https://www.assemblee-nationale.fr/dyn/17/textes/l17t0031_texte-adopte-seance",
+      "content_url": "https://www.assemblee-nationale.fr/dyn/opendata/PIONANR5L17BTA0031.html",
+      "mapping_source_url": "https://www.assemblee-nationale.fr/dyn/17/dossiers/ameliorer_traitement_maladies_affectant_cultures_vegetales_aeronefs",
+      "source_producer": "Assemblée nationale",
+      "source_license": "Licence Ouverte / Open Licence",
+      "source_metadata_fingerprint": "sha256:c424b3af915567792ff969782679f4ad73448ef3d58f29fa55c56d7c505a5945 (PDF officiel)",
+      "source_retrieved_at": "2026-08-16T17:04:51Z"
+    },
+    {
+      "legislature": 17,
+      "scrutin_number": "653",
+      "document_uid": "l17t0032",
+      "document_title": "Proposition de loi, adoptée par l'Assemblée nationale après engagement de la procédure accélérée, contre toutes les fraudes aux aides publiques, T.A. n° 32",
+      "version_label": "Texte adopté par l'Assemblée nationale en première lecture (T.A. n° 32)",
+      "document_published_on": "2025-01-28",
+      "official_url": "https://www.assemblee-nationale.fr/dyn/17/textes/l17t0032_texte-adopte-seance",
+      "content_url": "https://www.assemblee-nationale.fr/dyn/opendata/PIONANR5L17BTA0032.html",
+      "mapping_source_url": "https://www.assemblee-nationale.fr/dyn/17/dossiers/DLR5L17N50715",
+      "source_producer": "Assemblée nationale",
+      "source_license": "Licence Ouverte / Open Licence",
+      "source_metadata_fingerprint": "sha256:5187d53786eb37a51669cafdcb8f60e3f5e324e1abb453a464962614c7603347 (PDF officiel)",
+      "source_retrieved_at": "2026-08-16T17:04:51Z"
+    },
+    {
+      "legislature": 17,
+      "scrutin_number": "1018",
+      "document_uid": "l17t0073",
+      "document_title": "Résolution, adoptée par l'Assemblée nationale, créant une commission d'enquête sur les effets psychologiques de TikTok sur les mineurs, T.A. n° 73",
+      "version_label": "Texte adopté par l'Assemblée nationale en lecture unique (T.A. n° 73)",
+      "document_published_on": "2025-03-14",
+      "official_url": "https://www.assemblee-nationale.fr/dyn/17/textes/l17t0073_texte-adopte-seance",
+      "content_url": "https://www.assemblee-nationale.fr/dyn/opendata/RIONANR5L17BTA0073.html",
+      "mapping_source_url": "https://www.assemblee-nationale.fr/dyn/17/dossiers/effets_psychologiques_tiktok_mineurs",
+      "source_producer": "Assemblée nationale",
+      "source_license": "Licence Ouverte / Open Licence",
+      "source_metadata_fingerprint": "sha256:fe7bfddeeb6e0edd26c99af8a3981157ce07291b3a37bdd22e46002068766d53 (PDF officiel)",
+      "source_retrieved_at": "2026-08-16T17:04:51Z"
+    }
+  ]
+}

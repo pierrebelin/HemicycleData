@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::api::theme_dto::AssignedFamilyDto;
@@ -6,7 +6,7 @@ use crate::application::ports::final_vote_repository::GroupOption;
 use crate::application::use_cases::browse_final_votes::{
     BrowseFinalVotesCommand, FinalVoteEntry, FinalVoteView, MAX_COMPARED_GROUPS,
 };
-use crate::domain::final_vote::{GroupStance, VoterShare};
+use crate::domain::final_vote::{GroupStance, OfficialTextVersion, VoterShare};
 use crate::domain::scrutin::{VotePosition, VoteTally};
 
 /// Perimetre de la page, affiche en tete (README.md §2): la restriction est
@@ -185,12 +185,46 @@ pub struct FinalVoteDto {
     pub adopted: bool,
     pub dossier_uid: Option<String>,
     pub dossier_label: Option<String>,
+    /// `None` quand aucune source officielle n'établit encore le lien entre le
+    /// vote et une version précise. Ce n'est pas une absence de texte.
+    pub official_text: Option<OfficialTextVersionDto>,
     /// Decompte officiel de l'Assemblee entiere.
     pub synthesis: TallyDto,
     pub families: Vec<AssignedFamilyDto>,
     /// Positions des groupes compares, dans l'ordre demande. Un groupe sans
     /// ligne dans ce scrutin en est absent: rien n'est comble par un zero.
     pub stances: Vec<StanceDto>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OfficialTextVersionDto {
+    pub document_uid: String,
+    pub document_title: String,
+    pub version_label: String,
+    pub document_published_on: Option<NaiveDate>,
+    pub official_url: String,
+    pub mapping_source_url: String,
+    pub source_producer: String,
+    pub source_license: String,
+    pub source_metadata_fingerprint: Option<String>,
+    pub source_retrieved_at: DateTime<Utc>,
+}
+
+impl From<OfficialTextVersion> for OfficialTextVersionDto {
+    fn from(value: OfficialTextVersion) -> Self {
+        Self {
+            document_uid: value.document_uid,
+            document_title: value.document_title,
+            version_label: value.version_label,
+            document_published_on: value.document_published_on,
+            official_url: value.official_url,
+            mapping_source_url: value.mapping_source_url,
+            source_producer: value.source_producer,
+            source_license: value.source_license,
+            source_metadata_fingerprint: value.source_metadata_fingerprint,
+            source_retrieved_at: value.source_retrieved_at,
+        }
+    }
 }
 
 impl From<FinalVoteEntry> for FinalVoteDto {
@@ -209,6 +243,7 @@ impl From<FinalVoteEntry> for FinalVoteDto {
             adopted: vote.outcome.is_adopted(),
             dossier_uid: vote.dossier_uid,
             dossier_label: vote.dossier_label,
+            official_text: vote.official_text.map(OfficialTextVersionDto::from),
             synthesis: vote.synthesis.into(),
             families: entry
                 .families
