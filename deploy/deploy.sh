@@ -57,7 +57,10 @@ git submodule update --init --recursive 2>/dev/null || true
 echo "HEAD : $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
 
 log "Compilation du backend"
-cargo build --release --locked
+# Les jobs systemd annexes executent directement les binaires de
+# synchronisation et de capture : les construire au deploiement, jamais sous
+# systemd (son systeme de fichiers est en lecture seule).
+cargo build --release --locked --bins
 
 log "Compilation du frontend"
 cd "${APP_DIR}/frontend"

@@ -1,0 +1,16 @@
+[Unit]
+Description=hemicycle.data — capture quotidienne des textes officiels
+Documentation=https://github.com/pierrebelin/HemicycleData
+
+[Timer]
+Unit=hemicycle-text-capture.service
+
+# L'ingestion de 04:07 peut durer jusqu'a 45 min. Ce passage arrive apres elle
+# et ne sollicite donc les documents officiels qu'une fois par jour.
+OnCalendar=*-*-* 05:20:00
+RandomizedDelaySec=10min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

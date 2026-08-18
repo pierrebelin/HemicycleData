@@ -65,6 +65,11 @@ systemd (hemicycle-ingest.timer → .service, toutes les 2 h)
          POST 127.0.0.1:8085/api/{registry/refresh,scrutins/refresh,refresh}
          (`refresh` porte aussi l'extraction des textes et le rattachement)
          en-tête x-admin-token : jeton du jour
+
+systemd (hemicycle-text-capture.timer → .service, chaque jour)
+   └─ /home/hemicycle/app/deploy/cron/hemicycle-text-capture.sh
+         binaires release : synchronisation du registre puis capture Open Data
+         PostgreSQL direct, sans route d'administration ni appel LLM
 ```
 
 ### 3.1 Pourquoi ce découpage pour l'écriture
@@ -194,6 +199,22 @@ Le changement de jeton à minuit n'est pas un obstacle : le serveur accepte le
 jeton du jour **et** celui de la veille (§3.2), quelle que soit l'heure du
 passage.
 
+### 3.4 Capture quotidienne des textes officiels
+
+`hemicycle-text-capture.timer` déclenche chaque jour, après le passage
+d'ingestion de 04:07, `deploy/cron/hemicycle-text-capture.sh`. Le script attend
+le health check, puis exécute les binaires release dans cet ordre :
+
+1. `sync-official-text-versions` rattache le registre versionné aux scrutins
+   effectivement présents en base ;
+2. `capture-official-text-versions` télécharge chaque document référencé, en
+   conserve le HTML, le texte dérivé, l'empreinte SHA-256 et la date de collecte.
+
+Cette tâche n'appelle pas l'API d'administration et ne consomme aucune clé LLM.
+Elle utilise seulement `DATABASE_URL` et les URLs publiques du registre. Une
+erreur de référence, de réseau ou de contenu court fait échouer l'unité et reste
+visible dans journald ; le passage quotidien suivant la réessaie.
+
 ## 4. Préparation du serveur (une seule fois, en root)
 
 ### 4.1 Utilisateur
@@ -316,6 +337,8 @@ se fait à l'installation, jamais dans le dépôt.
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle.service /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.service /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.timer /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-text-capture.service /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-text-capture.timer /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/nginx/hemicycle-admin.conf /etc/nginx/sites-available/
 
 # Vhost public : domaine injecté à la volée.
@@ -333,6 +356,8 @@ systemctl enable hemicycle
 # Le timer seul est activé : le service d'ingestion est déclenché par lui,
 # jamais au démarrage (§6.2). Ne pas ajouter en plus la ligne de crontab.
 systemctl enable --now hemicycle-ingest.timer
+# Capture indépendante, quotidienne : elle n'emploie ni le jeton admin ni un LLM.
+systemctl enable --now hemicycle-text-capture.timer
 ```
 
 Premier build manuel avant le premier démarrage (sinon le binaire n'existe pas) :
@@ -415,7 +440,7 @@ l'autre, jamais en parallèle sur le même dossier.
 
 1. `git fetch --prune`, puis `git reset --hard <sha>` sur `app/` — l'état du
    serveur est exactement celui du commit, toute modification locale est écrasée.
-2. `cargo build --release --locked`.
+2. `cargo build --release --locked --bins`.
 3. `npm ci` puis `npm run build` dans `frontend/`.
 4. `rsync -a --delete frontend/dist/ ~/www/`.
 5. `sudo systemctl restart hemicycle`.
@@ -480,6 +505,9 @@ intercepteur venu. Aucun secret applicatif ne transite par GitHub.
 | `deploy/systemd/hemicycle-ingest.service` | job d'ingestion (`oneshot`), déclenché par le timer |
 | `deploy/systemd/hemicycle-ingest.timer` | cadence de l'ingestion, toutes les 2 h |
 | `deploy/cron/hemicycle-ingest.sh` | script appelé par le job : les quatre routes d'ingestion, avec le jeton du jour |
+| `deploy/systemd/hemicycle-text-capture.service` | job de capture des textes officiels (`oneshot`) |
+| `deploy/systemd/hemicycle-text-capture.timer` | cadence de capture, quotidienne |
+| `deploy/cron/hemicycle-text-capture.sh` | synchronise le registre et capture les documents, sans LLM |
 | `deploy/nginx/hemicycle-public.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
 | `deploy/nginx/hemicycle-admin.conf` | vhost d'administration sur `127.0.0.1:8080` |
 | `deploy/bin/admin-token.sh` | affiche le jeton du jour (§3.2) |
@@ -557,6 +585,20 @@ Le script journalise une ligne par route, avec son code HTTP. Une route en éche
 n'empêche pas les suivantes de tourner, mais le code de sortie du job la
 reflète : l'unité passe en `failed` et `systemctl list-timers` le montre.
 
+### 6.3 Capture quotidienne des textes officiels
+
+`hemicycle-text-capture.timer` déclenche `deploy/cron/hemicycle-text-capture.sh`
+chaque jour vers 05:20, après l'ingestion nocturne. Il n'appelle pas le backend
+d'administration : il lit `DATABASE_URL`, exécute les deux binaires release et
+écrit les captures dans PostgreSQL.
+
+```bash
+systemctl list-timers hemicycle-text-capture.timer
+journalctl -u hemicycle-text-capture -n 50 --no-pager
+sudo systemctl start hemicycle-text-capture.service
+sudo systemctl disable --now hemicycle-text-capture.timer
+```
+
 Une réécriture complète (`?full=true`), nécessaire après un changement de règle
 de dérivation (score, sort, rattachement), reste manuelle et n'a pas sa place
 dans le timer. Elle exige le jeton du jour :
@@ -582,7 +624,9 @@ sudo -u hemicycle bash -c 'curl -sS -X POST \
 - [ ] `POST /api/refresh` sans jeton, depuis le tunnel admin, renvoie `401`
 - [ ] Le même appel avec le jeton du jour aboutit
 - [ ] `deploy/cron/hemicycle-ingest.sh` lancé à la main sort en `0`
+- [ ] `deploy/cron/hemicycle-text-capture.sh` lancé à la main sort en `0`
 - [ ] `ss -ltnp | grep 8085` montre une écoute sur `127.0.0.1`, pas sur `0.0.0.0`
 - [ ] `systemctl list-timers hemicycle-ingest.timer` annonce une prochaine passe à moins de 2 h
+- [ ] `systemctl list-timers hemicycle-text-capture.timer` annonce une prochaine capture quotidienne
 - [ ] `crontab -l` sous `hemicycle` ne contient **pas** de ligne `hemicycle-ingest.sh` (le timer et la crontab s'excluent, §3.3)
 - [ ] Après un `systemctl restart hemicycle`, le job attend la reprise au lieu d'échouer
