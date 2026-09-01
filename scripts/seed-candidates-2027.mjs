@@ -339,11 +339,11 @@ if (!useDocker && !process.env.DATABASE_URL) {
 const command = useDocker ? 'docker' : 'psql'
 const args = useDocker
   ? ['compose', '-f', 'compose.dev.yml', 'exec', '-T', 'postgres', 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'hemicycle', '-d', 'hemicycle_dev']
-  : ['-X', '-v', 'ON_ERROR_STOP=1']
+  : ['-X', '-v', 'ON_ERROR_STOP=1', process.env.DATABASE_URL]
 const result = spawnSync(command, args, {
   input: sql,
   encoding: 'utf8',
-  env: useDocker ? process.env : { ...process.env, PGDATABASE: process.env.DATABASE_URL },
+  env: process.env,
 })
 
 if (result.error) {
