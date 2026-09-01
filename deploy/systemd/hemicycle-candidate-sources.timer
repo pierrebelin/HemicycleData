@@ -1,0 +1,16 @@
+[Unit]
+Description=hemicycle.data — vérification quotidienne des sources de programmes 2027
+Documentation=https://github.com/pierrebelin/HemicycleData
+
+[Timer]
+Unit=hemicycle-candidate-sources.service
+
+# Après l'ingestion et la capture quotidiennes, afin de ne pas concentrer les
+# accès sortants. Un changement est journalisé, jamais publié automatiquement.
+OnCalendar=*-*-* 06:10:00
+RandomizedDelaySec=10min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

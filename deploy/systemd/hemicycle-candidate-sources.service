@@ -1,0 +1,36 @@
+[Unit]
+Description=hemicycle.data — vérification des sources de programmes 2027
+Documentation=https://github.com/pierrebelin/HemicycleData
+After=network-online.target hemicycle.service
+Wants=network-online.target
+Requires=hemicycle.service
+
+[Service]
+Type=oneshot
+User=hemicycle
+Group=hemicycle
+WorkingDirectory=/home/hemicycle/app
+EnvironmentFile=-/home/hemicycle/shared/.env
+ExecStart=/home/hemicycle/app/deploy/cron/hemicycle-candidate-sources.sh
+
+# Les sources sont publiques, vérifiées séquentiellement et avec un délai
+# maximal par requête. Une source lente ne doit pas empêcher le prochain jour.
+TimeoutStartSec=3600
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hemicycle-candidate-sources

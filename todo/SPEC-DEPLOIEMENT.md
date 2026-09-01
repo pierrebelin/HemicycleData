@@ -339,6 +339,8 @@ install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.service /etc/
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-ingest.timer /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-text-capture.service /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-text-capture.timer /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-candidate-sources.service /etc/systemd/system/
+install -m 644 /home/hemicycle/app/deploy/systemd/hemicycle-candidate-sources.timer /etc/systemd/system/
 install -m 644 /home/hemicycle/app/deploy/nginx/hemicycle-admin.conf /etc/nginx/sites-available/
 
 # Vhost public : domaine injecté à la volée.
@@ -358,6 +360,9 @@ systemctl enable hemicycle
 systemctl enable --now hemicycle-ingest.timer
 # Capture indépendante, quotidienne : elle n'emploie ni le jeton admin ni un LLM.
 systemctl enable --now hemicycle-text-capture.timer
+# Vérifie les sources des candidatures 2027 et journalise les changements ;
+# une revue humaine reste nécessaire avant toute publication (§6.4).
+systemctl enable --now hemicycle-candidate-sources.timer
 ```
 
 Premier build manuel avant le premier démarrage (sinon le binaire n'existe pas) :
@@ -508,10 +513,12 @@ intercepteur venu. Aucun secret applicatif ne transite par GitHub.
 | `deploy/systemd/hemicycle-text-capture.service` | job de capture des textes officiels (`oneshot`) |
 | `deploy/systemd/hemicycle-text-capture.timer` | cadence de capture, quotidienne |
 | `deploy/cron/hemicycle-text-capture.sh` | synchronise le registre et capture les documents, sans LLM |
+| `deploy/systemd/hemicycle-candidate-sources.service` | vérifie les sources déjà publiées des candidatures 2027 |
+| `deploy/systemd/hemicycle-candidate-sources.timer` | lance cette vérification chaque jour |
+| `deploy/cron/hemicycle-candidate-sources.sh` | compare les réponses HTTP, journalise les changements et les erreurs |
 | `deploy/nginx/hemicycle-public.conf` | vhost public, à installer dans `/etc/nginx/sites-available/` |
 | `deploy/nginx/hemicycle-admin.conf` | vhost d'administration sur `127.0.0.1:8080` |
 | `deploy/bin/admin-token.sh` | affiche le jeton du jour (§3.2) |
-| `deploy/cron/hemicycle-ingest.sh` | ingestion quotidienne, à poser dans la crontab (§3.3) |
 
 Ordre de mise en service : §4 en entier (dont `certbot`, §4.8) **avant** le
 premier merge sur `main`. L'étape « Vérification publique » du workflow
@@ -609,6 +616,28 @@ sudo -u hemicycle bash -c 'curl -sS -X POST \
   "http://127.0.0.1:8085/api/refresh?full=true"'
 ```
 
+### 6.4 Vérification quotidienne des sources de programmes 2027
+
+`hemicycle-candidate-sources.timer` lance chaque jour, vers 06:10,
+`deploy/cron/hemicycle-candidate-sources.sh`. Le job relit les URL déjà
+attribuées aux déclarations, organisations et extraits de programme ; il
+réemploie `ETag` et `Last-Modified` lorsque les serveurs les fournissent, puis
+compare un SHA-256 de la réponse. Il ne conserve que ces métadonnées techniques
+dans PostgreSQL, pas une copie du contenu source.
+
+Un changement est écrit dans le journal avec « revue humaine requise ». Il ne
+crée ni candidature ni extrait automatiquement : ces éléments doivent rester
+attribués à une source primaire contrôlée conformément à `README.md` §3.3 et
+§8.2. Une erreur de source fait échouer l'unité, afin qu'elle soit visible dans
+la supervision.
+
+```bash
+systemctl list-timers hemicycle-candidate-sources.timer
+journalctl -u hemicycle-candidate-sources -n 100 --no-pager
+sudo systemctl start hemicycle-candidate-sources.service
+sudo systemctl disable --now hemicycle-candidate-sources.timer
+```
+
 ## 7. Recette
 
 - [ ] `https://<DOMAINE_PUBLIC>` répond en 200, certificat valide
@@ -625,8 +654,10 @@ sudo -u hemicycle bash -c 'curl -sS -X POST \
 - [ ] Le même appel avec le jeton du jour aboutit
 - [ ] `deploy/cron/hemicycle-ingest.sh` lancé à la main sort en `0`
 - [ ] `deploy/cron/hemicycle-text-capture.sh` lancé à la main sort en `0`
+- [ ] `deploy/cron/hemicycle-candidate-sources.sh` lancé à la main sort en `0`
 - [ ] `ss -ltnp | grep 8085` montre une écoute sur `127.0.0.1`, pas sur `0.0.0.0`
 - [ ] `systemctl list-timers hemicycle-ingest.timer` annonce une prochaine passe à moins de 2 h
 - [ ] `systemctl list-timers hemicycle-text-capture.timer` annonce une prochaine capture quotidienne
+- [ ] `systemctl list-timers hemicycle-candidate-sources.timer` annonce une prochaine vérification quotidienne des sources 2027
 - [ ] `crontab -l` sous `hemicycle` ne contient **pas** de ligne `hemicycle-ingest.sh` (le timer et la crontab s'excluent, §3.3)
 - [ ] Après un `systemctl restart hemicycle`, le job attend la reprise au lieu d'échouer
