@@ -431,7 +431,7 @@ export default function GroupVotesPage() {
         }
       />
 
-      <p className="-mt-8 mb-4 text-xs text-ink-faint">
+      <p className="mb-4 text-xs text-ink-faint">
         <Link to="/votes-par-groupe/methode" className="text-accent underline">
           Comment sont retenus les votes sur l’ensemble ?
         </Link>
