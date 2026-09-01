@@ -84,7 +84,7 @@ impl AnthropicThemeClassifier {
             // schema fait le reste du travail de cadrage.
             "output_config": {
                 "effort": "low",
-                "format": { "type": "json_schema", "schema": response_schema() }
+                "format": { "type": "json_schema", "schema": response_schema(labels.len()) }
             },
             // Bloc systeme marque pour le cache: il est identique d'un lot au
             // suivant. Le fournisseur n'entretient le cache qu'au-dela d'une
@@ -148,17 +148,20 @@ pub(crate) fn system_prompt() -> String {
     )
 }
 
-pub(crate) fn response_schema() -> Value {
+pub(crate) fn response_schema(expected: usize) -> Value {
     let codes: Vec<&str> = FamilyCode::ALL.iter().map(|f| f.as_str()).collect();
+    let numbers: Vec<usize> = (1..=expected).collect();
     json!({
         "type": "object",
         "properties": {
             "textes": {
                 "type": "array",
+                "minItems": expected,
+                "maxItems": expected,
                 "items": {
                     "type": "object",
                     "properties": {
-                        "numero": { "type": "integer" },
+                        "numero": { "type": "integer", "enum": numbers },
                         "familles": {
                             "type": "array",
                             "items": {
@@ -332,18 +335,26 @@ pub(crate) fn parse_text(
         }
 
         let mut proposed = Vec::with_capacity(entry.familles.len());
+        let mut invalid = false;
         for family in entry.familles {
             let code = match FamilyCode::parse(&family.famille) {
                 Ok(code) => code,
                 Err(_) => {
                     tracing::warn!(famille = family.famille, "famille hors référentiel écartée");
+                    invalid = true;
                     continue;
                 }
             };
             match ProposedFamily::new(code, family.justification) {
                 Ok(entry) => proposed.push(entry),
-                Err(error) => tracing::warn!(%error, "proposition écartée"),
+                Err(error) => {
+                    tracing::warn!(%error, "proposition écartée");
+                    invalid = true;
+                }
             }
+        }
+        if invalid {
+            continue;
         }
         out[slot] = Some(proposed);
     }
@@ -372,13 +383,26 @@ mod tests {
 
     #[test]
     fn the_schema_only_accepts_referential_codes() {
-        let schema = response_schema();
+        let schema = response_schema(2);
         let codes = schema["properties"]["textes"]["items"]["properties"]["familles"]["items"]
             ["properties"]["famille"]["enum"]
             .as_array()
             .unwrap();
         assert_eq!(codes.len(), FamilyCode::ALL.len());
         assert!(codes.iter().any(|c| c == "immigration"));
+    }
+
+    #[test]
+    fn the_schema_only_accepts_every_number_of_the_current_batch() {
+        let schema = response_schema(3);
+        let texts = &schema["properties"]["textes"];
+
+        assert_eq!(texts["minItems"], 3);
+        assert_eq!(texts["maxItems"], 3);
+        assert_eq!(
+            texts["items"]["properties"]["numero"]["enum"],
+            json!([1, 2, 3])
+        );
     }
 
     #[test]
@@ -495,7 +519,7 @@ mod tests {
     }
 
     #[test]
-    fn a_family_outside_the_referential_is_dropped_without_losing_the_others() {
+    fn an_invalid_family_leaves_the_whole_answer_retriable() {
         let parsed = parse_answer(
             &payload(
                 r#"{"textes":[{"numero":1,"familles":[
@@ -506,19 +530,17 @@ mod tests {
             1,
         )
         .unwrap();
-        let families = parsed[0].as_ref().unwrap();
-        assert_eq!(families.len(), 1);
-        assert_eq!(families[0].family(), FamilyCode::SanteSocial);
+        assert!(parsed[0].is_none());
     }
 
     #[test]
-    fn a_family_without_justification_is_dropped() {
+    fn a_family_without_justification_leaves_the_answer_retriable() {
         let parsed = parse_answer(
             &payload(r#"{"textes":[{"numero":1,"familles":[{"famille":"numerique","justification":"  "}]}]}"#),
             1,
         )
         .unwrap();
-        assert!(parsed[0].as_ref().unwrap().is_empty());
+        assert!(parsed[0].is_none());
     }
 
     #[test]

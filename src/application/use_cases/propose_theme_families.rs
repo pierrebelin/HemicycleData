@@ -127,38 +127,68 @@ impl<'a> ProposeThemeFamilies<'a> {
         today: NaiveDate,
         run: &mut ProposalRun,
     ) -> Result<(), RepositoryError> {
-        let labels: Vec<String> = chunk.iter().map(|item| item.label.clone()).collect();
-        run.model_calls += 1;
+        let mut batches: Vec<Vec<&Pending>> = vec![chunk.iter().collect()];
 
-        let answers = match self.classifier.propose_batch(&labels).await {
-            Ok(answers) => answers,
-            // Un lot perdu est un lot perdu: chacun de ses objets reste non
-            // rattache et sera repris a la passe suivante.
-            Err(error) => {
-                tracing::warn!(batch = chunk.len(), %error, "theme proposal batch failed");
-                for item in chunk {
-                    run.failed += 1;
-                    self.repository
-                        .record_attempt(&item.subject, today, AttemptOutcome::Failed)
-                        .await?;
-                }
-                return Ok(());
-            }
-        };
+        while let Some(items) = batches.pop() {
+            let labels: Vec<String> = items.iter().map(|item| item.label.clone()).collect();
+            run.model_calls += 1;
 
-        for (index, item) in chunk.iter().enumerate() {
-            // Un port qui rendrait moins d'entrees que de libelles laisserait
-            // ses objets sans reponse: ils sont repris, pas perdus.
-            match answers.get(index).and_then(Option::as_ref) {
-                None => {
-                    tracing::warn!(label = item.label, "aucune réponse pour ce libellé");
-                    run.failed += 1;
-                    self.repository
-                        .record_attempt(&item.subject, today, AttemptOutcome::Failed)
-                        .await?;
+            let answers = match self.classifier.propose_batch(&labels).await {
+                Ok(answers) => answers,
+                // Un lot en erreur est laisse au prochain rafraichissement :
+                // le fractionner multiplierait les appels alors que le
+                // fournisseur est indisponible pour tout le lot.
+                Err(error) => {
+                    tracing::warn!(batch = items.len(), %error, "theme proposal batch failed");
+                    self.record_failed(&items, today, run).await?;
+                    continue;
                 }
-                Some(families) => self.save(item, families, today, run).await?,
+            };
+
+            let mut missing = Vec::new();
+            for (index, item) in items.iter().enumerate() {
+                match answers.get(index).and_then(Option::as_ref) {
+                    Some(families) => self.save(item, families, today, run).await?,
+                    None => missing.push(*item),
+                }
             }
+
+            if missing.is_empty() {
+                continue;
+            }
+
+            if items.len() == 1 {
+                tracing::warn!(label = missing[0].label, "aucune réponse après essai isolé");
+                self.record_failed(&missing, today, run).await?;
+                continue;
+            }
+
+            // Le modele a deja repondu pour une partie du lot : ne lui
+            // resoumettre que les libelles manquants. La division borne la
+            // repetition du cadrage tout en isolant un libelle defaillant.
+            if missing.len() == 1 {
+                batches.push(missing);
+            } else {
+                let middle = missing.len().div_ceil(2);
+                batches.push(missing[middle..].to_vec());
+                batches.push(missing[..middle].to_vec());
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn record_failed(
+        &self,
+        items: &[&Pending],
+        today: NaiveDate,
+        run: &mut ProposalRun,
+    ) -> Result<(), RepositoryError> {
+        for item in items {
+            run.failed += 1;
+            self.repository
+                .record_attempt(&item.subject, today, AttemptOutcome::Failed)
+                .await?;
         }
         Ok(())
     }
@@ -400,7 +430,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_label_the_model_skipped_is_retried_not_counted_as_unassignable() {
+    async fn a_label_the_model_skipped_is_retried_alone_not_counted_as_unassignable() {
         let repository = InMemoryThemeRepository::default();
         let answered = text("proposition de loi relative au droit à l'aide à mourir");
         let skipped = text("proposition de loi visant à réguler les meublés de tourisme");
@@ -421,6 +451,16 @@ mod tests {
         assert_eq!(run.proposed, 1);
         assert_eq!(run.failed, 1);
         assert_eq!(run.without_family, 0);
+        assert_eq!(run.model_calls, 2);
+        assert_eq!(
+            *classifier.calls.lock().unwrap(),
+            vec![
+                answered.label().to_string(),
+                skipped.label().to_string(),
+                skipped.label().to_string()
+            ]
+        );
+        assert_eq!(*classifier.batches.lock().unwrap(), vec![2, 1]);
         let attempts = repository.attempts.lock().unwrap();
         assert!(attempts.contains(&(
             skipped.key().as_str().to_string(),

@@ -73,7 +73,7 @@ impl OpenAiThemeClassifier {
                     "type": "json_schema",
                     "name": "theme_classification",
                     "strict": true,
-                    "schema": response_schema()
+                    "schema": response_schema(labels.len())
                 },
                 "verbosity": "low"
             }
