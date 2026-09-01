@@ -420,8 +420,8 @@ impl ThemeRepository for PgThemeRepository {
         for assignment in opened {
             sqlx::query(
                 "INSERT INTO theme_assignments
-                    (subject_kind, subject_id, family_code, opened_on, author, motive)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                 (subject_kind, subject_id, family_code, opened_on, author, motive)
+                 VALUES ($1, $2, $3, $4, $5, $6)",
             )
             .bind(assignment.subject().kind())
             .bind(assignment.subject().identifier())
