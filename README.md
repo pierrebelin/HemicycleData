@@ -8,6 +8,20 @@ Backend Rust (API REST), frontend SPA React/TypeScript, données issues de l'ope
 
 ---
 
+## Dépôt public
+
+Le code source, les migrations et l'historique des évolutions sont consultables
+sur [GitHub](https://github.com/pierrebelin/HemicycleData), sous
+[PolyForm Noncommercial 1.0.0](LICENSE). Il est donc public et modifiable pour
+des usages non commerciaux, mais ce n'est pas une licence open source au sens
+strict. Cette transparence permet de vérifier les règles de traitement ; pour
+les votes et leurs chiffres, la source officielle de l'Assemblée nationale
+reste la référence.
+
+Le dépôt ne contient ni secrets, ni accès à l'infrastructure, ni export de base
+de données, ni données personnelles. Les configurations locales partent de
+`.env.example` ; le fichier `.env` reste ignoré par Git.
+
 Ce document est aussi la **charte du produit**. Ses sections sont numérotées et le code y renvoie directement (`README.md §6`) : une règle citée ici est une contrainte d'implémentation, pas une intention.
 
 ## 1. Intention
@@ -282,8 +296,9 @@ Les routes de consultation sont ouvertes : le site publie de la donnée
 publique, et un jeton embarqué dans un bundle JavaScript public ne protégerait
 rien — pas plus que `Origin` ou `Referer`, qu'un `curl` falsifie.
 
-Les neuf routes d'écriture (ingestion, curation, thématisation) exigent en
-revanche un jeton, présenté en `x-admin-token` ou en `Authorization: Bearer`.
+Les routes d'écriture (ingestion, rattachement thématique, synchronisation)
+exigent en revanche un jeton, présenté en `x-admin-token` ou en
+`Authorization: Bearer`.
 Ce jeton **change chaque jour** : il est dérivé de `ADMIN_TOKEN_SECRET` et de la
 date UTC, jamais stocké. Le serveur accepte celui du jour et celui de la veille,
 pour qu'une tâche lancée avant minuit ne tombe pas en 401 après.
@@ -314,16 +329,19 @@ Tests :
 
 ```bash
 cargo test
+cd frontend && npm run lint && npm run build
 ```
 
 Les tests de use case reposent sur des fakes in-memory : aucune base n'est nécessaire.
 
 ## Contribution
 
-Les règles des sections §1 à §12 encadrent toute évolution. Une contribution qui ajoute un jugement, un classement ou un filtrage de votes sera refusée sur ce motif, même bien intentionnée.
+Les règles des sections §1 à §12 encadrent toute évolution. Une contribution qui ajoute un jugement, un classement ou un filtrage de votes sera refusée sur ce motif, même bien intentionnée. Toute contribution est proposée sous [PolyForm Noncommercial 1.0.0](LICENSE) ; son auteur confirme avoir le droit de la soumettre. Avant toute proposition, vérifier les tests Rust et le lint puis le build du frontend.
 
-Ne jamais versionner de secret, d'adresse d'hôte ni de donnée personnelle — voir la section « Dépôt public » ci-dessus.
+Ne jamais versionner de secret, d'adresse d'hôte ni de donnée personnelle — voir « Dépôt public » ci-dessus.
 
 ## Licence et données
 
-Les données proviennent de l'open data de l'Assemblée nationale, diffusé sous **Licence Ouverte / Open Licence (Etalab)**. Ce dépôt les réutilise sans les modifier ; leur source officielle est citée sur chaque page.
+Le **code du projet** est distribué sous [PolyForm Noncommercial 1.0.0](LICENSE) : il peut être consulté, modifié et partagé pour des usages non commerciaux. Tout usage commercial requiert une autorisation distincte de Pierre Belin.
+
+Les **données de l'Assemblée nationale** restent sous **Licence Ouverte / Open Licence (Etalab)**, qui autorise leur réutilisation, y compris commerciale, sous ses propres conditions. Ce dépôt les réutilise sans les modifier ; leur source officielle est citée sur chaque page. La licence du code ne modifie pas le statut de ces données.

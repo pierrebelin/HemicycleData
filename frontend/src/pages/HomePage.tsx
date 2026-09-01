@@ -6,6 +6,7 @@ import ScrutinList, { CoverageNote } from '../components/ScrutinList'
 import { siegesDesGroupes, tallyDesVotes } from '../components/sieges'
 import { Card, ErrorPanel, Loading, Note, TallyLine } from '../components/ui'
 import { fetchJson } from '../lib/fetchJson'
+import { GITHUB_REPOSITORY_URL } from '../lib/repository'
 import type { MethodResponse } from '../types/themes'
 import type { ScrutinDetailDto, ScrutinListResponse } from '../types/scrutins'
 import { formatDate } from '../types/scrutins'
@@ -536,6 +537,29 @@ export default function HomePage() {
             ))}
           </ul>
         </div>
+      </Section>
+
+      {/* --------------------------------------------------- Code source */}
+      <Section
+        surtitre="Transparence"
+        titre="La méthode se consulte aussi dans le code"
+        chapo="Le dépôt public permet de vérifier comment les données sont ingérées, rattachées à des thèmes et affichées. Il complète la méthode publiée ; pour chaque chiffre, la source officielle de l’Assemblée nationale reste la référence."
+      >
+        <Card className="px-5 py-4">
+          <p className="max-w-4xl text-sm leading-relaxed text-ink-soft">
+            Le code source, les migrations et l’historique des évolutions sont
+            accessibles publiquement. Vous pouvez les consulter, signaler une
+            erreur ou proposer une amélioration dans le dépôt.
+          </p>
+          <a
+            href={GITHUB_REPOSITORY_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-block text-sm font-medium text-accent hover:underline"
+          >
+            Consulter le dépôt sur GitHub ↗
+          </a>
+        </Card>
       </Section>
 
       {/* ---------------------------------------------------------- Sources */}
