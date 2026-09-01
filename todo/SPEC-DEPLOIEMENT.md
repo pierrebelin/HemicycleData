@@ -628,8 +628,10 @@ dans PostgreSQL, pas une copie du contenu source.
 Un changement est écrit dans le journal avec « revue humaine requise ». Il ne
 crée ni candidature ni extrait automatiquement : ces éléments doivent rester
 attribués à une source primaire contrôlée conformément à `README.md` §3.3 et
-§8.2. Une erreur de source fait échouer l'unité, afin qu'elle soit visible dans
-la supervision.
+§8.2. Les refus explicites d'automatisation (`401`, `403`, `429`) sont
+journalisés mais ne font pas échouer l'unité ; ils demandent une vérification
+manuelle de la source. Les autres erreurs de source font échouer l'unité, afin
+qu'elles soient visibles dans la supervision.
 
 ```bash
 systemctl list-timers hemicycle-candidate-sources.timer

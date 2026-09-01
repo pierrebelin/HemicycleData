@@ -116,6 +116,15 @@ SQL
         continue
     fi
 
+    # Certains éditeurs refusent volontairement les requêtes automatisées. La
+    # source affichée reste valide ; seule sa vérification périodique est
+    # impossible. Le signaler sans dégrader l'état du timer chaque jour.
+    if [[ "$status" == "401" || "$status" == "403" || "$status" == "429" ]]; then
+        echo "$(date -u +%FT%TZ) — vérification automatique refusée (HTTP $status), source conservée : $source_url" >&2
+        record_observation "$source_url" "$status" "$etag" "$last_modified" ""
+        continue
+    fi
+
     if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
         echo "$(date -u +%FT%TZ) — source en erreur HTTP $status : $source_url" >&2
         record_observation "$source_url" "$status" "$etag" "$last_modified" ""
