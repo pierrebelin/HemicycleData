@@ -1,5 +1,6 @@
 pub mod actor;
 pub mod amendment;
+pub mod candidate;
 pub mod dossier;
 pub mod dossier_summary;
 pub mod final_vote;

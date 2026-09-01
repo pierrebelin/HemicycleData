@@ -8,8 +8,8 @@ use crate::api::security::{require_admin_token, AdminGuard};
 use crate::AppState;
 
 use super::handlers::{
-    amendment_handlers, dossier_handlers, final_vote_handlers, group_handlers, guide_handlers,
-    scrutin_handlers, theme_handlers,
+    amendment_handlers, candidate_handlers, dossier_handlers, final_vote_handlers, group_handlers,
+    guide_handlers, scrutin_handlers, theme_handlers,
 };
 
 pub fn create_router(state: AppState, guard: AdminGuard) -> Router {
@@ -25,6 +25,10 @@ pub fn create_router(state: AppState, guard: AdminGuard) -> Router {
 fn read_routes() -> Router<AppState> {
     Router::new()
         .route("/api/health", get(health))
+        .route(
+            "/api/candidats-2027",
+            get(candidate_handlers::list_candidates),
+        )
         // Liste principale : tous les dossiers, paginés (README.md §2).
         .route("/api/dossiers", get(dossier_handlers::browse_dossiers))
         // Activité récente, utilisée par la sélection éditoriale.

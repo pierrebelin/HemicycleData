@@ -21,6 +21,7 @@ import ThemeArbitrationPage from './pages/ThemeArbitrationPage.tsx'
 import UnassignedTextsPage from './pages/UnassignedTextsPage.tsx'
 import TextDetailPage from './pages/TextDetailPage.tsx'
 import ComprendrePage from './pages/ComprendrePage.tsx'
+import CandidateComparisonPage from './pages/CandidateComparisonPage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -37,6 +38,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="groupes" element={<GroupListPage />} />
             <Route path="groupes/:uid" element={<GroupDetailPage />} />
             <Route path="votes-par-groupe" element={<GroupVotesPage />} />
+            <Route path="candidats-2027" element={<CandidateComparisonPage />} />
             <Route path="votes-par-groupe/methode" element={<FinalVotesMethodPage />} />
             <Route path="scrutins" element={<ScrutinListPage />} />
             <Route path="scrutins/:uid" element={<ScrutinDetailPage />} />

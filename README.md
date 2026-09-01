@@ -52,7 +52,7 @@ Un député change de groupe en cours de législature. Un vote de 2024 doit êtr
 
 Beaucoup de personnalités en lice n'ont jamais siégé à l'Assemblée, ou plus depuis plusieurs législatures. Leur absence de votes n'est pas une information sur elles.
 
-**Règle** : le site ne présente jamais « la position de X ». Il présente « les votes du groupe Y ». La limite est affichée sur les pages concernées, pas enfouie dans une FAQ.
+**Règle** : le site ne présente jamais « la position de X » à partir de votes parlementaires. Il présente « les votes du groupe Y ». Une page de programme peut montrer, séparément, des extraits attribués à une candidature déclarée et les votes d'un groupe que des sources relient explicitement à cette candidature ; elle ne conclut jamais à un alignement. La limite est affichée sur les pages concernées, pas enfouie dans une FAQ.
 
 ## 4. Architecture fonctionnelle
 
@@ -110,7 +110,7 @@ Règles :
 - **Aucune évaluation du texte** (bon/mauvais, juste/injuste, efficace/non).
 - **Aucune évaluation d'un groupe** : pas de score de cohérence, pas de taux de présence présenté comme un mérite, pas d'agrégat qui se lit comme un classement.
 - **Des nombres, pas d'adverbes** : « rejeté par 280 voix contre 250 » ✅ ; « massivement rejeté » ❌.
-- **Positions attribuées et on-record uniquement** : exposé des motifs, interventions en séance, position de vote. Jamais de commentaire média ni de synthèse libre.
+- **Positions attribuées et on-record uniquement** : exposé des motifs, interventions en séance, position de vote ; pour une candidature déclarée, extrait exact de son programme primaire. Jamais de commentaire média ni de synthèse libre.
 - **Lien vers la source officielle sur chaque chiffre affiché.**
 - **Le LLM ne produit jamais un chiffre** (§8).
 
@@ -146,9 +146,19 @@ et les sources originales restent accessibles dans les listes exhaustives
 « Scrutins » et « Amendements ».
 
 Cette synthèse ne remplace donc jamais le verbatim des exposés sommaires. Les
-déclarations externes de partis ou de groupes sont hors périmètre.
+déclarations externes de partis ou de groupes restent hors périmètre, sauf les
+sources primaires explicitement publiées dans la page de programme décrite ci-dessous.
 
-### 8.2 Chat — surcouche
+### 8.2 Programmes déclarés 2027
+
+La page « Programmes et votes associés — 2027 » recense les candidatures dont une déclaration publique primaire est disponible. Pour chaque candidat, elle publie la déclaration, les organisations ou soutiens explicitement sourcés, le lien vers le programme et des extraits attribués à celui-ci, rattachés au référentiel fermé des thèmes.
+
+- Un extrait porte toujours son lien source et sa date lorsqu'elle est publiée.
+- Parti, soutien de campagne et groupe parlementaire sont des objets distincts. Un groupe n'est associé à une candidature que lorsqu'une source le dit ; son vote reste celui du groupe, à la date du scrutin.
+- La comparaison est côte à côte : aucun score, étiquette « aligné / non aligné », résumé libre ni position personnelle déduite n'est produit.
+- Tant qu'aucune déclaration vérifiable n'est enregistrée, la page affiche explicitement cet état au lieu de données de démonstration.
+
+### 8.3 Chat — surcouche
 
 Le chat **route et cite**, il ne rédige pas les faits.
 
@@ -218,6 +228,7 @@ API officielle : textes promulgués, droit en vigueur, Journal officiel. Auth OA
 - [x] **Phase 4bis** — **Amendements** : ingestion, rattachement au dossier, exposé sommaire verbatim sur la page dossier.
 - [x] **Phase 4ter** — **Actes par groupe** : votes finaux par lecture, amendements associés et synthèse automatique descriptive pré-calculée.
 - [ ] **Phase 5** — Pages publiques thème × groupe × période.
+- [ ] **Phase 5bis** — Programmes déclarés 2027 : candidatures, extraits sourcés et accès séparé aux votes des groupes associés.
 - [ ] **Phase 6** — Chat de routage (§8.2).
 - [ ] **Phase 7** — Page méthodologie, journal des corrections (§9).
 

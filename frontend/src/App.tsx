@@ -17,6 +17,7 @@ const NAV = [
     mobileLabel: 'Comparer',
     end: false,
   },
+  { to: '/candidats-2027', label: 'Programmes 2027', mobileLabel: '2027', end: false },
   { to: '/themes', label: 'Thèmes', mobileLabel: 'Thèmes', end: false },
   { to: '/comprendre', label: 'Comprendre', mobileLabel: 'Comprendre', end: false },
   { to: '/a-propos', label: 'À propos', mobileLabel: 'À propos', end: false },

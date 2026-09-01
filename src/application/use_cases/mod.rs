@@ -1,4 +1,5 @@
 pub mod arbitrate_theme;
+pub mod browse_candidates;
 pub mod browse_dossier_amendments;
 pub mod browse_dossiers;
 pub mod browse_final_votes;

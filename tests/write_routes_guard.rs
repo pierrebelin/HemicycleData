@@ -29,6 +29,7 @@ use hemicycle_data::infrastructure::national_assembly::client::NationalAssemblyC
 use hemicycle_data::infrastructure::national_assembly::scrutin_client::ScrutinClient;
 use hemicycle_data::infrastructure::persistence::pg_actor_repository::PgActorRepository;
 use hemicycle_data::infrastructure::persistence::pg_amendment_repository::PgAmendmentRepository;
+use hemicycle_data::infrastructure::persistence::pg_candidate_repository::PgCandidateRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_repository::PgDossierRepository;
 use hemicycle_data::infrastructure::persistence::pg_final_vote_repository::PgFinalVoteRepository;
 use hemicycle_data::infrastructure::persistence::pg_group_repository::PgGroupRepository;
@@ -66,6 +67,7 @@ fn state() -> AppState {
     AppState {
         db: db.clone(),
         assembly_source: Arc::new(NationalAssemblyClient::new()),
+        candidate_repository: Arc::new(PgCandidateRepository::new(db.clone())),
         dossier_repository: Arc::new(PgDossierRepository::new(db.clone())),
         dossier_group_actions_repository: Arc::new(
             hemicycle_data::infrastructure::persistence::pg_dossier_group_actions_repository::PgDossierGroupActionsRepository::new(db.clone()),

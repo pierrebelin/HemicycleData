@@ -10,6 +10,7 @@ use application::ports::actor_source::ActorSource;
 use application::ports::amendment_repository::AmendmentRepository;
 use application::ports::amendment_source::AmendmentSource;
 use application::ports::assembly_source::AssemblySource;
+use application::ports::candidate_repository::CandidateRepository;
 use application::ports::dossier_group_actions_repository::{
     DossierGroupActionsRepository, DossierSummaryRepository,
 };
@@ -26,6 +27,7 @@ use application::ports::theme_repository::ThemeRepository;
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub assembly_source: Arc<dyn AssemblySource>,
+    pub candidate_repository: Arc<dyn CandidateRepository>,
     pub dossier_repository: Arc<dyn DossierRepository>,
     pub dossier_group_actions_repository: Arc<dyn DossierGroupActionsRepository>,
     pub dossier_summary_repository: Arc<dyn DossierSummaryRepository>,

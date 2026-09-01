@@ -7,6 +7,7 @@ use hemicycle_data::application::ports::actor_source::ActorSource;
 use hemicycle_data::application::ports::amendment_repository::AmendmentRepository;
 use hemicycle_data::application::ports::amendment_source::AmendmentSource;
 use hemicycle_data::application::ports::assembly_source::AssemblySource;
+use hemicycle_data::application::ports::candidate_repository::CandidateRepository;
 use hemicycle_data::application::ports::dossier_group_actions_repository::{
     DossierGroupActionsRepository, DossierSummaryRepository,
 };
@@ -32,6 +33,7 @@ use hemicycle_data::infrastructure::national_assembly::client::NationalAssemblyC
 use hemicycle_data::infrastructure::national_assembly::scrutin_client::ScrutinClient;
 use hemicycle_data::infrastructure::persistence::pg_actor_repository::PgActorRepository;
 use hemicycle_data::infrastructure::persistence::pg_amendment_repository::PgAmendmentRepository;
+use hemicycle_data::infrastructure::persistence::pg_candidate_repository::PgCandidateRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_group_actions_repository::PgDossierGroupActionsRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_repository::PgDossierRepository;
 use hemicycle_data::infrastructure::persistence::pg_dossier_summary_repository::PgDossierSummaryRepository;
@@ -53,6 +55,8 @@ async fn main() {
     tracing::info!("Database connected");
 
     let assembly_source: Arc<dyn AssemblySource> = Arc::new(NationalAssemblyClient::new());
+    let candidate_repository: Arc<dyn CandidateRepository> =
+        Arc::new(PgCandidateRepository::new(db.clone()));
     let dossier_repository: Arc<dyn DossierRepository> =
         Arc::new(PgDossierRepository::new(db.clone()));
     let dossier_group_actions_repository: Arc<dyn DossierGroupActionsRepository> =
@@ -158,6 +162,7 @@ async fn main() {
     let state = AppState {
         db,
         assembly_source,
+        candidate_repository,
         dossier_repository,
         dossier_group_actions_repository,
         dossier_summary_repository,

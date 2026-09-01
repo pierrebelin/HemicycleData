@@ -3,6 +3,7 @@ pub mod actor_source;
 pub mod amendment_repository;
 pub mod amendment_source;
 pub mod assembly_source;
+pub mod candidate_repository;
 pub mod dossier_group_actions_repository;
 pub mod dossier_repository;
 pub mod dossier_summary_generator;
