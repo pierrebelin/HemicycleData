@@ -156,8 +156,6 @@ pub(crate) fn response_schema(expected: usize) -> Value {
         "properties": {
             "textes": {
                 "type": "array",
-                "minItems": expected,
-                "maxItems": expected,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -278,10 +276,10 @@ async fn backoff(attempt: u32) {
 
 /// Lit la reponse et la reattribue aux libelles par leur numero.
 ///
-/// Une famille hors referentiel ou une justification vide est ecartee et
-/// journalisee (RM-05, RM-08); les autres familles du meme texte sont
-/// conservees. Un numero absent de la reponse laisse son libelle a `None`: il
-/// sera repris a la passe suivante plutot que compte comme « aucune famille ».
+/// Une famille hors referentiel ou une justification vide rend l'entree
+/// incomplete et la laisse a `None`, pour qu'elle soit reprise. Un numero
+/// absent de la reponse est traite de la meme maniere, plutot que compte comme
+/// « aucune famille ».
 fn parse_answer(
     payload: &Value,
     expected: usize,
@@ -393,12 +391,12 @@ mod tests {
     }
 
     #[test]
-    fn the_schema_only_accepts_every_number_of_the_current_batch() {
+    fn the_schema_only_accepts_numbers_of_the_current_batch_without_array_bounds() {
         let schema = response_schema(3);
         let texts = &schema["properties"]["textes"];
 
-        assert_eq!(texts["minItems"], 3);
-        assert_eq!(texts["maxItems"], 3);
+        assert!(texts.get("minItems").is_none());
+        assert!(texts.get("maxItems").is_none());
         assert_eq!(
             texts["items"]["properties"]["numero"]["enum"],
             json!([1, 2, 3])
